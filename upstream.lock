@@ -1,3 +1,11 @@
 [pokefirered]
 repository = "https://github.com/pret/pokefirered.git"
 commit = "037335f4c725d7c9aecdac87066f2002b4bd7e14"
+target = "firered_rev1"
+
+[rom]
+name = "Pokemon - FireRed Version (USA, Europe) (Rev 1)"
+sha1 = "dd5945db9b930750cb39d00c84da8571feebf417"
+
+[pack]
+schema = 1
