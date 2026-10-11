@@ -48,15 +48,19 @@ def patch_digest(patches: list[Path]) -> str:
     return digest.hexdigest()
 
 
+def keep_lf(tree: Path) -> None:
+    """The upstream's own line endings: a Windows autocrlf checkout turns every
+    file to CRLF, which the patches (LF) and some decomp tools do not expect."""
+    run(["git", "config", "core.autocrlf", "false"], cwd=tree)
+    run(["git", "config", "core.eol", "lf"], cwd=tree)
+
+
 def fetch(tree: Path, repo: str, commit: str) -> None:
     tree.mkdir(parents=True, exist_ok=True)
     if not (tree / ".git").exists():
         run(["git", "init", "-q"], cwd=tree)
         run(["git", "remote", "add", "origin", repo], cwd=tree)
-    # The upstream's own line endings: a Windows autocrlf checkout turns every
-    # file to CRLF, which the patches (LF) and some decomp tools do not expect.
-    run(["git", "config", "core.autocrlf", "false"], cwd=tree)
-    run(["git", "config", "core.eol", "lf"], cwd=tree)
+    keep_lf(tree)
     run(["git", "fetch", "-q", "--depth", "1", "origin", commit], cwd=tree)
     run(["git", "checkout", "-q", "--force", "--detach", commit], cwd=tree)
 
@@ -87,6 +91,7 @@ def main() -> int:
     if args.clean or head != commit or stale:
         if head != commit:
             fetch(tree, repo, commit)
+        keep_lf(tree)
         run(["git", "reset", "-q", "--hard", commit], cwd=tree)
         if args.clean:
             run(["git", "clean", "-q", "-fdx"], cwd=tree)
