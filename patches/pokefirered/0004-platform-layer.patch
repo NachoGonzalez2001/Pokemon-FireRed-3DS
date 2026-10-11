@@ -392,15 +392,18 @@ index 77155b09014aa854fcf87260e6ad2969e222da53..531a87f223ee3db58a05c0adcdacb115
  #endif // GUARD_GLOBAL_H
 diff --git a/include/platform.h b/include/platform.h
 new file mode 100644
-index 0000000000000000000000000000000000000000..17f2aff22616bf700d3f238dd8aa1ee0d7814340
+index 0000000000000000000000000000000000000000..8d5c2a78717e6d307df23540f5ec8b1bcd6d360a
 --- /dev/null
 +++ b/include/platform.h
-@@ -0,0 +1,21 @@
+@@ -0,0 +1,23 @@
 +#ifndef GUARD_PLATFORM_H
 +#define GUARD_PLATFORM_H
 +
 +#include "global.h"
-+#include "siirtc.h"
++
++// FireRed has no real-time clock (no siirtc.h); the RTC entry points of the
++// platform layer keep their signatures over an opaque struct.
++struct SiiRtcInfo;
 +
 +void Platform_StoreSaveFile(void);
 +void Platform_ReadFlash(u16 sectorNum, u32 offset, u8 *dest, u32 size);
@@ -409,7 +412,6 @@ index 0000000000000000000000000000000000000000..17f2aff22616bf700d3f238dd8aa1ee0
 +u16 Platform_GetKeyInput(void);
 +void Platform_GetStatus(struct SiiRtcInfo *rtc);
 +void Platform_SetStatus(struct SiiRtcInfo *rtc);
-+static void UpdateInternalClock(void);
 +void Platform_GetDateTime(struct SiiRtcInfo *rtc);
 +void Platform_SetDateTime(struct SiiRtcInfo *rtc);
 +void Platform_GetTime(struct SiiRtcInfo *rtc);
@@ -683,7 +685,7 @@ index b4f710f36449c46946294d0df3d61d493d5c0d1f..8e6c8098652d565abe70d60e017ef330
        10, 65469, TIMER_ENABLE | TIMER_INTR_ENABLE | TIMER_256CLK,
 diff --git a/src/platform/bios.c b/src/platform/bios.c
 new file mode 100644
-index 0000000000000000000000000000000000000000..cab352c7bf05c4558d7318f264d73d17f4aa206e
+index 0000000000000000000000000000000000000000..be80475445506a268aff221e6a006a4092279c30
 --- /dev/null
 +++ b/src/platform/bios.c
 @@ -0,0 +1,688 @@
@@ -943,7 +945,7 @@ index 0000000000000000000000000000000000000000..cab352c7bf05c4558d7318f264d73d17
 +    }
 +}
 +
-+void LZ77UnCompVram(const u32 *src_, void *dest_)
++void LZ77UnCompVram(const void *src_, void *dest_)
 +{
 +    int destSize = 0;
 +#ifdef PORT_BRIDGE
@@ -1023,7 +1025,7 @@ index 0000000000000000000000000000000000000000..cab352c7bf05c4558d7318f264d73d17
 +#endif
 +}
 +
-+void LZ77UnCompWram(const u32 *src, void *dst)
++void LZ77UnCompWram(const void *src, void *dst)
 +{
 +#ifdef PORT_BRIDGE
 +    u8 *assetBuf = NULL;
@@ -1077,7 +1079,7 @@ index 0000000000000000000000000000000000000000..cab352c7bf05c4558d7318f264d73d17
 +#endif
 +}
 +
-+void RLUnCompWram(const u32 *src, void *dest)
++void RLUnCompWram(const void *src, void *dest)
 +{
 +    int remaining = CPUReadMemory(src) >> 8;
 +    int padding = (4 - remaining) & 0x3;
@@ -1121,7 +1123,7 @@ index 0000000000000000000000000000000000000000..cab352c7bf05c4558d7318f264d73d17
 +    }
 +}
 +
-+void RLUnCompVram(const u32 *src, void *dest)
++void RLUnCompVram(const void *src, void *dest)
 +{
 +    int remaining = CPUReadMemory(src) >> 8;
 +    int padding = (4 - remaining) & 0x3;

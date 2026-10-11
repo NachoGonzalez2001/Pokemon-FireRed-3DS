@@ -38,8 +38,10 @@ FULLCFLAGS := $(GAME_ARCH) $(filter-out $(ARCH),$(GAMECFLAGS))
 ROOT_C_SRCS := $(wildcard $(ROOT)/src/*.c $(ROOT)/src/*/*.c $(ROOT)/src/*/*/*.c)
 # *.inc.c are included by other units, as pokefirered's Makefile skips them.
 ROOT_C_SRCS := $(foreach src,$(ROOT_C_SRCS),$(if $(findstring .inc.c,$(src)),,$(src)))
-# GBA-only programs; 3ds_compat.c provides their entry points.
-ROOT_C_SRCS := $(filter-out $(ROOT)/src/berry_fix_program.c,$(ROOT_C_SRCS))
+# GBA-only programs; 3ds_compat.c provides their entry points. isagbprn.c is
+# the AGBPrint debug-unit library, ARM7 inline assembly; portable builds
+# define NDEBUG (include/config.h) so nothing calls it.
+ROOT_C_SRCS := $(filter-out $(ROOT)/src/berry_fix_program.c $(ROOT)/src/isagbprn.c,$(ROOT_C_SRCS))
 
 ROOT_DATA_SRCS := $(wildcard $(ROOT)/data/*.s)
 ROOT_DATA_SRCS := $(filter-out $(ROOT)/data/multiboot_berry_glitch_fix.s $(ROOT)/data/multiboot_ereader.s \
