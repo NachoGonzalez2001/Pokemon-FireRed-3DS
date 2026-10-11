@@ -56,6 +56,7 @@
 #include "3ds_bottom.h"
 #include "3ds_input.h"
 #include "3ds_log.h"
+#include "3ds_platform.h"
 
 /* text.c, start_menu.c and region_map.c, under PORT_BRIDGE */
 void Port_DecompressGlyph(u8 fontId, u16 glyphId);
@@ -89,8 +90,24 @@ enum { MENU_POKEDEX, MENU_POKEMON, MENU_BAG, MENU_PLAYER, MENU_SAVE, MENU_OPTION
 #define GBA_H 160
 #define GAME_Y ((H - GBA_H) / 2)
 
+/* What the panel left of the column shows */
+enum { SCR_MAP, SCR_OPTIONS };
+
+/* The options screen: the game's own settings on the left, the port's on the
+ * right, as the Emerald port's; it replaces the game's option menu. */
+enum {
+    OPT_TEXT_SPEED, OPT_BATTLE_SCENE, OPT_BATTLE_STYLE, OPT_SOUND, OPT_BUTTON_MODE, OPT_FRAME,
+    OPT_RUN, OPT_VOXEL, OPT_VOXEL_ANGLE, OPT_VOXEL_ZOOM, OPT_VOXEL_BLUR, OPT_VOXEL_BATTLE,
+    OPT_COUNT
+};
+#define OPT_ROWS 6
+#define OPT_TOP HEADER_H
+#define OPT_CELL_W 116
+#define OPT_CELL_H 34
+
 /* Touch targets */
-enum { HIT_NONE, HIT_BUTTON, HIT_PARTY = HIT_BUTTON + MENU_COUNT, HIT_BATTLE, HIT_COUNT = HIT_BATTLE + 5 };
+enum { HIT_NONE, HIT_BUTTON, HIT_PARTY = HIT_BUTTON + MENU_COUNT, HIT_BATTLE, HIT_OPTION = HIT_BATTLE + 5,
+       HIT_OPTION_BACK = HIT_OPTION + OPT_COUNT, HIT_COUNT = HIT_OPTION_BACK + OPT_COUNT };
 
 /* The GBA buttons of the column while a menu is shown */
 static const u16 sPadKeys[MENU_COUNT] = { A_BUTTON, B_BUTTON, START_BUTTON, SELECT_BUTTON, L_BUTTON, R_BUTTON };
@@ -118,6 +135,8 @@ typedef struct {
 } BattleView;
 
 typedef struct {
+    u8 screen;       /* SCR_* */
+    u8 opt[OPT_COUNT];
     u8 battle;       /* drawing the battle's page */
     BattleView b;
     MonView party[PARTY_SIZE];
@@ -144,6 +163,7 @@ static u16 sInjected;
 static u32 sMenuFrame = 0xFFFFFFF0;
 static bool8 sGameShown;
 static u8 sPadPressed = 0xFF;
+static u8 sScreen = SCR_MAP;
 
 /* The battle menus (battle_controller_player.c, Port_BattleMenu) */
 static u32 sBattleMenuFrame = 0xFFFFFFF0;
@@ -228,7 +248,7 @@ static u16 NextChar(const u8 **s)
     {
         /* Control codes change colours or wait; none are drawn. */
         if (**s != EOS)
-            (*s)++;
+            *s += GetExtCtrlCodeLength(**s);
         return 0x100;
     }
     return c;
@@ -363,12 +383,18 @@ static void SnapshotBattle(ViewState *s)
     SnapshotFighter(&s->b.opponent, B_POSITION_OPPONENT_LEFT);
 }
 
+static u8 OptionGet(int row);
+
 static void Snapshot(ViewState *s)
 {
     memset(s, 0, sizeof(*s));
     s->pressed = sTouchHit;
     if (gSaveBlock2Ptr == NULL || gSaveBlock1Ptr == NULL)
         return;
+    s->screen = sScreen;
+    if (sScreen == SCR_OPTIONS)
+        for (int i = 0; i < OPT_COUNT; i++)
+            s->opt[i] = OptionGet(i);
     s->idle = FieldIdle();
     if (gMain.inBattle)
     {
@@ -555,6 +581,176 @@ static void DrawMap(const ViewState *s)
 }
 
 /* ------------------------------------------------------------------------ */
+/* The options screen                                                       */
+/* ------------------------------------------------------------------------ */
+
+/* The 3D overworld is still to come: its settings show, greyed. */
+#define VOXEL_READY 0
+
+static bool8 OptionLive(int row)
+{
+    return row < OPT_VOXEL || VOXEL_READY;
+}
+
+static u8 OptionCount(int row)
+{
+    switch (row)
+    {
+    case OPT_TEXT_SPEED:
+    case OPT_BUTTON_MODE: return 3;
+    case OPT_FRAME:       return 10; /* option_menu.c's frame types */
+    case OPT_VOXEL_ANGLE: return 6;
+    case OPT_VOXEL_ZOOM:  return 5;
+    default:              return 2;
+    }
+}
+
+static u8 OptionGet(int row)
+{
+    switch (row)
+    {
+    case OPT_TEXT_SPEED:   return gSaveBlock2Ptr->optionsTextSpeed;
+    case OPT_BATTLE_SCENE: return gSaveBlock2Ptr->optionsBattleSceneOff;
+    case OPT_BATTLE_STYLE: return gSaveBlock2Ptr->optionsBattleStyle;
+    case OPT_SOUND:        return gSaveBlock2Ptr->optionsSound;
+    case OPT_BUTTON_MODE:  return gSaveBlock2Ptr->optionsButtonMode;
+    case OPT_FRAME:        return gSaveBlock2Ptr->optionsWindowFrameType;
+    case OPT_RUN:          return CtrSettings_RunAlways();
+    case OPT_VOXEL:        return CtrSettings_Voxel();
+    case OPT_VOXEL_ANGLE:  return CtrSettings_GetInt("voxel_angle", 2);
+    case OPT_VOXEL_ZOOM:   return CtrSettings_GetInt("voxel_zoom_step", 2);
+    case OPT_VOXEL_BLUR:   return CtrSettings_VoxelBlur();
+    default:               return CtrSettings_VoxelBattle();
+    }
+}
+
+static void OptionSet(int row, u8 value)
+{
+    switch (row)
+    {
+    case OPT_TEXT_SPEED:   gSaveBlock2Ptr->optionsTextSpeed = value; break;
+    case OPT_BATTLE_SCENE: gSaveBlock2Ptr->optionsBattleSceneOff = value; break;
+    case OPT_BATTLE_STYLE: gSaveBlock2Ptr->optionsBattleStyle = value; break;
+    case OPT_SOUND:
+        gSaveBlock2Ptr->optionsSound = value;
+        SetPokemonCryStereo(value);
+        break;
+    case OPT_BUTTON_MODE:  gSaveBlock2Ptr->optionsButtonMode = value; break;
+    case OPT_FRAME:        gSaveBlock2Ptr->optionsWindowFrameType = value; break;
+    case OPT_RUN:          CtrSettings_SetRunAlways(value); break;
+    case OPT_VOXEL:        CtrSettings_SetVoxel(value); break;
+    case OPT_VOXEL_ANGLE:  CtrSettings_SetInt("voxel_angle", value); break;
+    case OPT_VOXEL_ZOOM:   CtrSettings_SetInt("voxel_zoom_step", value); break;
+    case OPT_VOXEL_BLUR:   CtrSettings_SetVoxelBlur(value); break;
+    default:               CtrSettings_SetVoxelBattle(value); break;
+    }
+}
+
+static void OptionStep(int row, int dir)
+{
+    u8 count = OptionCount(row);
+
+    if (!OptionLive(row))
+        return;
+    PlaySE(SE_SELECT);
+    OptionSet(row, (u8)((OptionGet(row) + count + dir) % count));
+}
+
+static const u8 *OptionName(int row)
+{
+    switch (row)
+    {
+    case OPT_TEXT_SPEED:   return gText_TextSpeed;
+    case OPT_BATTLE_SCENE: return gText_BattleScene;
+    case OPT_BATTLE_STYLE: return gText_BattleStyle;
+    case OPT_SOUND:        return gText_Sound;
+    case OPT_BUTTON_MODE:  return gText_ButtonMode;
+    case OPT_FRAME:        return gText_Frame;
+    case OPT_RUN:          return Ascii("RUN ALWAYS");
+    case OPT_VOXEL:        return Ascii("3D WORLD");
+    case OPT_VOXEL_ANGLE:  return Ascii("3D ANGLE");
+    case OPT_VOXEL_ZOOM:   return Ascii("3D ZOOM");
+    case OPT_VOXEL_BLUR:   return Ascii("3D BLUR");
+    default:               return Ascii("3D BATTLE");
+    }
+}
+
+static const u8 *OptionValue(int row, u8 value)
+{
+    static u8 buf[16];
+    u8 *p;
+
+    switch (row)
+    {
+    case OPT_TEXT_SPEED:   return value == 0 ? gText_TextSpeedSlow : value == 1 ? gText_TextSpeedMid : gText_TextSpeedFast;
+    case OPT_BATTLE_SCENE: return value ? gText_BattleSceneOff : gText_BattleSceneOn;
+    case OPT_BATTLE_STYLE: return value ? gText_BattleStyleSet : gText_BattleStyleShift;
+    case OPT_SOUND:        return value ? gText_SoundStereo : gText_SoundMono;
+    case OPT_BUTTON_MODE:  return value == 0 ? gText_ButtonTypeHelp : value == 1 ? gText_ButtonTypeLR : gText_ButtonTypeLEqualsA;
+    case OPT_FRAME:
+        p = StringCopy(buf, gText_FrameType);
+        *p++ = CHAR_SPACE;
+        ConvertIntToDecimalStringN(p, value + 1, STR_CONV_MODE_LEFT_ALIGN, 2);
+        return buf;
+    case OPT_VOXEL_ANGLE:
+    case OPT_VOXEL_ZOOM:
+        ConvertIntToDecimalStringN(buf, value + 1, STR_CONV_MODE_LEFT_ALIGN, 2);
+        return buf;
+    default:
+        if (!OptionLive(row))
+            return Ascii("SOON");
+        return value ? gText_BattleSceneOn : gText_BattleSceneOff;
+    }
+}
+
+static void OptionRect(int row, int *x, int *y)
+{
+    *x = 4 + (row / OPT_ROWS) * (OPT_CELL_W + 4);
+    *y = OPT_TOP + 2 + (row % OPT_ROWS) * (OPT_CELL_H + 2);
+}
+
+static void DrawOptions(const ViewState *s)
+{
+    static const u8 left[] = { CHAR_LEFT_ARROW, EOS }, right[] = { CHAR_RIGHT_ARROW, EOS };
+
+    FillRect(0, 0, COLUMN_X, HEADER_H, C_HEADER);
+    FillRect(0, HEADER_H - 2, COLUMN_X, 2, C_HEADER_L);
+    Text(FONT_NORMAL, gText_MenuOption, 6, 4, C_WHITE, C_HEADER_L, TRUE);
+    FillRect(0, HEADER_H, COLUMN_X, H - HEADER_H, C_PANEL);
+    for (int row = 0; row < OPT_COUNT; row++)
+    {
+        int x, y;
+        bool8 live = OptionLive(row);
+        bool8 pressed = s->pressed == HIT_OPTION + row || s->pressed == HIT_OPTION_BACK + row;
+        u16 ink = live ? C_INK : C_GREY, shade = live ? C_INK_SH : C_PLATE_OFF;
+        u16 valueInk = live ? Rgb(26, 5, 4) : C_GREY;
+
+        OptionRect(row, &x, &y);
+        DrawBox(x, y, OPT_CELL_W, OPT_CELL_H, !live ? C_PLATE_OFF : pressed ? C_PLATE_ON : C_SLOT, C_SLOT_EDGE);
+        TextCentered(FONT_SMALL, OptionName(row), x + OPT_CELL_W / 2, y + 3, ink, shade);
+        TextCentered(FONT_SMALL, OptionValue(row, s->opt[row]), x + OPT_CELL_W / 2, y + 18, valueInk, shade);
+        if (live)
+        {
+            Text(FONT_SMALL, left, x + 6, y + 18, ink, shade, TRUE);
+            TextRight(FONT_SMALL, right, x + OPT_CELL_W - 6, y + 18, ink, shade);
+        }
+    }
+}
+
+static u8 OptionsHitTest(int x, int y)
+{
+    for (int row = 0; row < OPT_COUNT; row++)
+    {
+        int cx, cy;
+
+        OptionRect(row, &cx, &cy);
+        if (x >= cx && x < cx + OPT_CELL_W && y >= cy && y < cy + OPT_CELL_H)
+            return (x < cx + OPT_CELL_W / 2 ? HIT_OPTION_BACK : HIT_OPTION) + row;
+    }
+    return HIT_NONE;
+}
+
+/* ------------------------------------------------------------------------ */
 /* The panel                                                                */
 /* ------------------------------------------------------------------------ */
 
@@ -592,7 +788,12 @@ static void DrawColumn(const ViewState *s)
 {
     DrawRail();
     for (int i = 0; i < MENU_COUNT; i++)
-        DrawPlate(i, MenuLabel(s, i), ((s->enabled >> i) & 1) && s->idle, s->pressed == HIT_BUTTON + i);
+    {
+        bool8 option = i == MENU_OPTION;
+
+        DrawPlate(i, MenuLabel(s, i), option || (((s->enabled >> i) & 1) && s->idle),
+                  s->pressed == HIT_BUTTON + i || (option && s->screen == SCR_OPTIONS));
+    }
 }
 
 static void DrawHeader(const ViewState *s)
@@ -661,9 +862,14 @@ static void DrawParty(const ViewState *s)
 
 static void RenderPanel(const ViewState *s)
 {
-    DrawHeader(s);
-    DrawMap(s);
-    DrawParty(s);
+    if (s->screen == SCR_OPTIONS)
+        DrawOptions(s);
+    else
+    {
+        DrawHeader(s);
+        DrawMap(s);
+        DrawParty(s);
+    }
     DrawColumn(s);
     CtrBottom_Blit(sCanvas, 0, W);
 }
@@ -906,6 +1112,8 @@ static u8 BattleHitTest(const ViewState *s, int x, int y)
 
 static u8 HitTest(int x, int y)
 {
+    if (x < COLUMN_X && sScreen == SCR_OPTIONS)
+        return OptionsHitTest(x, y);
     if (x >= COLUMN_X)
         return HIT_BUTTON + (y / BUTTON_H < MENU_COUNT ? y / BUTTON_H : MENU_COUNT - 1);
     if (y >= PARTY_Y)
@@ -936,6 +1144,23 @@ static void Activate(const ViewState *s, u8 hit)
         }
         return;
     }
+    if (hit >= HIT_OPTION && hit < HIT_OPTION + OPT_COUNT)
+    {
+        OptionStep(hit - HIT_OPTION, +1);
+        return;
+    }
+    if (hit >= HIT_OPTION_BACK && hit < HIT_OPTION_BACK + OPT_COUNT)
+    {
+        OptionStep(hit - HIT_OPTION_BACK, -1);
+        return;
+    }
+    /* OPTION shows the port's own options screen, or goes back to the map. */
+    if (hit == HIT_BUTTON + MENU_OPTION)
+    {
+        PlaySE(SE_SELECT);
+        sScreen = sScreen == SCR_OPTIONS ? SCR_MAP : SCR_OPTIONS;
+        return;
+    }
     if (!s->idle)
         return;
     if (hit >= HIT_BUTTON && hit < HIT_BUTTON + MENU_COUNT)
@@ -943,7 +1168,10 @@ static void Activate(const ViewState *s, u8 hit)
         u8 i = hit - HIT_BUTTON;
 
         if ((s->enabled >> i) & 1)
+        {
+            sScreen = SCR_MAP;
             Open(i);
+        }
     }
     else if (hit == HIT_PARTY && (s->enabled & (1 << MENU_POKEMON)) && s->partyCount)
     {
@@ -1043,6 +1271,12 @@ void CtrBottom_Frame(void)
         RenderPanel(&now);
     sShown = now;
     sDrawn = TRUE;
+}
+
+/* field_player_avatar.c: running without B (the options screen's RUN). */
+bool8 CtrPlayer_RunAlways(void)
+{
+    return CtrSettings_RunAlways();
 }
 
 uint16_t CtrBottom_InjectedKeys(void)

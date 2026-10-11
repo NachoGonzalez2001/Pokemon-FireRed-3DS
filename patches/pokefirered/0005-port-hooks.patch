@@ -925,6 +925,32 @@ index 1707cbd4ae5dbc978f7efdb059c5ca49fd8ee9be..04affb0f221c7f544f2f6765fe076611
              dest[((dstOffs + 1) & 0x1f) + i * 32] |= 0xf000;
          }
          task->data[4] += 2;
+diff --git a/src/field_player_avatar.c b/src/field_player_avatar.c
+index ef086dda3a6bf2d175861d6a7be1831790208ecb..770efb77ab198891aff6f88343dd3cd771e67803 100644
+--- a/src/field_player_avatar.c
++++ b/src/field_player_avatar.c
+@@ -9,6 +9,9 @@
+ #include "field_effect.h"
+ #include "field_effect_helpers.h"
+ #include "field_player_avatar.h"
++#ifdef PORT_BRIDGE
++bool8 CtrPlayer_RunAlways(void);
++#endif
+ #include "help_system.h"
+ #include "metatile_behavior.h"
+ #include "new_menu_helpers.h"
+@@ -513,6 +516,11 @@ static void PlayerNotOnBikeMoving(u8 direction, u16 heldKeys)
+         return;
+     }
+ 
++#ifdef PORT_BRIDGE
++    // The 3DS bottom screen's RUN option: running without B, B walks.
++    if (CtrPlayer_RunAlways())
++        heldKeys ^= B_BUTTON;
++#endif
+     if ((heldKeys & B_BUTTON) && FlagGet(FLAG_SYS_B_DASH)
+         && !IsRunningDisallowed(gObjectEvents[gPlayerAvatar.objectEventId].currentMetatileBehavior))
+     {
 diff --git a/src/fieldmap.c b/src/fieldmap.c
 index 41567772299000ba5855419e5c39ad9373a34c20..624dcf43ddaccd1861f07f37ff2b1a1688f01e55 100644
 --- a/src/fieldmap.c
