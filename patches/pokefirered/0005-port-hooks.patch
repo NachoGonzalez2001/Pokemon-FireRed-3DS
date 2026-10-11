@@ -81,6 +81,73 @@ index 6a1b272119ce6e3a8dcf45adf2eef8923a6d5175..3b1ef1dcd0d4c67959ad10ec1fb5d259
  
  struct SpritePalette
  {
+diff --git a/src/battle_controller_player.c b/src/battle_controller_player.c
+index d8e1fe71e4e06303476313c15ab371fee1f82139..b60840c69170e07f1c108cebc00b5f24a8997d7c 100644
+--- a/src/battle_controller_player.c
++++ b/src/battle_controller_player.c
+@@ -23,6 +23,9 @@
+ #include "constants/moves.h"
+ #include "constants/songs.h"
+ #include "constants/sound.h"
++#ifdef PORT_BRIDGE
++#include "port_platform.h"
++#endif
+ 
+ static void PlayerHandleGetMonData(void);
+ static void PlayerHandleSetMonData(void);
+@@ -222,6 +225,24 @@ static void HandleInputChooseAction(void)
+ 
+     DoBounceEffect(gActiveBattler, BOUNCE_HEALTHBOX, 7, 1);
+     DoBounceEffect(gActiveBattler, BOUNCE_MON, 7, 1);
++#ifdef PORT_BRIDGE
++    {
++        // A tap on the 3DS bottom screen's action buttons: the cursor goes
++        // there and A is pressed, so the game's own logic runs.
++        s8 tap = Port_BattleMenu(PORT_BATTLE_ACTION, NULL);
++
++        if (tap >= 0 && tap < 4)
++        {
++            if (tap != gActionSelectionCursor[gActiveBattler])
++            {
++                ActionSelectionDestroyCursorAt(gActionSelectionCursor[gActiveBattler]);
++                gActionSelectionCursor[gActiveBattler] = tap;
++                ActionSelectionCreateCursorAt(tap, 0);
++            }
++            gMain.newKeys |= A_BUTTON;
++        }
++    }
++#endif
+     if (JOY_NEW(A_BUTTON))
+     {
+         PlaySE(SE_SELECT);
+@@ -440,6 +461,27 @@ void HandleInputChooseMove(void)
+     struct ChooseMoveStruct *moveInfo = (struct ChooseMoveStruct *)(&gBattleBufferA[gActiveBattler][4]);
+ 
+     PreviewDeterminativeMoveTargets();
++#ifdef PORT_BRIDGE
++    {
++        // The bottom screen's move buttons, and its cancel (4).
++        s8 tap = Port_BattleMenu(PORT_BATTLE_MOVE, moveInfo);
++
++        if (tap == 4)
++        {
++            gMain.newKeys |= B_BUTTON;
++        }
++        else if (tap >= 0 && tap < MAX_MON_MOVES && moveInfo->moves[tap] != MOVE_NONE)
++        {
++            if (tap != gMoveSelectionCursor[gActiveBattler])
++            {
++                MoveSelectionDestroyCursorAt(gMoveSelectionCursor[gActiveBattler]);
++                gMoveSelectionCursor[gActiveBattler] = tap;
++                MoveSelectionCreateCursorAt(tap, 0);
++            }
++            gMain.newKeys |= A_BUTTON;
++        }
++    }
++#endif
+     if (JOY_NEW(A_BUTTON))
+     {
+         u8 moveTarget;
 diff --git a/src/battle_interface.c b/src/battle_interface.c
 index 36fc9a58492d2fdc2e6e578ca460959a4838cdf3..88910d23822cc552423f9ed385ddc60d86071ddb 100644
 --- a/src/battle_interface.c
@@ -125,7 +192,7 @@ index 36fc9a58492d2fdc2e6e578ca460959a4838cdf3..88910d23822cc552423f9ed385ddc60d
      LoadSpritePalette(&sPartySummaryBallSpritePals[isOpponent]);
  
 diff --git a/src/battle_transition.c b/src/battle_transition.c
-index 8a23dfe5d1f1f2c7b7e4a57b7a9816de472df54e..205f01a5a573e2923a20b43b8c4be48beaa4ba21 100644
+index 8a23dfe5d1f1f2c7b7e4a57b7a9816de472df54e..a8a3de891be5314c13257efb7c195ecc3a3b6193 100644
 --- a/src/battle_transition.c
 +++ b/src/battle_transition.c
 @@ -18,6 +18,12 @@
@@ -141,7 +208,20 @@ index 8a23dfe5d1f1f2c7b7e4a57b7a9816de472df54e..205f01a5a573e2923a20b43b8c4be48b
  #define PALTAG_UNUSED_MUGSHOT 0x100A
  
  #define B_TRANS_DMA_FLAGS (1 | ((DMA_SRC_INC | DMA_DEST_FIXED | DMA_REPEAT | DMA_16BIT | DMA_START_HBLANK | DMA_ENABLE) << 16))
-@@ -2606,7 +2612,7 @@ static bool8 GridSquares_Main(struct Task *task)
+@@ -631,6 +637,12 @@ bool8 IsBattleTransitionDone(void)
+     if (gTasks[taskId].tTransitionDone)
+     {
+         InitTransitionData();
++#ifdef PORTABLE
++        // The effect's blanking callbacks read this data until the battle
++        // sets its own; on the GBA a NULL read lands in the BIOS, here it faults.
++        SetVBlankCallback(NULL);
++        SetHBlankCallback(NULL);
++#endif
+         FREE_AND_SET_NULL(sTransitionData);
+         DestroyTask(taskId);
+         return TRUE;
+@@ -2606,7 +2618,7 @@ static bool8 GridSquares_Main(struct Task *task)
          GetBg0TilemapDst(&tileset);
          task->tDelay = 3;
          task->tShrinkStage++;
@@ -1801,7 +1881,7 @@ index aa5d4c67ef16adcfe61cdf6587e950ea41fe3bcb..10650370761a6fa3508a73a10d14eee4
          CopyBgTilemapBufferToVram(2);
          data[0]++;
 diff --git a/src/sprite.c b/src/sprite.c
-index d0198d53004775c8664dcccf57833e178833776e..ad7180e63225ee15d8b2902c2ff838474e6eab90 100644
+index d0198d53004775c8664dcccf57833e178833776e..05b92b4240055b20d81e2aba96db6a7a4e5c0da1 100644
 --- a/src/sprite.c
 +++ b/src/sprite.c
 @@ -1,5 +1,8 @@
@@ -1896,7 +1976,20 @@ index d0198d53004775c8664dcccf57833e178833776e..ad7180e63225ee15d8b2902c2ff83847
          gSpriteCopyRequests[gSpriteCopyRequestCount].src = src;
          gSpriteCopyRequests[gSpriteCopyRequestCount].dest = dest;
          gSpriteCopyRequests[gSpriteCopyRequestCount].size = size;
-@@ -1475,16 +1508,31 @@ void SetOamMatrixRotationScaling(u8 matrixNum, s16 xScale, s16 yScale, u16 rotat
+@@ -888,6 +921,12 @@ void FreeSpriteOamMatrix(struct Sprite *sprite)
+ 
+ void DestroySpriteAndFreeResources(struct Sprite *sprite)
+ {
++#ifdef PORTABLE
++    // Callers pass a sprite they never created (the summary's markings the
++    // first time); the GBA reads its NULL fields from the BIOS, here they fault.
++    if (sprite == NULL)
++        return;
++#endif
+     FreeSpriteTiles(sprite);
+     FreeSpritePalette(sprite);
+     FreeSpriteOamMatrix(sprite);
+@@ -1475,16 +1514,31 @@ void SetOamMatrixRotationScaling(u8 matrixNum, s16 xScale, s16 yScale, u16 rotat
  
  u16 LoadSpriteSheet(const struct SpriteSheet *sheet)
  {

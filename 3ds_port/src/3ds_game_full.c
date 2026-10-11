@@ -59,6 +59,13 @@ static u32 sFrames;
 static bool sStarted;
 static uint16_t sFrame[CTR_SOFT_WIDTH * CTR_SOFT_HEIGHT];
 static uint16_t sWorld[CTR_SOFT_WIDTH * CTR_SOFT_HEIGHT];
+#ifdef CTR_WATCHDOG
+volatile uint32_t gPortCrumb;
+void CtrLog_StartWatchdog(volatile const uint32_t *frames, volatile const uint32_t *crumb);
+#define CRUMB(n) (gPortCrumb = (n))
+#else
+#define CRUMB(n)
+#endif
 
 /*
  * The CGB channels are generated in software beside the sample mixer, and they
@@ -187,6 +194,7 @@ static void SampleAudioStats(void)
     stats->song = GetCurrentMapMusic();
 }
 
+
 void CtrGame_VBlank(void)
 {
 #ifdef CTR_WATCH_HEAP
@@ -202,6 +210,7 @@ void CtrGame_VBlank(void)
         }
     }
 #endif
+    CRUMB(0x100);
     PORT_PROF_BEGIN(vblank);
     CtrEmu_BeginVBlank();
     /*
@@ -211,11 +220,14 @@ void CtrGame_VBlank(void)
      */
     if (REG_IME && (REG_IE & INTR_FLAG_VBLANK) && gIntrTable[INTR_INDEX_VBLANK])
         gIntrTable[INTR_INDEX_VBLANK]();
+    CRUMB(0x101);
     CtrEmu_EndVBlank();
     PORT_PROF_END(vblank, PORT_PROF_VBLANK);
     /* The lines of the frame, with the HBlank work between them. */
     PORT_PROF_BEGIN(lines);
+    CRUMB(0x102);
     DrawFrame(sFrame);
+    CRUMB(0x103);
     PORT_PROF_END(lines, PORT_PROF_LINES);
     if (CtrBottom_TakesGameFrame())
     {
@@ -332,6 +344,9 @@ void CtrGame_Init(void)
         CtrAssets_Fatal("the song bundle is required before AgbMain");
     Port_PreloadLatinFonts();
     CtrBottom_Init();
+#ifdef CTR_WATCHDOG
+    CtrLog_StartWatchdog(&sFrames, &gPortCrumb);
+#endif
     /* Before AgbMain, because the game asks Port_SaveIsAvailable early and a
      * save that loads later would never be seen. */
     Port_SaveInit();
@@ -370,14 +385,18 @@ void CtrGame_WaitFrame(void)
     if (sFrames < 4)
         CtrLog_Write(CTR_LOG_GAME, "frame %lu: game reached VBlank wait", (unsigned long)sFrames);
     Port_ProfScene((const void *)gMain.callback2);
+    CRUMB(0x200);
     CtrPlatform_EndFrame();
+    CRUMB(0x201);
     if (!CtrPlatform_BeginFrame())
     {
         CtrPlatform_Shutdown();
         exit(0);
     }
+    CRUMB(0x202);
     CtrPlatform_Diagnostic(sFrames, 0, 0);
     CtrBottom_Frame();
+    CRUMB(0x203);
 
     /* Which screen the game is on: a callback change is the only unambiguous
      * marker of progress in the log. */

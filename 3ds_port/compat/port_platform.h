@@ -125,4 +125,11 @@ void Port_SetAssetDebugEx(u16 tag, u16 a, u16 b, u16 c, u16 d);
  * goes to the bottom screen while the top screen holds the world. */
 void Port_MenuOnBottom(void);
 
+/* The battle's action and move menus call this every frame they take input:
+ * the bottom screen shows them as buttons, and the call returns the button
+ * tapped (0-3, or 4 for the move menu's cancel), or -1. moveInfo is the
+ * move menu's struct ChooseMoveStruct, NULL for the action menu. */
+enum { PORT_BATTLE_ACTION = 1, PORT_BATTLE_MOVE = 2 };
+s8 Port_BattleMenu(u8 kind, const void *moveInfo);
+
 #endif

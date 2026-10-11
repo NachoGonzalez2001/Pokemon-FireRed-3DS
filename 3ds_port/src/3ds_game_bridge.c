@@ -64,7 +64,7 @@ void CtrEmu_EndVBlank(void)
  *     <frame> TOUCH <x> <y> [frames held]
  * touches the bottom screen at (x, y).
  */
-#define MAX_SCRIPT_PRESSES 512
+#define MAX_SCRIPT_PRESSES 2048
 static struct { u32 frame, length; u16 keys, touchX, touchY; bool touch; } sScript[MAX_SCRIPT_PRESSES];
 static unsigned sScriptCount;
 static bool sScriptLoaded;

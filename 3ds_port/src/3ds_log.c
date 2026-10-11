@@ -357,3 +357,42 @@ void CtrLog_DrawOverlay(const char *text)
     consoleSelect(&sConsole);
     LightLock_Unlock(&sConsoleLock);
 }
+
+/*
+ * Diagnostic watchdog: a thread that looks at the game's frame counter and,
+ * once it stops moving, logs the last step the game thread marked.
+ */
+static volatile const uint32_t *sWatchFrames;
+static volatile const uint32_t *sWatchCrumb;
+
+static void Watchdog(void *arg)
+{
+    uint32_t last = 0, still = 0;
+
+    (void)arg;
+    for (;;)
+    {
+        svcSleepThread(500000000LL);
+        if (*sWatchFrames != last)
+        {
+            last = *sWatchFrames;
+            still = 0;
+            continue;
+        }
+        if (++still == 4)
+            CtrLog_Write(CTR_LOG_ERROR, "watchdog: frame %lu stuck, crumb %08lx",
+                         (unsigned long)last, (unsigned long)*sWatchCrumb);
+        else if (still > 4 && still % 8 == 0)
+            CtrLog_Write(CTR_LOG_ERROR, "watchdog: still stuck, crumb %08lx", (unsigned long)*sWatchCrumb);
+    }
+}
+
+void CtrLog_StartWatchdog(volatile const uint32_t *frames, volatile const uint32_t *crumb)
+{
+    s32 priority = 0x30;
+
+    sWatchFrames = frames;
+    sWatchCrumb = crumb;
+    svcGetThreadPriority(&priority, CUR_THREAD_HANDLE);
+    threadCreate(Watchdog, NULL, 8 * 1024, priority > 0x19 ? priority - 2 : priority, 0, true);
+}

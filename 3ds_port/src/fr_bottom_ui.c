@@ -30,6 +30,10 @@
 
 #include "global.h"
 #include "main.h"
+#include "battle.h"
+#include "battle_controllers.h"
+#include "battle_main.h"
+#include "data.h"
 #include "decompress.h"
 #include "event_data.h"
 #include "field_player_avatar.h"
@@ -44,6 +48,7 @@
 #include "string_util.h"
 #include "strings.h"
 #include "text.h"
+#include "constants/moves.h"
 #include "constants/songs.h"
 #include "constants/region_map_sections.h"
 #include "port_platform.h"
@@ -85,7 +90,7 @@ enum { MENU_POKEDEX, MENU_POKEMON, MENU_BAG, MENU_PLAYER, MENU_SAVE, MENU_OPTION
 #define GAME_Y ((H - GBA_H) / 2)
 
 /* Touch targets */
-enum { HIT_NONE, HIT_BUTTON, HIT_PARTY = HIT_BUTTON + MENU_COUNT, HIT_COUNT };
+enum { HIT_NONE, HIT_BUTTON, HIT_PARTY = HIT_BUTTON + MENU_COUNT, HIT_BATTLE, HIT_COUNT = HIT_BATTLE + 5 };
 
 /* The GBA buttons of the column while a menu is shown */
 static const u16 sPadKeys[MENU_COUNT] = { A_BUTTON, B_BUTTON, START_BUTTON, SELECT_BUTTON, L_BUTTON, R_BUTTON };
@@ -96,7 +101,23 @@ typedef struct {
     u8 egg, level;
 } MonView;
 
+/* One side's mon in battle */
 typedef struct {
+    u16 species, hp, maxHp;
+    u8 level, present;
+    u8 name[POKEMON_NAME_LENGTH + 1];
+} FighterView;
+
+typedef struct {
+    u8 choose;       /* PORT_BATTLE_* the player is choosing, or 0 */
+    u16 moves[MAX_MON_MOVES];
+    u8 pp[MAX_MON_MOVES], maxPp[MAX_MON_MOVES];
+    FighterView player, opponent;
+} BattleView;
+
+typedef struct {
+    u8 battle;       /* drawing the battle's page */
+    BattleView b;
     MonView party[PARTY_SIZE];
     u8 partyCount;
     u8 enabled;      /* bit per MENU_* */
@@ -121,6 +142,13 @@ static u16 sInjected;
 static u32 sMenuFrame = 0xFFFFFFF0;
 static bool8 sGameShown;
 static u8 sPadPressed = 0xFF;
+
+/* The battle menus (battle_controller_player.c, Port_BattleMenu) */
+static u32 sBattleMenuFrame = 0xFFFFFFF0;
+static u8 sBattleMenuKind;
+static struct ChooseMoveStruct sBattleMoves;
+static s8 sBattleTap = -1;
+static u8 sBattleTapKind;
 
 /* The region map, rendered once per region: RGB565, row-major */
 static u16 *sMapCache;
@@ -286,6 +314,39 @@ static bool8 FieldIdle(void)
         && !CtrStartMenu_Busy() && !CtrStartMenu_Pending();
 }
 
+static void SnapshotFighter(FighterView *f, u8 position)
+{
+    u8 battler = GetBattlerAtPosition(position);
+
+    if (battler >= gBattlersCount || gBattleMons[battler].species == SPECIES_NONE)
+        return;
+    f->present = TRUE;
+    f->species = gBattleMons[battler].species;
+    f->hp = gBattleMons[battler].hp;
+    f->maxHp = gBattleMons[battler].maxHP;
+    f->level = gBattleMons[battler].level;
+    StringCopyN(f->name, gBattleMons[battler].nickname, POKEMON_NAME_LENGTH);
+    f->name[POKEMON_NAME_LENGTH] = EOS;
+}
+
+static void SnapshotBattle(ViewState *s)
+{
+    s->battle = TRUE;
+    if (CtrGame_Frames() - sBattleMenuFrame <= 1)
+    {
+        s->b.choose = sBattleMenuKind;
+        if (sBattleMenuKind == PORT_BATTLE_MOVE)
+            for (int i = 0; i < MAX_MON_MOVES; i++)
+            {
+                s->b.moves[i] = sBattleMoves.moves[i];
+                s->b.pp[i] = sBattleMoves.currentPp[i];
+                s->b.maxPp[i] = sBattleMoves.maxPp[i];
+            }
+    }
+    SnapshotFighter(&s->b.player, B_POSITION_PLAYER_LEFT);
+    SnapshotFighter(&s->b.opponent, B_POSITION_OPPONENT_LEFT);
+}
+
 static void Snapshot(ViewState *s)
 {
     memset(s, 0, sizeof(*s));
@@ -293,6 +354,11 @@ static void Snapshot(ViewState *s)
     if (gSaveBlock2Ptr == NULL || gSaveBlock1Ptr == NULL)
         return;
     s->idle = FieldIdle();
+    if (gMain.inBattle)
+    {
+        SnapshotBattle(s);
+        return;
+    }
     s->enabled = (1 << MENU_BAG) | (1 << MENU_PLAYER) | (1 << MENU_SAVE) | (1 << MENU_OPTION);
     if (FlagGet(FLAG_SYS_POKEMON_GET))
         s->enabled |= 1 << MENU_POKEMON;
@@ -586,6 +652,148 @@ static void RenderPanel(const ViewState *s)
 }
 
 /* ------------------------------------------------------------------------ */
+/* The battle's page                                                        */
+/* ------------------------------------------------------------------------ */
+
+#define BATTLE_INFO_H 56
+
+static const u8 sTypeRgb[NUMBER_OF_MON_TYPES][3] = {
+    [TYPE_NORMAL]   = {21, 21, 15}, [TYPE_FIGHTING] = {24,  6,  5}, [TYPE_FLYING]  = {20, 17, 30},
+    [TYPE_POISON]   = {20,  8, 20}, [TYPE_GROUND]   = {28, 24, 13}, [TYPE_ROCK]    = {23, 20,  7},
+    [TYPE_BUG]      = {20, 23,  4}, [TYPE_GHOST]    = {14, 11, 19}, [TYPE_STEEL]   = {23, 23, 26},
+    [TYPE_MYSTERY]  = {13, 20, 19}, [TYPE_FIRE]     = {30, 16,  6}, [TYPE_WATER]   = {13, 18, 30},
+    [TYPE_GRASS]    = {15, 25, 10}, [TYPE_ELECTRIC] = {31, 26,  6}, [TYPE_PSYCHIC] = {31, 11, 17},
+    [TYPE_ICE]      = {19, 28, 28}, [TYPE_DRAGON]   = {14,  7, 31}, [TYPE_DARK]    = {14, 11,  9},
+};
+
+static u16 TypeColour(u8 type, bool8 light)
+{
+    const u8 *c = sTypeRgb[type < NUMBER_OF_MON_TYPES ? type : TYPE_NORMAL];
+
+    if (light)
+        return Rgb((c[0] + 31) / 2, (c[1] + 31) / 2, (c[2] + 31) / 2);
+    return Rgb(c[0], c[1], c[2]);
+}
+
+static void DrawFighter(const FighterView *f, int x, int y, int w, bool8 numbers)
+{
+    u8 buf[16], *p;
+    int fill;
+    u16 c;
+
+    if (!f->present)
+        return;
+    Text(FONT_NORMAL, f->name, x, y, C_INK, C_INK_SH, TRUE);
+    buf[0] = CHAR_LV;
+    ConvertIntToDecimalStringN(buf + 1, f->level, STR_CONV_MODE_LEFT_ALIGN, 3);
+    TextRight(FONT_SMALL, buf, x + w, y + 2, C_INK, C_INK_SH);
+    fill = f->maxHp ? (w * f->hp + f->maxHp - 1) / f->maxHp : 0;
+    c = f->hp * 2 > f->maxHp ? Rgb(7, 27, 9) : f->hp * 5 > f->maxHp ? Rgb(30, 24, 2) : Rgb(29, 5, 4);
+    DrawBox(x - 1, y + 16, w + 2, 6, Rgb(10, 10, 10), C_INK);
+    FillRect(x, y + 17, fill, 4, c);
+    if (numbers)
+    {
+        p = ConvertIntToDecimalStringN(buf, f->hp, STR_CONV_MODE_LEFT_ALIGN, 3);
+        *p++ = CHAR_SLASH;
+        ConvertIntToDecimalStringN(p, f->maxHp, STR_CONV_MODE_LEFT_ALIGN, 3);
+        TextRight(FONT_SMALL, buf, x + w, y + 24, C_INK, C_INK_SH);
+    }
+}
+
+/* The four buttons of a 2x2 grid below the info strip, above a cancel bar. */
+static void ButtonRect(int i, bool8 withCancel, int *x, int *y, int *w, int *h)
+{
+    int top = BATTLE_INFO_H + 6, bottom = withCancel ? H - 34 : H - 4;
+
+    *w = (W - 12) / 2;
+    *h = (bottom - top - 4) / 2;
+    *x = 4 + (i & 1) * (*w + 4);
+    *y = top + (i >> 1) * (*h + 4);
+}
+
+static void DrawBigButton(int i, bool8 withCancel, u16 fill, u16 edge, bool8 pressed)
+{
+    int x, y, w, h;
+
+    ButtonRect(i, withCancel, &x, &y, &w, &h);
+    DrawBox(x, y, w, h, pressed ? Dim(fill) : fill, edge);
+    FillRect(x + 2, y + 2, w - 4, 3, pressed ? fill : C_WHITE);
+}
+
+static void DrawActions(const ViewState *s)
+{
+    static const u8 sRgb[4][3] = { {28, 8, 6}, {29, 22, 5}, {8, 22, 9}, {7, 13, 27} };
+    bool8 on = s->b.choose == PORT_BATTLE_ACTION;
+
+    for (int i = 0; i < 4; i++)
+    {
+        int x, y, w, h;
+        u16 fill = on ? Rgb(sRgb[i][0], sRgb[i][1], sRgb[i][2]) : C_PLATE_OFF;
+        const u8 *label = i == 0 ? Ascii("FIGHT") : i == 1 ? gText_MenuBag : i == 2 ? gText_MenuPokemon : Ascii("RUN");
+
+        DrawBigButton(i, FALSE, fill, C_INK, on && s->pressed == HIT_BATTLE + i);
+        ButtonRect(i, FALSE, &x, &y, &w, &h);
+        TextCentered(FONT_NORMAL, label, x + w / 2, y + h / 2 - 7, on ? C_WHITE : C_GREY, on ? C_INK : C_PLATE_OFF);
+    }
+}
+
+static void DrawMoves(const ViewState *s)
+{
+    for (int i = 0; i < MAX_MON_MOVES; i++)
+    {
+        int x, y, w, h;
+        u16 move = s->b.moves[i];
+        u8 type, buf[16], *p;
+
+        ButtonRect(i, TRUE, &x, &y, &w, &h);
+        if (move == MOVE_NONE)
+        {
+            DrawBox(x, y, w, h, C_PANEL, C_SLOT_EDGE);
+            continue;
+        }
+        type = gBattleMoves[move].type;
+        DrawBigButton(i, TRUE, TypeColour(type, TRUE), TypeColour(type, FALSE), s->pressed == HIT_BATTLE + i);
+        Text(FONT_NORMAL, gMoveNames[move], x + 8, y + 8, C_INK, C_INK_SH, TRUE);
+        Text(FONT_SMALL, gTypeNames[type], x + 8, y + h - 18, TypeColour(type, FALSE), C_WHITE, TRUE);
+        p = StringCopy(buf, Ascii("PP "));
+        p = ConvertIntToDecimalStringN(p, s->b.pp[i], STR_CONV_MODE_LEFT_ALIGN, 2);
+        *p++ = CHAR_SLASH;
+        ConvertIntToDecimalStringN(p, s->b.maxPp[i], STR_CONV_MODE_LEFT_ALIGN, 2);
+        TextRight(FONT_SMALL, buf, x + w - 8, y + h - 18, s->b.pp[i] ? C_INK : Rgb(28, 4, 4), C_INK_SH);
+    }
+    DrawBox(4, H - 30, W - 8, 26, s->pressed == HIT_BATTLE + 4 ? C_PLATE_ON : C_PLATE, C_INK);
+    TextCentered(FONT_NORMAL, Ascii("CANCEL"), W / 2, H - 25, C_INK, C_INK_SH);
+}
+
+static void RenderBattle(const ViewState *s)
+{
+    FillRect(0, 0, W, H, C_PANEL);
+    FillRect(0, 0, W, BATTLE_INFO_H, C_SLOT);
+    FillRect(0, BATTLE_INFO_H, W, 2, C_SLOT_EDGE);
+    DrawFighter(&s->b.opponent, 8, 8, W / 2 - 20, FALSE);
+    DrawFighter(&s->b.player, W / 2 + 8, 8, W / 2 - 20, TRUE);
+    if (s->b.choose == PORT_BATTLE_MOVE)
+        DrawMoves(s);
+    else
+        DrawActions(s);
+    CtrBottom_Blit(sCanvas, 0, W);
+}
+
+s8 Port_BattleMenu(u8 kind, const void *moveInfo)
+{
+    s8 tap = -1;
+
+    sBattleMenuFrame = CtrGame_Frames();
+    sBattleMenuKind = kind;
+    if (moveInfo)
+        memcpy(&sBattleMoves, moveInfo, sizeof(sBattleMoves));
+    if (sBattleTap >= 0 && sBattleTapKind == kind)
+        tap = sBattleTap;
+    sBattleTap = -1;
+    return tap;
+}
+
+/* ------------------------------------------------------------------------ */
 /* A menu's picture                                                         */
 /* ------------------------------------------------------------------------ */
 
@@ -637,6 +845,23 @@ void CtrBottom_ShowGameFrame(const u16 *frame)
 /* Touch                                                                    */
 /* ------------------------------------------------------------------------ */
 
+static u8 BattleHitTest(const ViewState *s, int x, int y)
+{
+    bool8 moves = s->b.choose == PORT_BATTLE_MOVE;
+
+    if (moves && y >= H - 30)
+        return HIT_BATTLE + 4;
+    for (int i = 0; i < 4; i++)
+    {
+        int bx, by, bw, bh;
+
+        ButtonRect(i, moves, &bx, &by, &bw, &bh);
+        if (x >= bx && x < bx + bw && y >= by && y < by + bh)
+            return HIT_BATTLE + i;
+    }
+    return HIT_NONE;
+}
+
 static u8 HitTest(int x, int y)
 {
     if (x >= COLUMN_X)
@@ -658,6 +883,17 @@ static void Open(u8 action)
 
 static void Activate(const ViewState *s, u8 hit)
 {
+    if (s->battle)
+    {
+        if (s->b.choose && hit >= HIT_BATTLE && hit < HIT_COUNT
+         && (s->b.choose == PORT_BATTLE_MOVE || hit < HIT_BATTLE + 4))
+        {
+            PlaySE(SE_SELECT);
+            sBattleTap = hit - HIT_BATTLE;
+            sBattleTapKind = s->b.choose;
+        }
+        return;
+    }
     if (!s->idle)
         return;
     if (hit >= HIT_BUTTON && hit < HIT_BUTTON + MENU_COUNT)
@@ -692,9 +928,9 @@ static void ProcessPanelTouch(const ViewState *s, bool active, u16 x, u16 y)
     static u8 downHit;
 
     if (active && !wasActive)
-        downHit = HitTest(x, y);
+        downHit = s->battle ? BattleHitTest(s, x, y) : HitTest(x, y);
     if (active)
-        sTouchHit = HitTest(x, y) == downHit ? downHit : HIT_NONE;
+        sTouchHit = (s->battle ? BattleHitTest(s, x, y) : HitTest(x, y)) == downHit ? downHit : HIT_NONE;
     else
     {
         if (wasActive && sTouchHit != HIT_NONE)
@@ -759,7 +995,10 @@ void CtrBottom_Frame(void)
     now.pressed = sTouchHit;
     if (sDrawn && memcmp(&now, &sShown, sizeof(now)) == 0)
         return;
-    RenderPanel(&now);
+    if (now.battle)
+        RenderBattle(&now);
+    else
+        RenderPanel(&now);
     sShown = now;
     sDrawn = TRUE;
 }
