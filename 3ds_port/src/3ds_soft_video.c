@@ -14,6 +14,10 @@
  * other source pixel is doubled along each axis.
  */
 #include <3ds.h>
+#if CTR_GPU_PRESENT
+#include <citro3d.h>
+#include <citro2d.h>
+#endif
 #include <string.h>
 
 #include "3ds_log.h"
@@ -36,6 +40,9 @@ static uint8_t sSrcX[OUT_WIDTH];
 static uint8_t sSrcY[TOP_HEIGHT];
 
 void CtrSoftVideo_SetFrame(const uint16_t *pixels) { sFrame = pixels; }
+#if CTR_GPU_PRESENT
+static bool GpuInit(void);
+#endif
 
 bool CtrVideo_Init(void)
 {
@@ -48,6 +55,14 @@ bool CtrVideo_Init(void)
         sSrcX[x] = (uint8_t)(x * 2 / 3);
     for (unsigned y = 0; y < TOP_HEIGHT; ++y)
         sSrcY[y] = (uint8_t)(y * 2 / 3);
+#if CTR_GPU_PRESENT
+    gfxSet3D(false);
+    if (!GpuInit())
+        return false;
+    CtrLog_Write(CTR_LOG_VIDEO, "software video: %dx%d frame at x1.5 on the top screen, by the GPU",
+                 CTR_SOFT_WIDTH, CTR_SOFT_HEIGHT);
+    return true;
+#endif
     gfxSetScreenFormat(GFX_TOP, GSP_RGB565_OES);
     gfxSet3D(false);
     for (int i = 0; i < 2; ++i)
@@ -66,6 +81,86 @@ void CtrVideo_Shutdown(void) {}
 
 void CtrVideo_Bind(CtrVideoMemory memory) { sMemory = memory; }
 
+#if CTR_GPU_PRESENT
+/*
+ * The GPU path: the frame is converted to RGB565 into a linear buffer, tiled
+ * into a 256x256 texture by a display transfer, and drawn by citro2d scaled
+ * by 1.5 into the top screen's render target. The 3D overworld draws into the
+ * same target before the frame's 2D parts go over it.
+ */
+#define TEX_DIM 256
+static C3D_RenderTarget *sTop;
+static C3D_Tex sFrameTex;
+static Tex3DS_SubTexture sFrameSub;
+static uint16_t *sLinear;
+
+#define TILE_TRANSFER_FLAGS \
+    (GX_TRANSFER_FLIP_VERT(0) | GX_TRANSFER_OUT_TILED(1) | GX_TRANSFER_RAW_COPY(0) | \
+     GX_TRANSFER_IN_FORMAT(GX_TRANSFER_FMT_RGB565) | GX_TRANSFER_OUT_FORMAT(GX_TRANSFER_FMT_RGB565) | \
+     GX_TRANSFER_SCALING(GX_TRANSFER_SCALE_NO))
+
+static bool GpuInit(void)
+{
+    if (!C3D_Init(C3D_DEFAULT_CMDBUF_SIZE) || !C2D_Init(C2D_DEFAULT_MAX_OBJECTS))
+        return false;
+    C2D_Prepare();
+    sTop = C2D_CreateScreenTarget(GFX_TOP, GFX_LEFT);
+    sLinear = linearAlloc(TEX_DIM * TEX_DIM * sizeof(uint16_t));
+    if (sTop == NULL || sLinear == NULL || !C3D_TexInit(&sFrameTex, TEX_DIM, TEX_DIM, GPU_RGB565))
+        return false;
+    memset(sLinear, 0, TEX_DIM * TEX_DIM * sizeof(uint16_t));
+    C3D_TexSetFilter(&sFrameTex, GPU_NEAREST, GPU_NEAREST);
+    /* Without a flip the transfer leaves line 0 of the frame at the top of
+     * the texture (v = 1). A subtexture whose top is below its bottom would
+     * be taken for a rotated one, so the data is laid out to match instead. */
+    sFrameSub = (Tex3DS_SubTexture){ CTR_SOFT_WIDTH, CTR_SOFT_HEIGHT, 0.0f, 1.0f,
+                                     CTR_SOFT_WIDTH / (float)TEX_DIM, 1.0f - CTR_SOFT_HEIGHT / (float)TEX_DIM };
+    return true;
+}
+
+static void GpuUpload(void)
+{
+    for (unsigned y = 0; y < CTR_SOFT_HEIGHT; ++y)
+    {
+        const uint16_t *src = sFrame + y * CTR_SOFT_WIDTH;
+        uint16_t *dst = sLinear + y * TEX_DIM;
+
+        for (unsigned x = 0; x < CTR_SOFT_WIDTH; ++x)
+            dst[x] = sLut[src[x] & 0x7FFF];
+    }
+    GSPGPU_FlushDataCache(sLinear, TEX_DIM * TEX_DIM * sizeof(uint16_t));
+    C3D_SyncDisplayTransfer((u32 *)sLinear, GX_BUFFER_DIM(TEX_DIM, TEX_DIM),
+                            (u32 *)sFrameTex.data, GX_BUFFER_DIM(TEX_DIM, TEX_DIM), TILE_TRANSFER_FLAGS);
+}
+
+static void GpuPresent(void)
+{
+    uint64_t start = svcGetSystemTick(), drawStart;
+    C2D_Image image = { &sFrameTex, &sFrameSub };
+
+    if (sFrame)
+        GpuUpload();
+    drawStart = svcGetSystemTick();
+    /* Begin waits for the previous frame and paces to the screen's 60 Hz. */
+    C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
+    sStats.waitMs = (svcGetSystemTick() - drawStart) * 1000.0f / SYSCLOCK_ARM11;
+    C2D_TargetClear(sTop, C2D_Color32(0, 0, 0, 255));
+    C2D_SceneBegin(sTop);
+    C2D_DrawImageAt(image, (float)OUT_X, 0.0f, 0.5f, NULL, 1.5f, 1.5f);
+    C3D_FrameEnd(0);
+    /* The game advances one frame per VBlank, as on the GBA: FrameBegin only
+     * waits for the GPU, which a light frame finishes well before that. */
+    {
+        uint64_t waitStart = svcGetSystemTick();
+
+        gspWaitForVBlank();
+        sStats.waitMs += (svcGetSystemTick() - waitStart) * 1000.0f / SYSCLOCK_ARM11;
+    }
+    sStats.cpuMs = (drawStart - start) * 1000.0f / SYSCLOCK_ARM11;
+    ++sStats.frames;
+}
+#endif
+
 static void Blit(uint16_t *fb)
 {
     for (unsigned x = 0; x < OUT_WIDTH; ++x)
@@ -80,6 +175,10 @@ static void Blit(uint16_t *fb)
 
 void CtrVideo_Present(void)
 {
+#if CTR_GPU_PRESENT
+    GpuPresent();
+    return;
+#endif
     uint64_t start = svcGetSystemTick(), waitStart;
     uint16_t *fb = (uint16_t *)gfxGetFramebuffer(GFX_TOP, GFX_LEFT, NULL, NULL);
 

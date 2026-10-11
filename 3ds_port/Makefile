@@ -53,6 +53,10 @@ GAMEFLAGS += -iquote include -iquote ../include -iquote ../include/constants -iq
 # voxel world exists.
 VOXEL ?= 0
 CPPFLAGS += -DCTR_VOXEL_ENABLED=$(VOXEL)
+# GPU_PRESENT=1 draws the software-rendered frame on the top screen through
+# citro3d (the path the 3D overworld draws into); 0 keeps the CPU copy.
+GPU_PRESENT ?= 1
+CPPFLAGS += -DCTR_GPU_PRESENT=$(GPU_PRESENT)
 GAMEFLAGS += -DCTR_VOXEL_ENABLED=$(VOXEL)
 # Baked fixed-sun lighting and contact shadows, targeting Old 3DS.
 VOXEL_LIGHTING ?= 1
