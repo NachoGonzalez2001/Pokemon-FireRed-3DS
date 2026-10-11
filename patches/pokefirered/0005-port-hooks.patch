@@ -150,6 +150,30 @@ index 8a23dfe5d1f1f2c7b7e4a57b7a9816de472df54e..205f01a5a573e2923a20b43b8c4be48b
          if (task->tShrinkStage > 13)
          {
              task->tState++;
+diff --git a/src/berry_pouch.c b/src/berry_pouch.c
+index 545d1450cde43135f0caba9b55b95e9a6fe6c468..a46a774c266bfbbca1cec7db1131641cdf93494c 100644
+--- a/src/berry_pouch.c
++++ b/src/berry_pouch.c
+@@ -30,6 +30,9 @@
+ #include "constants/items.h"
+ #include "constants/songs.h"
+ #include "constants/quest_log.h"
++#ifdef PORT_BRIDGE
++#include "port_platform.h"
++#endif
+ 
+ struct BerryPouchStruct_203F36C
+ {
+@@ -440,6 +443,9 @@ void InitBerryPouch(u8 type, void (*savedCallback)(void), u8 allowSelect)
+ 
+ static void CB2_BerryPouchIdle(void)
+ {
++#ifdef PORT_BRIDGE
++    Port_MenuOnBottom(); // shown on the 3DS bottom screen
++#endif
+     RunTasks();
+     AnimateSprites();
+     BuildOamBuffer();
 diff --git a/src/bg.c b/src/bg.c
 index aa11ae01f87242edecc5656bb6649b04e319357a..6e6cb28168420f5254be9f164bb897986dfdcc83 100644
 --- a/src/bg.c
@@ -797,7 +821,7 @@ index bec0f3144ece4167b27dd2eccc0fd12546bf95c4..fa0100aac759898ebd41f18d9d92e682
              else
              {
 diff --git a/src/item_menu.c b/src/item_menu.c
-index 8f52ead00ec1e34df74dadb71aa23439d507b073..ef43359b6e12ecb808d6068e701dc8be8550d6d0 100644
+index 8f52ead00ec1e34df74dadb71aa23439d507b073..0d7c8e49d88aa0e2134ea43effb00c23fc3c001f 100644
 --- a/src/item_menu.c
 +++ b/src/item_menu.c
 @@ -35,6 +35,12 @@
@@ -813,7 +837,17 @@ index 8f52ead00ec1e34df74dadb71aa23439d507b073..ef43359b6e12ecb808d6068e701dc8be
  #define FREE_IF_SET(ptr) ({ if (ptr) Free(ptr); })
  
  struct BagMenuAlloc
-@@ -1331,7 +1337,7 @@ static void UpdateQuantityToTossOrDeposit(s16 value, u8 ndigits)
+@@ -354,6 +360,9 @@ void CB2_BagMenuFromBattle(void)
+ 
+ static void CB2_BagMenuRun(void)
+ {
++#ifdef PORT_BRIDGE
++    Port_MenuOnBottom(); // shown on the 3DS bottom screen
++#endif
+     RunTasks();
+     AnimateSprites();
+     BuildOamBuffer();
+@@ -1331,7 +1340,7 @@ static void UpdateQuantityToTossOrDeposit(s16 value, u8 ndigits)
  // row of 0 is the bottom row in the list, up to LIST_TILES_HEIGHT at the top
  static void DrawItemListRow(u8 row)
  {
@@ -1055,10 +1089,20 @@ index 1500be9598b373f2c50192cfd1cf5732a57fec03..d24908b36b3ba0e75e0d06e9ae49ab34
  }
  
 diff --git a/src/naming_screen.c b/src/naming_screen.c
-index deef7054a11e4793ebfdb5e2710f9fc056540546..dbfadc96b531ddd0b58430f096dc4a24c29f46ee 100644
+index deef7054a11e4793ebfdb5e2710f9fc056540546..83820fb78376b012cede28256ac81c64f69ee294 100644
 --- a/src/naming_screen.c
 +++ b/src/naming_screen.c
-@@ -722,6 +722,13 @@ static bool8 MainState_Exit(void)
+@@ -25,6 +25,9 @@
+ #include "constants/songs.h"
+ #include "constants/event_objects.h"
+ #include "sloopsvc.h"
++#ifdef PORT_BRIDGE
++#include "port_platform.h"
++#endif
+ 
+ enum {
+     INPUT_NONE,
+@@ -722,6 +725,13 @@ static bool8 MainState_Exit(void)
              SeedRngAndSetTrainerId();
          SetMainCallback2(sNamingScreen->returnCallback);
          DestroyTask(FindTaskIdByFunc(Task_NamingScreen));
@@ -1072,6 +1116,16 @@ index deef7054a11e4793ebfdb5e2710f9fc056540546..dbfadc96b531ddd0b58430f096dc4a24
          FreeAllWindowBuffers();
          FREE_AND_SET_NULL(sNamingScreen);
          RestoreHelpContext();
+@@ -1999,6 +2009,9 @@ static void PrintControls(void)
+ 
+ static void CB2_NamingScreen(void)
+ {
++#ifdef PORT_BRIDGE
++    Port_MenuOnBottom(); // shown on the 3DS bottom screen
++#endif
+     RunTasks();
+     AnimateSprites();
+     BuildOamBuffer();
 diff --git a/src/new_menu_helpers.c b/src/new_menu_helpers.c
 index 08c032027cda2c34bf0dded37458adeb250aa553..d89e23ce6adfb23af6d1e24dbcd7dcca6f0f6d57 100644
 --- a/src/new_menu_helpers.c
@@ -1118,6 +1172,30 @@ index 08c032027cda2c34bf0dded37458adeb250aa553..d89e23ce6adfb23af6d1e24dbcd7dcca
  }
  
  void DisplayItemMessageOnField(u8 taskId, u8 fontId, const u8 *string, TaskFunc callback)
+diff --git a/src/option_menu.c b/src/option_menu.c
+index 0b55a34ffd8869e3c616553108e1487c9db657df..cf7ae7c0f446c30dac4865f82141e4369c5e4aa3 100644
+--- a/src/option_menu.c
++++ b/src/option_menu.c
+@@ -10,6 +10,9 @@
+ #include "strings.h"
+ #include "field_fadetransition.h"
+ #include "gba/m4a_internal.h"
++#ifdef PORT_BRIDGE
++#include "port_platform.h"
++#endif
+ 
+ // can't include the one in menu_helpers.h since Task_OptionMenu needs bool32 for matching
+ bool32 IsActiveOverworldLinkBusy(void);
+@@ -182,6 +185,9 @@ static const u8 sOptionMenuTextColor[] = {TEXT_COLOR_TRANSPARENT, TEXT_COLOR_LIG
+ // Functions
+ static void CB2_InitOptionMenu(void)
+ {
++#ifdef PORT_BRIDGE
++    Port_MenuOnBottom(); // shown on the 3DS bottom screen
++#endif
+     RunTasks();
+     AnimateSprites();
+     BuildOamBuffer();
 diff --git a/src/overworld.c b/src/overworld.c
 index 339014da46ae8543143edc99ab72bf7496203a0d..a9a3515389ec3fb841665e1c0d5a72373e9f015a 100644
 --- a/src/overworld.c
@@ -1167,6 +1245,30 @@ index 84f23428f2e7b2802bcadb497d4ca401af6c0531..d6125134eebfd3bc950061d1e82568fe
      CpuCopy16(src, &gPlttBufferUnfaded[offset], size);
      CpuCopy16(src, &gPlttBufferFaded[offset], size);
  }
+diff --git a/src/party_menu.c b/src/party_menu.c
+index 7f3a881e6c56773aee03da475c9a1adc50530223..5aa2b2f6c0b8b96a78490bc6ec8c9b06f3b3a5a5 100644
+--- a/src/party_menu.c
++++ b/src/party_menu.c
+@@ -418,6 +418,9 @@ COMMON_DATA void (*gItemUseCB)(u8, TaskFunc) = NULL;
+ 
+ #include "data/pokemon/tutor_learnsets.h"
+ #include "data/party_menu.h"
++#ifdef PORT_BRIDGE
++#include "port_platform.h"
++#endif
+ 
+ void InitPartyMenu(u8 menuType, u8 layout, u8 partyAction, bool8 keepCursorPos, u8 messageId, TaskFunc task, MainCallback callback)
+ {
+@@ -458,6 +461,9 @@ void InitPartyMenu(u8 menuType, u8 layout, u8 partyAction, bool8 keepCursorPos,
+ 
+ static void CB2_UpdatePartyMenu(void)
+ {
++#ifdef PORT_BRIDGE
++    Port_MenuOnBottom(); // shown on the 3DS bottom screen
++#endif
+     RunTasks();
+     AnimateSprites();
+     BuildOamBuffer();
 diff --git a/src/platform/bios.c b/src/platform/bios.c
 index be80475445506a268aff221e6a006a4092279c30..d22580208a0d999798d5f52e0e266790543a84e3 100644
 --- a/src/platform/bios.c
@@ -1371,7 +1473,7 @@ index 952b4169db3e26d1353ac98c7fdf68086b14ae5e..253d0398a11fb68fb36fa0405a889501
                              //blending check
                              if (doesBGblend)
 diff --git a/src/pokedex_screen.c b/src/pokedex_screen.c
-index 01960d240f4956d9f0d854b1bba29785d946a878..a1074dbc1f0273ab3260fc19f5ed199c4429b015 100644
+index 01960d240f4956d9f0d854b1bba29785d946a878..227884da497017cb430190445af0037ec2ca23cb 100644
 --- a/src/pokedex_screen.c
 +++ b/src/pokedex_screen.c
 @@ -853,6 +853,12 @@ const struct CursorStruct sCursorStruct_CategoryPage = {
@@ -1387,7 +1489,17 @@ index 01960d240f4956d9f0d854b1bba29785d946a878..a1074dbc1f0273ab3260fc19f5ed199c
  void VBlankCB(void)
  {
      LoadOam();
-@@ -2505,9 +2511,9 @@ static bool8 DexScreen_FlipCategoryPageInDirection(u8 direction)
+@@ -862,6 +868,9 @@ void VBlankCB(void)
+ 
+ void CB2_PokedexScreen(void)
+ {
++#ifdef PORT_BRIDGE
++    Port_MenuOnBottom(); // shown on the 3DS bottom screen
++#endif
+     if (!gPaletteFade.active || IsDma3ManagerBusyWithBgCopy())
+     {
+         RunTasks();
+@@ -2505,9 +2514,9 @@ static bool8 DexScreen_FlipCategoryPageInDirection(u8 direction)
  {
      u16 color;
      if (IsNationalPokedexEnabled())
@@ -1416,8 +1528,32 @@ index bdb070c96558c43eafb50c8619a85e9a9090d348..122d9b3eee02af00782cc9e4f7420930
      spritePalette.data = sLevelUp_Pal;
      spritePalette.tag = paletteTag;
      LoadCompressedSpriteSheet(&spriteSheet);
+diff --git a/src/pokemon_storage_system_tasks.c b/src/pokemon_storage_system_tasks.c
+index fdc5250c347a304547f613b5ed8685157341345a..a5587d405fbb5e8c8aa6bd4f3c877cb460204db1 100644
+--- a/src/pokemon_storage_system_tasks.c
++++ b/src/pokemon_storage_system_tasks.c
+@@ -25,6 +25,9 @@
+ #include "constants/items.h"
+ #include "constants/help_system.h"
+ #include "constants/songs.h"
++#ifdef PORT_BRIDGE
++#include "port_platform.h"
++#endif
+ 
+ EWRAM_DATA struct PokemonStorageSystemData *gStorage = NULL;
+ static EWRAM_DATA bool8 sInPartyMenu = 0;
+@@ -400,6 +403,9 @@ static void VBlankCB_PokeStorage(void)
+ 
+ static void CB2_PokeStorage(void)
+ {
++#ifdef PORT_BRIDGE
++    Port_MenuOnBottom(); // shown on the 3DS bottom screen
++#endif
+     RunTasks();
+     DoScheduledBgTilemapCopiesToVram();
+     ScrollBackground();
 diff --git a/src/pokemon_summary_screen.c b/src/pokemon_summary_screen.c
-index b3e3c7763d3e1c9cf2185cd7344fdf49ba78ae85..fe5b586eedc8c130a0ea596a9ac6aa5ba68c63e3 100644
+index b3e3c7763d3e1c9cf2185cd7344fdf49ba78ae85..0d1e2eb1b6e6542f5eb3c6bc5e172a9dbf3efa84 100644
 --- a/src/pokemon_summary_screen.c
 +++ b/src/pokemon_summary_screen.c
 @@ -625,6 +625,12 @@ static const u32 sBgTilemap_MovesPage[] = INCBIN_U32( "graphics/summary_screen/m
@@ -1451,7 +1587,17 @@ index b3e3c7763d3e1c9cf2185cd7344fdf49ba78ae85..fe5b586eedc8c130a0ea596a9ac6aa5b
          }
  
          break;
-@@ -5078,13 +5084,13 @@ static void Task_PokeSum_SwitchDisplayedPokemon(u8 taskId)
+@@ -2995,6 +3001,9 @@ static void Task_DestroyResourcesOnExit(u8 taskId)
+ 
+ static void CB2_RunPokemonSummaryScreen(void)
+ {
++#ifdef PORT_BRIDGE
++    Port_MenuOnBottom(); // shown on the 3DS bottom screen
++#endif
+     RunTasks();
+     AnimateSprites();
+     BuildOamBuffer();
+@@ -5078,13 +5087,13 @@ static void Task_PokeSum_SwitchDisplayedPokemon(u8 taskId)
  
          if (IsMonShiny(&sMonSummaryScreen->currentMon) == TRUE && !sMonSummaryScreen->isEgg)
          {
@@ -1470,7 +1616,7 @@ index b3e3c7763d3e1c9cf2185cd7344fdf49ba78ae85..fe5b586eedc8c130a0ea596a9ac6aa5b
  
          sMonSummaryScreen->switchMonTaskState++;
 diff --git a/src/region_map.c b/src/region_map.c
-index d65f99fefa2c3a4bff11a69e674894bfd9a51374..34f9b7a9a48b150b9899e2e36dd89d10f786ac0c 100644
+index d65f99fefa2c3a4bff11a69e674894bfd9a51374..f0af2399754078a3fee92c093ea5a91daac2befb 100644
 --- a/src/region_map.c
 +++ b/src/region_map.c
 @@ -825,6 +825,12 @@ static const u8 sTextColors[] = {TEXT_DYNAMIC_COLOR_6, TEXT_COLOR_WHITE, TEXT_CO
@@ -1516,7 +1662,17 @@ index d65f99fefa2c3a4bff11a69e674894bfd9a51374..34f9b7a9a48b150b9899e2e36dd89d10
          }
          break;
      case 2:
-@@ -2416,11 +2422,11 @@ static void Task_MapOpenAnim(u8 taskId)
+@@ -1341,6 +1347,9 @@ static void FreeRegionMapForFlyMap(void)
+ 
+ static void CB2_RegionMap(void)
+ {
++#ifdef PORT_BRIDGE
++    Port_MenuOnBottom(); // shown on the 3DS bottom screen
++#endif
+     RunTasks();
+     AnimateSprites();
+     BuildOamBuffer();
+@@ -2416,11 +2425,11 @@ static void Task_MapOpenAnim(u8 taskId)
          sMapOpenCloseAnim->openState++;
          break;
      case 10:
@@ -1533,6 +1689,91 @@ index d65f99fefa2c3a4bff11a69e674894bfd9a51374..34f9b7a9a48b150b9899e2e36dd89d10
          sMapOpenCloseAnim->openState++;
          break;
      case 11:
+@@ -4034,3 +4043,60 @@ static void SetFlyWarpDestination(u16 mapsec)
+     }
+     ReturnToFieldFromFlyMapSelect();
+ }
++
++#ifdef PORT_BRIDGE
++// The 3DS bottom screen draws this map: its art, and where the player is on
++// it as the map screen itself would place the player's icon.
++void Port_GetRegionMapArt(u8 region, const void **mapGfx, const void **mapTilemap, const void **bgGfx,
++                          const void **bgTilemap, const u16 **pal, const void **playerGfx, const u16 **playerPal)
++{
++    static const u32 *const sTilemaps[REGIONMAP_COUNT] = {
++        sKanto_Tilemap, sSevii123_Tilemap, sSevii45_Tilemap, sSevii67_Tilemap,
++    };
++
++    *mapGfx = sRegionMap_Gfx;
++    *mapTilemap = sTilemaps[region < REGIONMAP_COUNT ? region : REGIONMAP_KANTO];
++    *bgGfx = sBackground_Gfx;
++    *bgTilemap = sBackground_Tilemap;
++    *pal = sRegionMap_Pal;
++    *playerGfx = gSaveBlock2Ptr->playerGender == FEMALE ? sPlayerIcon_Leaf : sPlayerIcon_Red;
++    *playerPal = gSaveBlock2Ptr->playerGender == FEMALE ? sPlayerIcon_LeafPal : sPlayerIcon_RedPal;
++}
++
++// The player's map (REGIONMAP_*) and cell; a cell's centre is at
++// (8 * x + 36, 8 * y + 36) on the 240x160 map screen.
++u8 Port_GetRegionMapPlayer(s16 *x, s16 *y)
++{
++    struct MapCursor cursor = {0};
++    struct MapCursor *saved = sMapCursor;
++    u8 region = REGIONMAP_KANTO;
++    int i, j;
++
++    if (gMapHeader.regionMapSectionId >= SEVII_MAPSEC_START)
++    {
++        for (j = 0; j < (int)NELEMS(sSeviiMapsecs) && region == REGIONMAP_KANTO; j++)
++            for (i = 0; sSeviiMapsecs[j][i] != MAPSEC_NONE; i++)
++                if (gMapHeader.regionMapSectionId == sSeviiMapsecs[j][i])
++                {
++                    region = j + 1;
++                    break;
++                }
++    }
++    // The map screen's own state is read too (the selected map).
++    {
++        static struct RegionMap sPortRegionMap;
++        struct RegionMap *savedMap = sRegionMap;
++
++        sPortRegionMap.selectedRegion = region;
++        sPortRegionMap.playersRegion = region;
++        sRegionMap = &sPortRegionMap;
++        sMapCursor = &cursor;
++        GetPlayerPositionOnRegionMap_HandleOverrides();
++        sMapCursor = saved;
++        sRegionMap = savedMap;
++    }
++    *x = cursor.x;
++    *y = cursor.y;
++    return region;
++}
++#endif
+diff --git a/src/shop.c b/src/shop.c
+index 3d6b1cde422435be57497efb98479da067db38fa..fa44887529516d4d8df25e8a813e3c1c10df1327 100644
+--- a/src/shop.c
++++ b/src/shop.c
+@@ -29,6 +29,9 @@
+ #include "constants/items.h"
+ #include "constants/game_stat.h"
+ #include "constants/field_weather.h"
++#ifdef PORT_BRIDGE
++#include "port_platform.h"
++#endif
+ 
+ #define tItemCount data[1]
+ #define tItemId data[5]
+@@ -338,6 +341,9 @@ static void ShowShopMenuAfterExitingBuyOrSellMenu(u8 taskId)
+ 
+ static void CB2_BuyMenu(void)
+ {
++#ifdef PORT_BRIDGE
++    Port_MenuOnBottom(); // shown on the 3DS bottom screen
++#endif
+     RunTasks();
+     AnimateSprites();
+     BuildOamBuffer();
 diff --git a/src/slot_machine.c b/src/slot_machine.c
 index aa5d4c67ef16adcfe61cdf6587e950ea41fe3bcb..10650370761a6fa3508a73a10d14eee433267f80 100644
 --- a/src/slot_machine.c
@@ -2088,6 +2329,30 @@ index 75f0e6743a2a84c906090df230bac7accb8dbe84..7a24607753f0578947c3509b5027ca7a
                  }
              }
              if (data[14])
+diff --git a/src/tm_case.c b/src/tm_case.c
+index 8975761a51626fe62533fab389ca4ed704f74434..8114a1ba36a3f7db8e393e0abd7d420930e005df 100644
+--- a/src/tm_case.c
++++ b/src/tm_case.c
+@@ -24,6 +24,9 @@
+ #include "constants/items.h"
+ #include "constants/songs.h"
+ #include "constants/quest_log.h"
++#ifdef PORT_BRIDGE
++#include "port_platform.h"
++#endif
+ 
+ // Any item in the TM Case with nonzero importance is considered an HM
+ #define IS_HM(itemId) (ItemId_GetImportance(itemId) != 0)
+@@ -432,6 +435,9 @@ void InitTMCase(u8 type, void (* exitCallback)(void), bool8 allowSelectClose)
+ 
+ static void CB2_Idle(void)
+ {
++#ifdef PORT_BRIDGE
++    Port_MenuOnBottom(); // shown on the 3DS bottom screen
++#endif
+     RunTasks();
+     AnimateSprites();
+     BuildOamBuffer();
 diff --git a/src/trade_scene.c b/src/trade_scene.c
 index 98d129039a8cb641eacf45d7d3e1228800a838b1..eb62f8b475881a01bf55970f32281e34c1d0ee9f 100644
 --- a/src/trade_scene.c
@@ -2123,10 +2388,30 @@ index 98d129039a8cb641eacf45d7d3e1228800a838b1..eb62f8b475881a01bf55970f32281e34
  
      if (sWirelessSignalAnimParams[tIdx][0] == 0 && tCounter == 0)
 diff --git a/src/trainer_card.c b/src/trainer_card.c
-index ab959d6c45b89fed49fa1db3fb970e0d40044c30..0316d80bbad5a2b3ed1b808dca998a11fd81ee6e 100644
+index ab959d6c45b89fed49fa1db3fb970e0d40044c30..7351439066540681240ffa2baf70e9dfecda8822 100644
 --- a/src/trainer_card.c
 +++ b/src/trainer_card.c
-@@ -475,6 +475,12 @@ static void CloseTrainerCard(u8 taskId)
+@@ -19,6 +19,9 @@
+ #include "constants/songs.h"
+ #include "constants/game_stat.h"
+ #include "constants/trainers.h"
++#ifdef PORT_BRIDGE
++#include "port_platform.h"
++#endif
+ 
+ // Trainer Card Strings
+ enum
+@@ -465,6 +468,9 @@ static void HBlankCB_TrainerCard(void)
+ 
+ static void CB2_TrainerCard(void)
+ {
++#ifdef PORT_BRIDGE
++    Port_MenuOnBottom(); // shown on the 3DS bottom screen
++#endif
+     RunTasks();
+     AnimateSprites();
+     BuildOamBuffer();
+@@ -475,6 +481,12 @@ static void CloseTrainerCard(u8 taskId)
  {
      SetMainCallback2(sTrainerCardDataPtr->callback2);
      FreeAllWindowBuffers();

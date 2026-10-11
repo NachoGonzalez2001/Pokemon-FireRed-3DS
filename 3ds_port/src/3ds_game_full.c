@@ -24,6 +24,7 @@
 #include "overworld.h"
 #include "gba/flash_internal.h"
 #include "gpu_regs.h"
+#include "palette.h"
 #include "cgb_audio.h"
 #include "sound.h"
 #include "sound_mixer.h"
@@ -57,6 +58,7 @@ void DrawFrame(uint16_t *pixels);
 static u32 sFrames;
 static bool sStarted;
 static uint16_t sFrame[CTR_SOFT_WIDTH * CTR_SOFT_HEIGHT];
+static uint16_t sWorld[CTR_SOFT_WIDTH * CTR_SOFT_HEIGHT];
 
 /*
  * The CGB channels are generated in software beside the sample mixer, and they
@@ -215,7 +217,19 @@ void CtrGame_VBlank(void)
     PORT_PROF_BEGIN(lines);
     DrawFrame(sFrame);
     PORT_PROF_END(lines, PORT_PROF_LINES);
-    CtrSoftVideo_SetFrame(sFrame);
+    if (CtrBottom_TakesGameFrame())
+    {
+        /* A menu screen: its picture goes below, the world stays above. */
+        CtrBottom_ShowGameFrame(sFrame);
+        CtrSoftVideo_SetFrame(sWorld);
+    }
+    else
+    {
+        CtrSoftVideo_SetFrame(sFrame);
+        /* The last picture not mid-fade is what a menu leaves on the top. */
+        if (!gPaletteFade.active)
+            memcpy(sWorld, sFrame, sizeof(sWorld));
+    }
 #ifdef CTR_FRAME_DUMP
     /* Diagnostic: the rendered frame and the registers the renderer read,
      * as they stand at frame CTR_FRAME_DUMP (tools: raw BGR555, 240x160). */

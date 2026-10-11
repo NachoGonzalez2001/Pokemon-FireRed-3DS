@@ -121,4 +121,8 @@ void Port_SetAssetDebugEx(u16 tag, u16 a, u16 b, u16 c, u16 d);
  */
 #define PORT_RES(p) ((__typeof__(&(p)[0]))Port_ResolveAssetPointer(p))
 
+/* A menu screen's main callback calls this every frame it runs: its picture
+ * goes to the bottom screen while the top screen holds the world. */
+void Port_MenuOnBottom(void);
+
 #endif

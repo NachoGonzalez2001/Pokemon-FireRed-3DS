@@ -33,6 +33,10 @@ uint16_t CtrBottom_InjectedKeys(void);
 /* The player's keys as the game should see them: none while the button
  * column has the X focus, or until the keys that left it are let go. */
 uint16_t CtrBottom_FilterKeys(uint16_t held);
+/* A menu screen's picture: whether this frame's belongs below, and showing it
+ * (240x160 BGR555). */
+bool CtrBottom_TakesGameFrame(void);
+void CtrBottom_ShowGameFrame(const uint16_t *frame);
 
 /*
  * The light green the bottom screen's sections sit on (its own screens, and
