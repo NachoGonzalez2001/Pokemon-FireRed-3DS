@@ -238,8 +238,9 @@ void CtrGame_VBlank(void)
     else
     {
         CtrSoftVideo_SetFrame(sFrame);
-        /* The last picture not mid-fade is what a menu leaves on the top. */
-        if (!gPaletteFade.active)
+        /* The last picture neither fading nor faded is what a menu leaves on
+         * the top: a finished fade to black is no longer active, but black. */
+        if (!gPaletteFade.active && gPaletteFade.y == 0)
             memcpy(sWorld, sFrame, sizeof(sWorld));
     }
 #ifdef CTR_FRAME_DUMP

@@ -438,6 +438,7 @@ static void Snapshot(ViewState *s)
 #define C_PLATE    Rgb(31, 30, 28)
 #define C_PLATE_ON Rgb(31, 24, 20)
 #define C_PLATE_OFF Rgb(23, 22, 21)
+#define C_LETTERBOX Rgb(3, 4, 6)
 
 /* ------------------------------------------------------------------------ */
 /* The region map                                                           */
@@ -856,8 +857,7 @@ static void DrawPad(void)
         DrawPlate(i, Ascii(sPadLabels[i]), TRUE, sPadPressed == i);
 }
 
-/* The 240x160 picture at (0, GAME_Y); the rows above and below carry its
- * first and last rows on, dimmed. */
+/* The 240x160 picture at (0, GAME_Y), on a dark ground above and below. */
 void CtrBottom_ShowGameFrame(const u16 *frame)
 {
     if (!sGameShown)
@@ -869,7 +869,7 @@ void CtrBottom_ShowGameFrame(const u16 *frame)
     for (int x = 0; x < GBA_W; x++)
     {
         u16 *col = sCanvas + x * H + (H - 1);
-        u16 top = Dim(sLut[frame[x] & 0x7FFF]), bottom = Dim(sLut[frame[(GBA_H - 1) * GBA_W + x] & 0x7FFF]);
+        u16 top = C_LETTERBOX, bottom = C_LETTERBOX;
         int y = 0;
 
         for (; y < GAME_Y; y++)

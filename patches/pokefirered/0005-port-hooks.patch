@@ -1116,6 +1116,22 @@ index 8f52ead00ec1e34df74dadb71aa23439d507b073..0d7c8e49d88aa0e2134ea43effb00c23
      ScheduleBgCopyTilemapToVram(1);
  }
  
+diff --git a/src/librfu_stwi.c b/src/librfu_stwi.c
+index 7b3b486cae2f249adf652cfb6ceca7565e8fd2f6..3afd9349fd648202a6ffc0c18333fea4c8cc4d6a 100644
+--- a/src/librfu_stwi.c
++++ b/src/librfu_stwi.c
+@@ -66,8 +66,11 @@ void AgbRFU_SoftReset(void)
+     *timerH = 0;
+     *timerL = 0;
+     *timerH = TIMER_ENABLE | TIMER_1024CLK;
++#ifndef PORTABLE
++    // No timer counts here: the wait never ends.
+     while (*timerL <= 0x11)
+         REG_RCNT = 0x80A2;
++#endif
+     *timerH = 3;
+     REG_RCNT = 0x80A0;
+     REG_SIOCNT = SIO_INTR_ENABLE | SIO_32BIT_MODE | SIO_115200_BPS;
 diff --git a/src/link.c b/src/link.c
 index 84506bf0e9a2374bbd8b06c6e78e03905927d17a..17d7b91305762a7ee6dfa7d0fd0b85ceafcd8114 100644
 --- a/src/link.c
@@ -1506,7 +1522,7 @@ index 84f23428f2e7b2802bcadb497d4ca401af6c0531..d6125134eebfd3bc950061d1e82568fe
      CpuCopy16(src, &gPlttBufferFaded[offset], size);
  }
 diff --git a/src/party_menu.c b/src/party_menu.c
-index 7f3a881e6c56773aee03da475c9a1adc50530223..5aa2b2f6c0b8b96a78490bc6ec8c9b06f3b3a5a5 100644
+index 7f3a881e6c56773aee03da475c9a1adc50530223..10e7db5d876f82d8fbbc37b8b534ff73b3a38810 100644
 --- a/src/party_menu.c
 +++ b/src/party_menu.c
 @@ -418,6 +418,9 @@ COMMON_DATA void (*gItemUseCB)(u8, TaskFunc) = NULL;
@@ -1529,6 +1545,16 @@ index 7f3a881e6c56773aee03da475c9a1adc50530223..5aa2b2f6c0b8b96a78490bc6ec8c9b06
      RunTasks();
      AnimateSprites();
      BuildOamBuffer();
+@@ -2174,6 +2180,9 @@ static void BlitBitmapToPartyWindow(u8 windowId, const u8 *tileNums, u8 menuBoxW
+     u8 *pixels = AllocZeroed(height * width * 32);
+     u8 i, j;
+ 
++#ifdef PORT_BRIDGE
++    tileNums = PORT_RES(tileNums); // the slot tilemaps are INCBINs, indexed here
++#endif
+     if (pixels != NULL)
+     {
+         for (i = 0; i < height; ++i)
 diff --git a/src/platform/bios.c b/src/platform/bios.c
 index be80475445506a268aff221e6a006a4092279c30..d22580208a0d999798d5f52e0e266790543a84e3 100644
 --- a/src/platform/bios.c
@@ -1771,6 +1797,32 @@ index 01960d240f4956d9f0d854b1bba29785d946a878..227884da497017cb430190445af0037e
      switch (sPokedexScreenData->data[0])
      {
      case 0:
+diff --git a/src/pokemon_icon.c b/src/pokemon_icon.c
+index 037b1bfa82189906b205fe1a50a9276a4e2041e6..15142cffca54fd3fcd7cee1434657c902b9b4219 100644
+--- a/src/pokemon_icon.c
++++ b/src/pokemon_icon.c
+@@ -4,6 +4,12 @@
+ #include "pokemon_icon.h"
+ #include "graphics.h"
+ 
++#ifdef PORT_BRIDGE
++#include "port_platform.h"
++#else
++#define PORT_RES(p) (p)
++#endif
++
+ #define POKE_ICON_BASE_PAL_TAG 56000
+ 
+ struct MonIconSpriteTemplate
+@@ -1228,7 +1234,7 @@ u8 UpdateMonIconFrame(struct Sprite *sprite)
+                 // pointer arithmetic is needed to get the correct pointer to perform the sprite copy on.
+                 // because sprite->images is a struct def, it has to be casted to (u8 *) before any
+                 // arithmetic can be performed.
+-                (u8 *)sprite->images + (sSpriteImageSizes[sprite->oam.shape][sprite->oam.size] * frame),
++                (u8 *)PORT_RES((const u8 *)sprite->images) + (sSpriteImageSizes[sprite->oam.shape][sprite->oam.size] * frame),
+                 (u8 *)(OBJ_VRAM0 + sprite->oam.tileNum * TILE_SIZE_4BPP),
+                 sSpriteImageSizes[sprite->oam.shape][sprite->oam.size]);
+             sprite->animDelayCounter = sprite->anims[sprite->animNum][sprite->animCmdIndex].frame.duration & 0xFF;
 diff --git a/src/pokemon_special_anim_scene.c b/src/pokemon_special_anim_scene.c
 index bdb070c96558c43eafb50c8619a85e9a9090d348..122d9b3eee02af00782cc9e4f74209309c3a44fd 100644
 --- a/src/pokemon_special_anim_scene.c
@@ -1789,7 +1841,7 @@ index bdb070c96558c43eafb50c8619a85e9a9090d348..122d9b3eee02af00782cc9e4f7420930
      spritePalette.tag = paletteTag;
      LoadCompressedSpriteSheet(&spriteSheet);
 diff --git a/src/pokemon_storage_system_tasks.c b/src/pokemon_storage_system_tasks.c
-index fdc5250c347a304547f613b5ed8685157341345a..2725c4d70611e002d04b1cfdffeac35a9cc5d1f3 100644
+index fdc5250c347a304547f613b5ed8685157341345a..3a04f9018661b13266576a73b5427f842f862487 100644
 --- a/src/pokemon_storage_system_tasks.c
 +++ b/src/pokemon_storage_system_tasks.c
 @@ -25,6 +25,15 @@
@@ -1818,7 +1870,19 @@ index fdc5250c347a304547f613b5ed8685157341345a..2725c4d70611e002d04b1cfdffeac35a
      RunTasks();
      DoScheduledBgTilemapCopiesToVram();
      ScrollBackground();
-@@ -2485,9 +2497,9 @@ static void SetPartySlotTilemap(u8 pos, bool8 isFilled)
+@@ -2104,6 +2116,11 @@ static void FreePokeStorageData(void)
+ {
+     TilemapUtil_Free();
+     MultiMove_Free();
++#ifdef PORTABLE
++    // Blanking callbacks read this until the next screen sets its own.
++    SetVBlankCallback(NULL);
++    SetHBlankCallback(NULL);
++#endif
+     FREE_AND_SET_NULL(gStorage);
+     FreeAllWindowBuffers();
+ }
+@@ -2485,9 +2502,9 @@ static void SetPartySlotTilemap(u8 pos, bool8 isFilled)
      const u16 *tilemap;
  
      if (isFilled)
@@ -1831,7 +1895,7 @@ index fdc5250c347a304547f613b5ed8685157341345a..2725c4d70611e002d04b1cfdffeac35a
      index = 3 * (3 * (pos - 1) + 1);
      index *= 4;
 diff --git a/src/pokemon_summary_screen.c b/src/pokemon_summary_screen.c
-index b3e3c7763d3e1c9cf2185cd7344fdf49ba78ae85..0d1e2eb1b6e6542f5eb3c6bc5e172a9dbf3efa84 100644
+index b3e3c7763d3e1c9cf2185cd7344fdf49ba78ae85..78c36138ce462a050209c74f7d774f7b4ea72a6c 100644
 --- a/src/pokemon_summary_screen.c
 +++ b/src/pokemon_summary_screen.c
 @@ -625,6 +625,12 @@ static const u32 sBgTilemap_MovesPage[] = INCBIN_U32( "graphics/summary_screen/m
@@ -1865,7 +1929,18 @@ index b3e3c7763d3e1c9cf2185cd7344fdf49ba78ae85..0d1e2eb1b6e6542f5eb3c6bc5e172a9d
          }
  
          break;
-@@ -2995,6 +3001,9 @@ static void Task_DestroyResourcesOnExit(u8 taskId)
+@@ -2989,12 +2995,20 @@ static void Task_DestroyResourcesOnExit(u8 taskId)
+ 
+     sLastViewedMonIndex = GetLastViewedMonIndex();
+ 
++#ifdef PORTABLE
++    // Its VBlank callback reads this data until the next screen sets its own.
++    SetVBlankCallback(NULL);
++    SetHBlankCallback(NULL);
++#endif
+     FREE_AND_SET_NULL_IF_SET(sMonSummaryScreen);
+     FREE_AND_SET_NULL_IF_SET(sMonSkillsPrinterXpos);
+ }
  
  static void CB2_RunPokemonSummaryScreen(void)
  {
@@ -1875,7 +1950,7 @@ index b3e3c7763d3e1c9cf2185cd7344fdf49ba78ae85..0d1e2eb1b6e6542f5eb3c6bc5e172a9d
      RunTasks();
      AnimateSprites();
      BuildOamBuffer();
-@@ -5078,13 +5087,13 @@ static void Task_PokeSum_SwitchDisplayedPokemon(u8 taskId)
+@@ -5078,13 +5092,13 @@ static void Task_PokeSum_SwitchDisplayedPokemon(u8 taskId)
  
          if (IsMonShiny(&sMonSummaryScreen->currentMon) == TRUE && !sMonSummaryScreen->isEgg)
          {
@@ -2079,7 +2154,7 @@ index 3d6b1cde422435be57497efb98479da067db38fa..fa44887529516d4d8df25e8a813e3c1c
      AnimateSprites();
      BuildOamBuffer();
 diff --git a/src/slot_machine.c b/src/slot_machine.c
-index aa5d4c67ef16adcfe61cdf6587e950ea41fe3bcb..10650370761a6fa3508a73a10d14eee433267f80 100644
+index aa5d4c67ef16adcfe61cdf6587e950ea41fe3bcb..6e87bf1a91bdf9959009123bdf483972fecd9b51 100644
 --- a/src/slot_machine.c
 +++ b/src/slot_machine.c
 @@ -13,6 +13,12 @@
@@ -2095,7 +2170,19 @@ index aa5d4c67ef16adcfe61cdf6587e950ea41fe3bcb..10650370761a6fa3508a73a10d14eee4
  #define NUM_REELS 3
  #define REEL_LENGTH 21 // Total number of icons per reel
  
-@@ -2438,7 +2444,7 @@ static void Task_FlashWinningLine(u8 taskId)
+@@ -1796,6 +1802,11 @@ static void DestroyGfxManager(void)
+ {
+     if (sSlotMachineGfxManager != NULL)
+     {
++#ifdef PORTABLE
++        // Blanking callbacks read this until the next screen sets its own.
++        SetVBlankCallback(NULL);
++        SetHBlankCallback(NULL);
++#endif
+         Free(sSlotMachineGfxManager);
+         sSlotMachineGfxManager = NULL;
+     }
+@@ -2438,7 +2449,7 @@ static void Task_FlashWinningLine(u8 taskId)
          }
          
          // Restore payout lights to normal color
@@ -2671,7 +2758,7 @@ index 8975761a51626fe62533fab389ca4ed704f74434..8114a1ba36a3f7db8e393e0abd7d4209
      AnimateSprites();
      BuildOamBuffer();
 diff --git a/src/trade_scene.c b/src/trade_scene.c
-index 98d129039a8cb641eacf45d7d3e1228800a838b1..eb62f8b475881a01bf55970f32281e34c1d0ee9f 100644
+index 98d129039a8cb641eacf45d7d3e1228800a838b1..739cb3fef8a92879c2ac1544cb79d4a650c4f9d1 100644
 --- a/src/trade_scene.c
 +++ b/src/trade_scene.c
 @@ -477,6 +477,12 @@ static const union AffineAnimCmd *const sAffineAnims_CrossingMonPics[] = {
@@ -2687,7 +2774,43 @@ index 98d129039a8cb641eacf45d7d3e1228800a838b1..eb62f8b475881a01bf55970f32281e34
  static const struct WindowTemplate sTradeMessageWindowTemplates[] = {
      {
          .bg = 0,
-@@ -2825,14 +2831,14 @@ static void Task_AnimateWirelessSignal(u8 taskId)
+@@ -1795,6 +1801,11 @@ static bool8 DoTradeAnim_Cable(void)
+                 Free(GetBgTilemapBuffer(1));
+                 Free(GetBgTilemapBuffer(0));
+                 FreeMonSpritesGfx();
++#ifdef PORTABLE
++                // Blanking callbacks read this until the next screen sets its own.
++                SetVBlankCallback(NULL);
++                SetHBlankCallback(NULL);
++#endif
+                 FREE_AND_SET_NULL(sTradeAnim);
+             }
+             SetMainCallback2(CB2_ReturnToField);
+@@ -2295,6 +2306,11 @@ static bool8 DoTradeAnim_Wireless(void)
+                 Free(GetBgTilemapBuffer(1));
+                 Free(GetBgTilemapBuffer(0));
+                 FreeMonSpritesGfx();
++#ifdef PORTABLE
++                // Blanking callbacks read this until the next screen sets its own.
++                SetVBlankCallback(NULL);
++                SetHBlankCallback(NULL);
++#endif
+                 FREE_AND_SET_NULL(sTradeAnim);
+             }
+             SetMainCallback2(CB2_ReturnToField);
+@@ -2760,6 +2776,11 @@ static void CB2_FreeTradeAnim(void)
+         Free(GetBgTilemapBuffer(1));
+         Free(GetBgTilemapBuffer(0));
+         FreeMonSpritesGfx();
++#ifdef PORTABLE
++        // Blanking callbacks read this until the next screen sets its own.
++        SetVBlankCallback(NULL);
++        SetHBlankCallback(NULL);
++#endif
+         FREE_AND_SET_NULL(sTradeAnim);
+         if (gWirelessCommType != 0)
+             DestroyWirelessStatusIndicatorSprite();
+@@ -2825,14 +2846,14 @@ static void Task_AnimateWirelessSignal(u8 taskId)
          if (paletteIdx == 0x100)
              LoadPalette(sWirelessSignalAnimPals_Off, BG_PLTT_ID(3), PLTT_SIZE_4BPP);
          else
@@ -2741,6 +2864,21 @@ index ab959d6c45b89fed49fa1db3fb970e0d40044c30..7351439066540681240ffa2baf70e9df
      FREE_AND_SET_NULL(sTrainerCardDataPtr);
      DestroyTask(taskId);
  }
+diff --git a/src/union_room.c b/src/union_room.c
+index 91bd92c99a908b0fae562a92b0bec2d8eb7f9a78..9bd9cca0eb0f73f2a3de017480dddca611871e59 100644
+--- a/src/union_room.c
++++ b/src/union_room.c
+@@ -3517,8 +3517,9 @@ void InitUnionRoom(void)
+     struct WirelessLink_URoom * data;
+ 
+     sUnionRoomPlayerName[0] = EOS;
+-#if REVISION >= 0xA
++#if REVISION >= 0xA || defined(PORTABLE)
+     // The rest of this function is stubbed out, as if QL_IS_PLAYBACK_STATE is always true.
++    // The 3DS has no wireless adapter: looking for players would wait on it forever.
+ #else
+     if (QL_IS_PLAYBACK_STATE)
+         return;
 diff --git a/src/union_room_chat_objects.c b/src/union_room_chat_objects.c
 index d7e26a46a01a504e7afdfda4ff81cc53c0dcdc0d..43f8238ec660ac217aa7a20af573aa5ce7199ad9 100644
 --- a/src/union_room_chat_objects.c
