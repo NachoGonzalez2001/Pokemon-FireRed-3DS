@@ -209,7 +209,11 @@ void CtrGame_VBlank(void)
 #ifndef CTR_FRAME_DUMP_COUNT
 #define CTR_FRAME_DUMP_COUNT 8
 #endif
-    if (sFrames % CTR_FRAME_DUMP == 0 && sFrames / CTR_FRAME_DUMP <= CTR_FRAME_DUMP_COUNT)
+#ifndef CTR_FRAME_DUMP_START
+#define CTR_FRAME_DUMP_START 0
+#endif
+    if (sFrames >= CTR_FRAME_DUMP_START && (sFrames - CTR_FRAME_DUMP_START) % CTR_FRAME_DUMP == 0
+     && (sFrames - CTR_FRAME_DUMP_START) / CTR_FRAME_DUMP <= CTR_FRAME_DUMP_COUNT)
     {
         char name[64];
         FILE *file;

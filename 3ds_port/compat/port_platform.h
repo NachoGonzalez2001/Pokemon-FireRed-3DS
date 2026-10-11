@@ -113,4 +113,12 @@ void Port_SetAudioDebugEx(u16 tag, u16 a, u16 b, u16 c, u16 d);
 void Port_SetAssetDebug(u16 tag, u16 a, u16 b, u16 c);
 void Port_SetAssetDebugEx(u16 tag, u16 a, u16 b, u16 c, u16 d);
 
+/*
+ * An INCBIN here is a stub the port resolves: an offset or index applied to
+ * the stub lands in unrelated memory. Resolve the base first, then index:
+ * PORT_RES(gSomeGfx)[i], PORT_RES(table->tiles) + offset. Arrays decay to a
+ * pointer to their first element.
+ */
+#define PORT_RES(p) ((__typeof__(&(p)[0]))Port_ResolveAssetPointer(p))
+
 #endif
