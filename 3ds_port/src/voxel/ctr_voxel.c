@@ -1692,9 +1692,13 @@ bool CtrVoxel_Init(void)
     step = "tree texture " VOXEL_TREE_TEXTURE_PATH;
     if (!C3D_TexInit(&sTreeAtlas, VOXEL_TREE_TEXTURE_DIM, VOXEL_TREE_TEXTURE_DIM, GPU_RGBA5551))
         goto fail;
+    /* Optional: a build without generated scenery has no tree models, and the
+     * trees stay drawn on the ground as the map draws them. */
+    memset(sTreeAtlas.data, 0, VOXEL_TREE_TEXTURE_DIM * VOXEL_TREE_TEXTURE_DIM * sizeof(uint16_t));
     file = fopen(VOXEL_TREE_TEXTURE_PATH, "rb");
     if (file == NULL)
-        goto fail;
+        CtrLog_Write(CTR_LOG_VIDEO, "VOXEL: %s absent, trees stay flat", VOXEL_TREE_TEXTURE_PATH);
+    else
     {
         size_t bytes = VOXEL_TREE_TEXTURE_DIM * VOXEL_TREE_TEXTURE_DIM * sizeof(uint16_t);
         bool loaded = fread(sTreeAtlas.data, 1, bytes, file) == bytes;

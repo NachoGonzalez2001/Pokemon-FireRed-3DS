@@ -51,7 +51,9 @@ GAMEFLAGS += -D$(GAME_VERSION) -DREVISION=$(GAME_REVISION) -D$(GAME_LANGUAGE)
 GAMEFLAGS += -iquote include -iquote ../include -iquote ../include/constants -iquote ..
 # VOXEL=0 compiles the voxel overworld out entirely. Off until the FireRed
 # voxel world exists.
-VOXEL ?= 0
+# Per-machine switches that must be known this early (VOXEL=1), never committed.
+-include local-early.mk
+VOXEL ?= 1
 CPPFLAGS += -DCTR_VOXEL_ENABLED=$(VOXEL)
 # GPU_PRESENT=1 draws the software-rendered frame on the top screen through
 # citro3d (the path the 3D overworld draws into); 0 keeps the CPU copy.

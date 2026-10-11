@@ -584,8 +584,8 @@ static void DrawMap(const ViewState *s)
 /* The options screen                                                       */
 /* ------------------------------------------------------------------------ */
 
-/* The 3D overworld is still to come: its settings show, greyed. */
-#define VOXEL_READY 0
+/* The 3D overworld's settings, live when the build has it. */
+#define VOXEL_READY CTR_VOXEL_ENABLED
 
 static bool8 OptionLive(int row)
 {
@@ -617,8 +617,8 @@ static u8 OptionGet(int row)
     case OPT_FRAME:        return gSaveBlock2Ptr->optionsWindowFrameType;
     case OPT_RUN:          return CtrSettings_RunAlways();
     case OPT_VOXEL:        return CtrSettings_Voxel();
-    case OPT_VOXEL_ANGLE:  return CtrSettings_GetInt("voxel_angle", 2);
-    case OPT_VOXEL_ZOOM:   return CtrSettings_GetInt("voxel_zoom_step", 2);
+    case OPT_VOXEL_ANGLE:  return CtrSettings_VoxelPitch();
+    case OPT_VOXEL_ZOOM:   return CtrSettings_VoxelZoom();
     case OPT_VOXEL_BLUR:   return CtrSettings_VoxelBlur();
     default:               return CtrSettings_VoxelBattle();
     }
@@ -639,8 +639,8 @@ static void OptionSet(int row, u8 value)
     case OPT_FRAME:        gSaveBlock2Ptr->optionsWindowFrameType = value; break;
     case OPT_RUN:          CtrSettings_SetRunAlways(value); break;
     case OPT_VOXEL:        CtrSettings_SetVoxel(value); break;
-    case OPT_VOXEL_ANGLE:  CtrSettings_SetInt("voxel_angle", value); break;
-    case OPT_VOXEL_ZOOM:   CtrSettings_SetInt("voxel_zoom_step", value); break;
+    case OPT_VOXEL_ANGLE:
+    case OPT_VOXEL_ZOOM:   break; /* stepped, see OptionStep */
     case OPT_VOXEL_BLUR:   CtrSettings_SetVoxelBlur(value); break;
     default:               CtrSettings_SetVoxelBattle(value); break;
     }
@@ -653,7 +653,13 @@ static void OptionStep(int row, int dir)
     if (!OptionLive(row))
         return;
     PlaySE(SE_SELECT);
-    OptionSet(row, (u8)((OptionGet(row) + count + dir) % count));
+    /* The camera's angle (degrees) and zoom (percent) step by the settings' own. */
+    if (row == OPT_VOXEL_ANGLE)
+        CtrSettings_StepVoxelPitch(dir);
+    else if (row == OPT_VOXEL_ZOOM)
+        CtrSettings_StepVoxelZoom(dir);
+    else
+        OptionSet(row, (u8)((OptionGet(row) + count + dir) % count));
 }
 
 static const u8 *OptionName(int row)
@@ -693,8 +699,12 @@ static const u8 *OptionValue(int row, u8 value)
         ConvertIntToDecimalStringN(p, value + 1, STR_CONV_MODE_LEFT_ALIGN, 2);
         return buf;
     case OPT_VOXEL_ANGLE:
+        ConvertIntToDecimalStringN(buf, value, STR_CONV_MODE_LEFT_ALIGN, 3);
+        return buf;
     case OPT_VOXEL_ZOOM:
-        ConvertIntToDecimalStringN(buf, value + 1, STR_CONV_MODE_LEFT_ALIGN, 2);
+        p = ConvertIntToDecimalStringN(buf, value, STR_CONV_MODE_LEFT_ALIGN, 3);
+        *p++ = CHAR_PERCENT;
+        *p = EOS;
         return buf;
     default:
         if (!OptionLive(row))

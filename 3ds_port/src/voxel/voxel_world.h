@@ -144,7 +144,8 @@ uint32_t VoxelWorld_LiveDigest(void);
  */
 const uint16_t *Voxel_ResolveMap(const void *layout);
 const uint16_t *Voxel_ResolveMetatiles(const void *tileset);
-const uint16_t *Voxel_ResolveAttributes(const void *tileset);
+/* FireRed: 32-bit attributes, the behaviour in bits 0-8. */
+const uint32_t *Voxel_ResolveAttributes(const void *tileset);
 const uint16_t *Voxel_ResolvePalettes(const void *tileset);
 /* Number of metatiles the tileset's metatile asset actually contains. */
 unsigned Voxel_MetatileCount(const void *tileset, unsigned limit);

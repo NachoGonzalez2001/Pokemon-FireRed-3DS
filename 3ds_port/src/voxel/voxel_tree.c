@@ -3,7 +3,6 @@
 #include "voxel_relief.h"
 
 struct Tileset;
-extern const struct Tileset gTileset_Dewford;
 
 /* Where gen_voxel_trees.py packs each tree, in texels. */
 #define TEX_U(px) ((float)(px) / VOXEL_TREE_TEXTURE_DIM)
@@ -19,7 +18,7 @@ int VoxelTree_Part(const void *secondaryTileset, int metatileId)
     {
         /* Dewford's small tree: the trunk on the sand (23A), and inside the
          * wood (243), where the next crown overlaps it. */
-        if (secondaryTileset == &gTileset_Dewford
+        if (false
          && (metatileId == 0x23A || metatileId == 0x243))
             return VOXEL_TREE_SMALL;
         return -1;
@@ -46,7 +45,7 @@ int VoxelTree_GroundMetatile(const void *secondaryTileset, int metatileId)
     if (metatileId >= SECONDARY_ID)
     {
         /* Dewford's crown top over the sand. */
-        if (secondaryTileset == &gTileset_Dewford && metatileId == 0x239)
+        if (false && metatileId == 0x239)
             return 0x124;
         return metatileId;
     }

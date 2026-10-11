@@ -33,10 +33,15 @@
 #endif
 
 extern const struct Tileset gTileset_General;
-extern const struct Tileset gTileset_Fortree;
 extern const struct Tileset gTileset_GenericBuilding;
 
 #include <string.h>
+
+/* FireRed: the behaviour is the low 9 bits of a 32-bit attribute. */
+#define UNPACK_BEHAVIOR(attr) ((u8)((attr) & 0x1FF))
+
+/* FireRed names the live map grid VMap. */
+#define gBackupMapLayout VMap
 
 static VoxelMapInstance sInstances[MAX_VOXEL_MAP_INSTANCES];
 static unsigned sInstanceCount;
@@ -116,7 +121,7 @@ const uint16_t *Voxel_ResolveMetatiles(const void *tilesetPtr)
  * memo a mesh rebuild spends more time finding the attribute table than
  * reading it.
  */
-const uint16_t *Voxel_ResolveAttributes(const void *tilesetPtr)
+const uint32_t *Voxel_ResolveAttributes(const void *tilesetPtr)
 {
     const struct Tileset *tileset = tilesetPtr;
     const void *resolved;
@@ -276,7 +281,9 @@ bool VoxelWorld_IsMapAvailable(void)
         return false;
     if (gBackupMapLayout.map == NULL)
         return false;
-    return gMain.callback2 == CB2_Overworld || gMain.callback2 == CB2_OverworldBasic;
+    /* FireRed keeps CB2_Overworld static: the field is the one with its
+     * callback1, CB2_OverworldBasic standing in while a script or effect runs. */
+    return gMain.callback1 == CB1_Overworld || gMain.callback2 == CB2_OverworldBasic;
 }
 
 bool VoxelWorld_IsBattleMapAvailable(void)
@@ -462,9 +469,9 @@ static u16 GetRawBlock(int worldX, int worldY, const VoxelMapInstance **outInst)
         int bx = localX + MAP_OFFSET;
         int by = localY + MAP_OFFSET;
 
-        if (bx >= 0 && bx < gBackupMapLayout.width
-         && by >= 0 && by < gBackupMapLayout.height)
-            return gBackupMapLayout.map[bx + gBackupMapLayout.width * by];
+        if (bx >= 0 && bx < gBackupMapLayout.Xsize
+         && by >= 0 && by < gBackupMapLayout.Ysize)
+            return gBackupMapLayout.map[bx + gBackupMapLayout.Xsize * by];
         return 0;
     }
     else
@@ -487,9 +494,9 @@ unsigned VoxelWorld_GetCollision(int worldX, int worldY)
     return (GetRawBlock(worldX, worldY, NULL) & MAPGRID_COLLISION_MASK) >> MAPGRID_COLLISION_SHIFT;
 }
 
-static u16 GetMetatileAttribute(const VoxelMapInstance *inst, int metatileId)
+static u32 GetMetatileAttribute(const VoxelMapInstance *inst, int metatileId)
 {
-    const uint16_t *attributes;
+    const uint32_t *attributes;
     unsigned index;
 
     if (inst == NULL)
@@ -532,7 +539,7 @@ bool VoxelWorld_IsVisibleReflectiveSurface(int worldX, int worldY)
      * MB_PUDDLE behavior. The original 2D ground effect treats it as nearby
      * water; a 3D surface reflection would instead be visible on the grass.
      * Blue puddle metatiles 0x274-0x27D retain their reflections. */
-    if (behavior == MB_PUDDLE && inst->secondaryTileset == &gTileset_Fortree
+    if (FALSE && behavior == MB_PUDDLE
      && metatileId >= 0x288 && metatileId <= 0x29A)
         return false;
     return true;
@@ -565,20 +572,15 @@ bool VoxelWorld_UsesTreeSprites(const VoxelMapInstance *inst)
  */
 static VoxelVisualShape BehaviorShape(u8 behavior)
 {
-    if (MetatileBehavior_IsSurfableWaterOrUnderwater(behavior)
+    if (MetatileBehavior_IsSurfable(behavior)
      || MetatileBehavior_IsPuddle(behavior)
      || MetatileBehavior_IsShallowFlowingWater(behavior)
-     || behavior == MB_HOT_SPRINGS
-     || behavior == MB_REFLECTION_UNDER_BRIDGE)
+     || behavior == MB_HOT_SPRINGS)
         return VOXEL_SHAPE_WATER;
     if (MetatileBehavior_IsCounter(behavior))
         return VOXEL_SHAPE_COUNTER;
     if (MetatileBehavior_IsPC(behavior)
-     || MetatileBehavior_IsSecretBasePC(behavior)
-     || MetatileBehavior_IsPlayerRoomPCOn(behavior)
-     || behavior == MB_SECRET_BASE_REGISTER_PC
-     || behavior == MB_TELEVISION
-     || behavior == MB_CABLE_BOX_RESULTS_1)
+     || behavior == MB_TELEVISION)
         return VOXEL_SHAPE_FURNITURE;
     return VOXEL_SHAPE_COUNT;
 }
@@ -852,8 +854,8 @@ void VoxelWorld_MarkUsedMetatiles(const void *primaryTileset, const void *second
                 {
                     int bx = i == 0 ? x + MAP_OFFSET : x;
                     int by = i == 0 ? y + MAP_OFFSET : y;
-                    int stride = i == 0 ? gBackupMapLayout.width : inst->width;
-                    if (i == 0 && (bx < 0 || by < 0 || bx >= stride || by >= gBackupMapLayout.height))
+                    int stride = i == 0 ? gBackupMapLayout.Xsize : inst->width;
+                    if (i == 0 && (bx < 0 || by < 0 || bx >= stride || by >= gBackupMapLayout.Ysize))
                         continue;
                     unsigned m = map[by * stride + bx] & MAPGRID_METATILE_ID_MASK;
                     unsigned priority = !sMaterialViewSet ||
@@ -894,9 +896,9 @@ uint32_t VoxelWorld_LiveDigest(void)
     uint32_t hash = 2166136261u;
     unsigned area, i;
 
-    if (map == NULL || gBackupMapLayout.width <= 0 || gBackupMapLayout.height <= 0)
+    if (map == NULL || gBackupMapLayout.Xsize <= 0 || gBackupMapLayout.Ysize <= 0)
         return 0;
-    area = (unsigned)gBackupMapLayout.width * (unsigned)gBackupMapLayout.height;
+    area = (unsigned)gBackupMapLayout.Xsize * (unsigned)gBackupMapLayout.Ysize;
     hash = (hash ^ area) * 16777619u;
     hash = (hash ^ (uint32_t)(uintptr_t)map) * 16777619u;
     for (i = 0; i + 1 < area; i += 2)
@@ -931,13 +933,13 @@ uint32_t VoxelWorld_BlockHash(int x0, int y0, int x1, int y1)
                 if (i == 0)
                 {
                     int by = y - inst->originY + MAP_OFFSET;
-                    if (by < 0 || by >= gBackupMapLayout.height)
+                    if (by < 0 || by >= gBackupMapLayout.Ysize)
                         continue;
                     if (left < inst->originX - MAP_OFFSET) left = inst->originX - MAP_OFFSET;
-                    if (right > inst->originX + gBackupMapLayout.width - MAP_OFFSET)
-                        right = inst->originX + gBackupMapLayout.width - MAP_OFFSET;
+                    if (right > inst->originX + gBackupMapLayout.Xsize - MAP_OFFSET)
+                        right = inst->originX + gBackupMapLayout.Xsize - MAP_OFFSET;
                     if (left >= right) continue;
-                    map = gBackupMapLayout.map + by * gBackupMapLayout.width
+                    map = gBackupMapLayout.map + by * gBackupMapLayout.Xsize
                         + left - inst->originX + MAP_OFFSET;
                 }
                 else

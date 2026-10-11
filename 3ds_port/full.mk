@@ -93,6 +93,25 @@ SOUND_WRAPPED := m4aSoundVSync m4aSoundMain m4aSoundInit m4aSoundMode m4aSoundVS
 LDFLAGS += $(foreach f,$(PROF_WRAPPED) $(SOUND_WRAPPED),-Wl,--wrap=$(f))
 BACKEND_OBJS := $(patsubst src/%.c,build/bridge/%.o,$(BACKEND_SRCS))
 
+# The voxel overworld is split along the same SDK boundary as the rest of the
+# backend: the world, camera, atlas, mesh and entity modules are game units
+# (they read gMapHeader and the metatiles) while ctr_voxel.c is native and
+# owns the Citro3D objects. Its generated scenery (buildings, trees, relief,
+# signposts) is optional: without it the world is the map's ground and its
+# people, standing.
+ifeq ($(VOXEL),1)
+VOXEL_GAME_SRCS := src/voxel/voxel_world.c src/voxel/voxel_camera.c \
+	src/voxel/voxel_atlas.c src/voxel/voxel_mesh_builder.c src/voxel/voxel_entities.c \
+	src/voxel/voxel_regions.c src/voxel/voxel_tree.c src/voxel/voxel_sign.c \
+	src/voxel/voxel_building.c src/voxel/voxel_relief.c \
+	src/voxel/voxel_arena.c src/voxel/voxel_grade.c src/voxel/voxel_battle.c
+ifeq ($(VOXEL_LIGHTING),1)
+VOXEL_GAME_SRCS += src/voxel/voxel_lighting.c
+endif
+VOXEL_GAME_OBJS := $(patsubst src/voxel/%.c,build/voxel/%.o,$(VOXEL_GAME_SRCS))
+BACKEND_OBJS += $(VOXEL_GAME_OBJS) build/ctr_voxel.o
+endif
+
 FULL_OBJECTS := $(FULL_C_OBJS) $(FULL_DATA_OBJS) $(BACKEND_OBJS)
 # The keep table is only referenced from the payload, which is not linked,
 # so it has to be a garbage-collection root or it takes the handlers with it.
@@ -105,6 +124,9 @@ ROMFS_SCRIPT_OUTS := romfs/scripts/scripts.bin romfs/scripts/scripts.rel
 ROMFS_SOUND_OUTS := romfs/sound/songs.bin romfs/sound/songs.rel
 ROMFS_GAMEDATA_OUTS := romfs/gamedata/gamedata.bin romfs/gamedata/gamedata.rel
 ROMFS_SHADER_OUTS :=
+ifeq ($(VOXEL),1)
+ROMFS_SHADER_OUTS += romfs/shaders/voxel.shbin
+endif
 
 $(FULL_OBJECTS): build/config
 
@@ -183,6 +205,19 @@ build/root/data/battle_anim_scripts.o: $(ROOT)/asm/macros/battle_anim_script.inc
 build/bridge/%.o: src/%.c Makefile full.mk include/3ds_assets.h compat/port_platform.h
 	@mkdir -p $(dir $@)
 	"$(CC)" $(FULLFLAGS) $(FULLCFLAGS) -DCTR_NATIVE_MALLOC -MMD -MP -c $< -o $@
+
+build/voxel/%.o: src/voxel/%.c Makefile full.mk
+	@mkdir -p $(dir $@)
+	"$(CC)" $(FULLFLAGS) $(FULLCFLAGS) -DCTR_NATIVE_MALLOC -iquote $(abspath src/voxel) -MMD -MP -c $< -o $@
+
+# Native translation unit: libctru headers, no game headers.
+build/ctr_voxel.o: src/voxel/ctr_voxel.c Makefile full.mk
+	@mkdir -p $(dir $@)
+	"$(CC)" $(CPPFLAGS) $(CFLAGS) -Isrc/voxel -MMD -MP -c $< -o $@
+
+romfs/shaders/voxel.shbin: src/voxel/voxel.v.pica
+	@mkdir -p $(dir $@)
+	$(DEVKITPRO)/tools/bin/picasso -o $@ $<
 
 build/maps.s build/map_layouts.inc $(ROMFS_MAP_OUT) &: $(SCRIPTS)/gen_map_data.py \
 		$(ROOT)/data/maps.s $(ROOT)/data/layouts/layouts.inc

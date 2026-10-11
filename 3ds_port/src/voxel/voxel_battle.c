@@ -133,10 +133,10 @@ static uint8_t KindOf(unsigned behavior)
 {
     if (MetatileBehavior_IsTallGrass(behavior) || MetatileBehavior_IsLongGrass(behavior))
         return GROUND_GRASS;
-    if (MetatileBehavior_IsSandOrDeepSand(behavior))
+    if ((MetatileBehavior_IsSand(behavior) || MetatileBehavior_IsDeepSand(behavior)))
         return GROUND_SAND;
-    if (MetatileBehavior_IsSurfableWaterOrUnderwater(behavior)
-     || MetatileBehavior_IsDeepOrOceanWater(behavior))
+    if (MetatileBehavior_IsSurfable(behavior)
+     || MetatileBehavior_IsDeepWaterTerrain(behavior))
         return GROUND_WATER;
     return GROUND_PLAIN;
 }
@@ -369,8 +369,8 @@ void VoxelBattle_BeginStage(void)
     const struct ObjectEvent *player = &gObjectEvents[gPlayerAvatar.objectEventId];
     const VoxelMapInstance *current = VoxelWorld_Instance(0);
     bool surfing = TestPlayerAvatarFlags(PLAYER_AVATAR_FLAG_SURFING) != 0;
-    bool wild = !(gBattleTypeFlags & (BATTLE_TYPE_TRAINER | BATTLE_TYPE_LINK | BATTLE_TYPE_RECORDED_LINK
-                                      | BATTLE_TYPE_FRONTIER | BATTLE_TYPE_EREADER_TRAINER));
+    bool wild = !(gBattleTypeFlags & (BATTLE_TYPE_TRAINER | BATTLE_TYPE_LINK | BATTLE_TYPE_BATTLE_TOWER
+                                      | BATTLE_TYPE_TRAINER_TOWER | BATTLE_TYPE_EREADER_TRAINER));
     StageSearch *search = &sStage.search;
     int frontX = 0, frontZ = 0;
     float px, pz;

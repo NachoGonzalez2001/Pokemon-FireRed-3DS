@@ -1699,7 +1699,7 @@ index be80475445506a268aff221e6a006a4092279c30..d22580208a0d999798d5f52e0e266790
  {
      if (!num)
 diff --git a/src/platform/gba_fast_draw.c b/src/platform/gba_fast_draw.c
-index 952b4169db3e26d1353ac98c7fdf68086b14ae5e..253d0398a11fb68fb36fa0405a8895015b22d081 100644
+index 952b4169db3e26d1353ac98c7fdf68086b14ae5e..76fd5298b25e5295ec04bce0fe7296cb99170f74 100644
 --- a/src/platform/gba_fast_draw.c
 +++ b/src/platform/gba_fast_draw.c
 @@ -30,7 +30,8 @@
@@ -1843,6 +1843,39 @@ index 952b4169db3e26d1353ac98c7fdf68086b14ae5e..253d0398a11fb68fb36fa0405a889501
                          {
                              //blending check
                              if (doesBGblend)
+@@ -2668,6 +2760,14 @@ uint16_t *memsetu16(uint16_t *dst, uint16_t fill, size_t count)
+ 
+ unsigned int frameskipcounter = 0;
+ 
++#ifdef PORT_BRIDGE
++// The 3DS port's voxel overworld draws the map in 3D: alongside each line it
++// asks for the layers that go over the world (the message box on BG0) alone,
++// where a pixel no layer drew is left without bit 15, see-through.
++uint16_t *gPortUiPixels;
++uint16_t gPortUiLayers = DISPCNT_BG0_ON;
++#endif
++
+ void DrawFrame(uint16_t *pixels)
+ {
+     int i;
+@@ -2703,6 +2803,17 @@ void DrawFrame(uint16_t *pixels)
+         
+         memsetu16(&pixels[i*DISPLAY_WIDTH], backdropColor, DISPLAY_WIDTH);
+         DrawScanline(&pixels[i*DISPLAY_WIDTH], i);
++#ifdef PORT_BRIDGE
++        if (gPortUiPixels != NULL)
++        {
++            uint16_t display = REG_DISPCNT;
++
++            REG_DISPCNT = (display & ~(DISPCNT_BG_ALL_ON | DISPCNT_OBJ_ON)) | (display & gPortUiLayers);
++            memsetu16(&gPortUiPixels[i * DISPLAY_WIDTH], 0, DISPLAY_WIDTH);
++            DrawScanline(&gPortUiPixels[i * DISPLAY_WIDTH], i);
++            REG_DISPCNT = display;
++        }
++#endif
+         
+         REG_DISPSTAT |= INTR_FLAG_HBLANK;
+ 
 diff --git a/src/pokedex_screen.c b/src/pokedex_screen.c
 index 01960d240f4956d9f0d854b1bba29785d946a878..227884da497017cb430190445af0037ec2ca23cb 100644
 --- a/src/pokedex_screen.c

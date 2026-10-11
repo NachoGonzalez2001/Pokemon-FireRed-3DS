@@ -15,5 +15,7 @@
 /* Game side, after the VBlank handler has drawn the frame: the GBA BGR555
  * pixels (bit 15 ignored) the next present shows. */
 void CtrSoftVideo_SetFrame(const uint16_t *pixels);
+/* The 3D overworld frame's UI layer (bit 15 marks drawn pixels), or NULL. */
+void CtrSoftVideo_SetUi(const uint16_t *pixels);
 
 #endif

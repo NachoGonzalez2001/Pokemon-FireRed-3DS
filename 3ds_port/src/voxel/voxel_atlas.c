@@ -18,11 +18,13 @@
 #include "voxel_grade.h"
 #include "voxel_relief.h"
 
-/* Largest 4bpp tileset payload: 512 tiles of 32 bytes, doubled for headroom
- * because a compressed payload only declares its size at run time. */
+/* Largest 4bpp tileset payload: FireRed's 640 primary tiles of 32 bytes,
+ * with headroom because a compressed payload only declares its size at run
+ * time. */
 #define VOXEL_TILE_SCRATCH 0x10000u
 
-#define TILES_PER_TILESET 512u
+/* FireRed: the secondary tileset's tiles start after the primary's 640. */
+#define TILES_PER_TILESET ((unsigned)NUM_TILES_IN_PRIMARY)
 #define SUBTILE_PX 8u
 
 void VoxelAtlas_SlotUV(unsigned slot, float *u0, float *v0, float *u1, float *v1)
@@ -494,7 +496,7 @@ bool VoxelAtlas_JobStep(VoxelAtlasJob *job, unsigned metatiles)
         uint8_t *tiles = primary ? job->primaryTiles : job->secondaryTiles;
         if (!job->tileLoad.initialized) memset(tiles, 0, VOXEL_TILE_SCRATCH);
         if (!Voxel_LoadTilesStep(primary ? job->primary : job->secondary, tiles,
-                                VOXEL_TILE_SCRATCH, &job->tileLoad, 512)) return false;
+                                VOXEL_TILE_SCRATCH, &job->tileLoad, TILES_PER_TILESET)) return false;
         if (primary) job->primaryLoaded = job->tileLoad.ok;
         else job->secondaryLoaded = job->tileLoad.ok;
         memset(&job->tileLoad, 0, sizeof(job->tileLoad));

@@ -59,6 +59,26 @@ static u32 sFrames;
 static bool sStarted;
 static uint16_t sFrame[CTR_SOFT_WIDTH * CTR_SOFT_HEIGHT];
 static uint16_t sWorld[CTR_SOFT_WIDTH * CTR_SOFT_HEIGHT];
+#if CTR_VOXEL_ENABLED
+/* Hooks the Emerald port's voxel modules ask of the game (field_door.c and
+ * sprite.c there); FireRed's 3D world starts without open doors or weather. */
+bool8 PortDoor_Get(s16 *x, s16 *y, u8 *width, u8 *level)
+{
+    (void)x; (void)y; (void)width; (void)level;
+    return FALSE;
+}
+
+bool8 CtrSprite_IsVoxelWeather(const struct Sprite *sprite)
+{
+    (void)sprite;
+    return FALSE;
+}
+
+/* What goes over the 3D overworld: the message box layer, see-through
+ * where nothing is drawn (gba_fast_draw.c). */
+static uint16_t sUi[CTR_SOFT_WIDTH * CTR_SOFT_HEIGHT];
+extern uint16_t *gPortUiPixels;
+#endif
 #ifdef CTR_WATCHDOG
 volatile uint32_t gPortCrumb;
 void CtrLog_StartWatchdog(volatile const uint32_t *frames, volatile const uint32_t *crumb);
@@ -226,6 +246,14 @@ void CtrGame_VBlank(void)
     /* The lines of the frame, with the HBlank work between them. */
     PORT_PROF_BEGIN(lines);
     CRUMB(0x102);
+#if CTR_VOXEL_ENABLED
+    {
+        bool voxelUi = CtrSettings_Voxel() && gMain.callback1 == CB1_Overworld && !CtrBottom_TakesGameFrame();
+
+        gPortUiPixels = voxelUi ? sUi : NULL;
+        CtrSoftVideo_SetUi(gPortUiPixels);
+    }
+#endif
     DrawFrame(sFrame);
     CRUMB(0x103);
     PORT_PROF_END(lines, PORT_PROF_LINES);

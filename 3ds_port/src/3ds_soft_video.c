@@ -40,9 +40,12 @@ static uint8_t sSrcX[OUT_WIDTH];
 static uint8_t sSrcY[TOP_HEIGHT];
 
 void CtrSoftVideo_SetFrame(const uint16_t *pixels) { sFrame = pixels; }
+static const uint16_t *sUi;
+void CtrSoftVideo_SetUi(const uint16_t *pixels) { sUi = pixels; }
 #if CTR_GPU_PRESENT
 static bool GpuInit(void);
 #endif
+static unsigned sVoxelUploads;
 
 bool CtrVideo_Init(void)
 {
@@ -93,6 +96,21 @@ static C3D_RenderTarget *sTop;
 static C3D_Tex sFrameTex;
 static Tex3DS_SubTexture sFrameSub;
 static uint16_t *sLinear;
+/* The UI over the 3D overworld: RGBA5551, alpha 0 where nothing is drawn. */
+static C3D_Tex sUiTex;
+static uint16_t *sUiLinear;
+static bool sVoxelReady;
+/* The world is drawn upright into this landscape surface, which is then laid
+ * on the (rotated) top screen as any image is: the voxel projection knows
+ * nothing of the screen's rotation. */
+static C3D_Tex sSurface;
+static C3D_RenderTarget *sLogical;
+static Tex3DS_SubTexture sLogicalSub;
+
+#define UI_TRANSFER_FLAGS \
+    (GX_TRANSFER_FLIP_VERT(0) | GX_TRANSFER_OUT_TILED(1) | GX_TRANSFER_RAW_COPY(0) | \
+     GX_TRANSFER_IN_FORMAT(GX_TRANSFER_FMT_RGB5A1) | GX_TRANSFER_OUT_FORMAT(GX_TRANSFER_FMT_RGB5A1) | \
+     GX_TRANSFER_SCALING(GX_TRANSFER_SCALE_NO))
 
 #define TILE_TRANSFER_FLAGS \
     (GX_TRANSFER_FLIP_VERT(0) | GX_TRANSFER_OUT_TILED(1) | GX_TRANSFER_RAW_COPY(0) | \
@@ -110,6 +128,25 @@ static bool GpuInit(void)
         return false;
     memset(sLinear, 0, TEX_DIM * TEX_DIM * sizeof(uint16_t));
     C3D_TexSetFilter(&sFrameTex, GPU_NEAREST, GPU_NEAREST);
+    sUiLinear = linearAlloc(TEX_DIM * TEX_DIM * sizeof(uint16_t));
+    if (sUiLinear == NULL || !C3D_TexInit(&sUiTex, TEX_DIM, TEX_DIM, GPU_RGBA5551))
+        return false;
+    memset(sUiLinear, 0, TEX_DIM * TEX_DIM * sizeof(uint16_t));
+    C3D_TexSetFilter(&sUiTex, GPU_NEAREST, GPU_NEAREST);
+#if CTR_VOXEL_ENABLED
+    sVoxelReady = CtrVoxel_Init();
+    /* After the world's own VRAM, which wants it in one piece. */
+    if (sVoxelReady && C3D_TexInitVRAM(&sSurface, 512, 256, GPU_RGBA8))
+    {
+        C3D_TexSetFilter(&sSurface, GPU_NEAREST, GPU_NEAREST);
+        C3D_TexSetWrap(&sSurface, GPU_CLAMP_TO_EDGE, GPU_CLAMP_TO_EDGE);
+        sLogical = C3D_RenderTargetCreateFromTex(&sSurface, GPU_TEXFACE_2D, 0, GPU_RB_DEPTH16);
+        sLogicalSub = (Tex3DS_SubTexture){ TOP_WIDTH, TOP_HEIGHT, 0.0f, 1.0f,
+                                           TOP_WIDTH / 512.0f, 1.0f - TOP_HEIGHT / 256.0f };
+    }
+    sVoxelReady = sVoxelReady && sLogical != NULL;
+    CtrLog_Write(CTR_LOG_VIDEO, "voxel overworld %s", sVoxelReady ? "ready" : "unavailable");
+#endif
     /* Without a flip the transfer leaves line 0 of the frame at the top of
      * the texture (v = 1). A subtexture whose top is below its bottom would
      * be taken for a rotated one, so the data is laid out to match instead. */
@@ -133,29 +170,84 @@ static void GpuUpload(void)
                             (u32 *)sFrameTex.data, GX_BUFFER_DIM(TEX_DIM, TEX_DIM), TILE_TRANSFER_FLAGS);
 }
 
+static void GpuUploadUi(void)
+{
+    for (unsigned y = 0; y < CTR_SOFT_HEIGHT; ++y)
+    {
+        const uint16_t *src = sUi + y * CTR_SOFT_WIDTH;
+        uint16_t *dst = sUiLinear + y * TEX_DIM;
+
+        for (unsigned x = 0; x < CTR_SOFT_WIDTH; ++x)
+        {
+            uint16_t c = src[x];
+
+            dst[x] = (c & 0x8000) ? (uint16_t)(((c & 31) << 11) | (((c >> 5) & 31) << 6) | (((c >> 10) & 31) << 1) | 1)
+                                  : 0;
+        }
+    }
+    GSPGPU_FlushDataCache(sUiLinear, TEX_DIM * TEX_DIM * sizeof(uint16_t));
+    C3D_SyncDisplayTransfer((u32 *)sUiLinear, GX_BUFFER_DIM(TEX_DIM, TEX_DIM),
+                            (u32 *)sUiTex.data, GX_BUFFER_DIM(TEX_DIM, TEX_DIM), UI_TRANSFER_FLAGS);
+}
+
 static void GpuPresent(void)
 {
-    uint64_t start = svcGetSystemTick(), drawStart;
+    uint64_t start = svcGetSystemTick(), drawStart, beginTick;
     C2D_Image image = { &sFrameTex, &sFrameSub };
+    C2D_Image ui = { &sUiTex, &sFrameSub };
+    bool voxel = false;
 
-    if (sFrame)
+#if CTR_VOXEL_ENABLED
+    /* The field with the 3D world on: the game's side asked for the UI layer. */
+    voxel = sVoxelReady && sUi != NULL && CtrVoxel_IsAvailable();
+#endif
+    if (sFrame && !voxel)
         GpuUpload();
+    if (voxel)
+        GpuUploadUi();
     drawStart = svcGetSystemTick();
     /* Begin waits for the previous frame and paces to the screen's 60 Hz. */
     C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
-    sStats.waitMs = (svcGetSystemTick() - drawStart) * 1000.0f / SYSCLOCK_ARM11;
-    C2D_TargetClear(sTop, C2D_Color32(0, 0, 0, 255));
-    C2D_SceneBegin(sTop);
-    C2D_DrawImageAt(image, (float)OUT_X, 0.0f, 0.5f, NULL, 1.5f, 1.5f);
-    C3D_FrameEnd(0);
-    /* The game advances one frame per VBlank, as on the GBA: FrameBegin only
-     * waits for the GPU, which a light frame finishes well before that. */
+    beginTick = svcGetSystemTick();
+    sStats.waitMs = (beginTick - drawStart) * 1000.0f / SYSCLOCK_ARM11;
+    sVoxelUploads = 0;
+#if CTR_VOXEL_ENABLED
+    /* The world's chunks and atlas may not be ready yet (a new map): the 2D
+     * picture stands in until they are. */
+    if (voxel && !CtrVoxel_Update())
     {
-        uint64_t waitStart = svcGetSystemTick();
-
-        gspWaitForVBlank();
-        sStats.waitMs += (svcGetSystemTick() - waitStart) * 1000.0f / SYSCLOCK_ARM11;
+        voxel = false;
+        if (sFrame)
+            GpuUpload();
     }
+#endif
+    C2D_TargetClear(sTop, C2D_Color32(0, 0, 0, 255));
+#if CTR_VOXEL_ENABLED
+    if (voxel)
+    {
+        C2D_Image world = { &sSurface, &sLogicalSub };
+
+        C2D_TargetClear(sLogical, C2D_Color32(0, 0, 0, 255));
+        CtrVoxel_Draw(sLogical, 0.0f);
+        /* The world leaves its own shader and state bound. */
+        C2D_Prepare();
+        C2D_SceneBegin(sTop);
+        C2D_DrawImageAt(world, 0.0f, 0.0f, 0.4f, NULL, 1.0f, 1.0f);
+        C2D_DrawImageAt(ui, (float)OUT_X, 0.0f, 0.5f, NULL, 1.5f, 1.5f);
+    }
+    else
+#endif
+    {
+        C2D_SceneBegin(sTop);
+        C2D_DrawImageAt(image, (float)OUT_X, 0.0f, 0.5f, NULL, 1.5f, 1.5f);
+    }
+    C3D_FrameEnd(0);
+#if CTR_VOXEL_ENABLED
+    if (voxel)
+        CtrVoxel_AfterSubmit(beginTick);
+#endif
+    /* C3D_FrameBegin paces the frames to the screen's 60 Hz (its frame rate
+     * limit); a second wait here would halve that. */
     sStats.cpuMs = (drawStart - start) * 1000.0f / SYSCLOCK_ARM11;
     ++sStats.frames;
 }
@@ -212,9 +304,52 @@ void CtrVideo_SetLineScroll(unsigned reg, bool wide, const void *values, unsigne
     (void)reg; (void)wide; (void)values; (void)lines;
 }
 void CtrVideo_SetLineRegisters(const uint16_t *regs, unsigned lines) { (void)regs; (void)lines; }
-void CtrVideo_NotifyTilesetAnimWrite(const void *dest, unsigned bytes) { (void)dest; (void)bytes; }
+void CtrVideo_NotifyTilesetAnimWrite(const void *dest, unsigned bytes)
+{
+#if CTR_VOXEL_ENABLED
+    uintptr_t base = (uintptr_t)sMemory.vram, address = (uintptr_t)dest;
+    unsigned offset;
 
+    if (base == 0 || address < base || address - base >= 0x8000 || bytes == 0)
+        return;
+    offset = (unsigned)(address - base);
+    if (bytes > 0x8000 - offset)
+        bytes = 0x8000 - offset;
+    CtrVoxel_NotifyTilesetAnimWrite(offset / 32, (offset % 32 + bytes + 31) / 32);
+#else
+    (void)dest;
+    (void)bytes;
+#endif
+}
+
+#if !CTR_VOXEL_ENABLED
 /* No voxel world in this build. */
 static const CtrVoxelStats sVoxelStats;
 const CtrVoxelStats *CtrVoxel_GetStats(void) { return &sVoxelStats; }
 const char *CtrVoxel_Status(void) { return "off"; }
+#endif
+
+/*
+ * What the voxel renderer (ctr_voxel.c) asks of the presenter: room in this
+ * frame's GPU queue for its uploads (a budget per frame), the background VRAM
+ * its atlas reads, and the compositor's planes, which this presenter has none
+ * of to release.
+ */
+#define VOXEL_UPLOADS_PER_FRAME 8
+
+bool CtrVideo_TryVoxelUpload(void)
+{
+    if (sVoxelUploads >= VOXEL_UPLOADS_PER_FRAME)
+        return false;
+    ++sVoxelUploads;
+    return true;
+}
+
+unsigned CtrVideo_VoxelUploadsLeft(void)
+{
+    return VOXEL_UPLOADS_PER_FRAME - sVoxelUploads;
+}
+
+const uint8_t *CtrVideo_GetBgVram(void) { return sMemory.vram; }
+
+void CtrVideo_RequestPlaneRelease(void) {}
