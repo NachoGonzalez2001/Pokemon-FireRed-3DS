@@ -27,8 +27,8 @@ def main():
     def run(tool, *arguments):
         return subprocess.check_output([str(tool), *map(str, arguments)], text=True)
 
-    elf = root / 'emerald3ds.elf'
-    binary = (root / 'emerald3ds.3dsx').read_bytes()
+    elf = root / 'firered3ds.elf'
+    binary = (root / 'firered3ds.3dsx').read_bytes()
     assert binary[:4] == b'3DSX', 'Invalid .3dsx magic'
     assert struct.unpack_from('<H', binary, 4)[0] >= 0x20, 'Invalid .3dsx header'
     header = run(readelf, '-h', elf)

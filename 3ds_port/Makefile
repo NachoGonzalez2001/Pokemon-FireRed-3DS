@@ -13,12 +13,8 @@ ARCH := -march=armv6k -mtune=mpcore -mfloat-abi=hard -mtp=soft
 CPPFLAGS := -DPORTABLE -DPLATFORM_3DS -D__3DS__ -Iinclude -I$(CTRULIB)/include
 CFLAGS := $(ARCH) -O2 -g -std=gnu99 -Wall -Wextra -Werror -ffunction-sections -fdata-sections
 LDFLAGS := $(ARCH) -L$(CTRULIB)/lib
-# Observe the public GX queue for upload admission; never start it early.
-LDFLAGS += -Wl,--wrap=GX_BindQueue
-# The GPU started early in a frame (3ds_video.c GpuStartEarly) flushes first.
-LDFLAGS += -Wl,--wrap=GX_ProcessCommandList -Wl,--wrap=GX_TextureCopy -Wl,--wrap=GX_DisplayTransfer -Wl,--wrap=GX_RequestDma
-# Cache flushes made by the kernel call itself, not through the GSP service (3ds_video.c).
-LDFLAGS += -Wl,--wrap=GSPGPU_FlushDataCache
+# (The Emerald port's GPU compositor wraps GX_* and GSPGPU_FlushDataCache here;
+# the software presenter needs none of it.)
 LIBS := -lctru -lm
 TARGET := firered3ds
 APP_TITLE := Pokemon FireRed 3DS
@@ -45,7 +41,9 @@ SCRIPTS := ../tools/port_common
 EXESUFFIX := $(if $(filter Windows_NT,$(OS)),.exe,)
 SOURCES := src/main_3ds.c src/3ds_log.c src/3ds_platform.c src/3ds_input.c src/3ds_input_decode.c src/3ds_fs.c src/3ds_audio.c
 SOURCES += src/3ds_data.c src/3ds_pak.c src/3ds_settings.c src/3ds_prof.c
-SOURCES += src/3ds_video.c src/3ds_video_decode.c src/3ds_bottom_screen.c
+# The software presenter (3ds_soft_video.c) stands in for the Emerald port's
+# GPU compositor (3ds_video.c) until the FireRed voxel world needs it.
+SOURCES += src/3ds_soft_video.c src/3ds_video_decode.c src/3ds_bottom_screen.c
 LIBS := -lcitro2d -lcitro3d $(LIBS)
 OBJECTS := $(patsubst src/%.c,build/%.o,$(SOURCES))
 GAMEFLAGS := -DPORTABLE -DPLATFORM_3DS -D__3DS__ -DMODERN=1 -DUBFIX -D__INTELLISENSE__

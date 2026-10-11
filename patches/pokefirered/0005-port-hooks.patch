@@ -16,6 +16,41 @@ index db131b2717ab739e62e41c5054a798f045c0631d..ef37dff4bc7fb2c49fa10369cda03ab5
  #define NDEBUG
  #endif
  
+diff --git a/include/gba/defines.h b/include/gba/defines.h
+index 1b4dd28a76f0e331c85f64d8dd5e78b9603728b2..006abe824a78c6df14d94afd6e7d54a20c4ff6e7 100644
+--- a/include/gba/defines.h
++++ b/include/gba/defines.h
+@@ -91,6 +91,10 @@ extern unsigned char OAM[OAM_SIZE] __attribute__ ((aligned (4)));
+ 
+ #define ROM_HEADER_SIZE   0xC0
+ 
++// Dimensions of a tile in pixels (the platform layer's renderer uses them)
++#define TILE_WIDTH  8
++#define TILE_HEIGHT 8
++
+ // Dimensions of the screen the game lays itself out on. The 3DS port first
+ // runs FireRed at the GBA's own 240x160, composed onto the top screen by the
+ // backend; CTR_WIDESCREEN (off for now) is where a native 400x240 layout, as
+diff --git a/include/malloc.h b/include/malloc.h
+index bf89badc53a4cad8ba5615900d5014cc34f76fea..6ac93a797cef1b53caa3ac2e9b3fc7b2a8a16f17 100644
+--- a/include/malloc.h
++++ b/include/malloc.h
+@@ -4,9 +4,15 @@
+ #include "global.h"
+ 
+ #define HEAP_SIZE 0x1C000
++// The game's own code allocates from gHeap under the C library's names. The
++// 3DS backend (3ds_port/src, compiled with CTR_NATIVE_MALLOC) includes game
++// headers but must keep the real allocator: its caches would otherwise be
++// carved out of the game's heap, before the game has even set it up.
++#ifndef CTR_NATIVE_MALLOC
+ #define malloc Alloc
+ #define calloc(ct, sz) AllocZeroed((ct) * (sz))
+ #define free Free
++#endif
+ 
+ #define FREE_AND_SET_NULL(ptr)          \
+ {                                       \
 diff --git a/src/bg.c b/src/bg.c
 index aa11ae01f87242edecc5656bb6649b04e319357a..d784a556683736c5b599b4f0e82d71750abd3e7c 100644
 --- a/src/bg.c
@@ -32,6 +67,54 @@ index aa11ae01f87242edecc5656bb6649b04e319357a..d784a556683736c5b599b4f0e82d7175
      if (sGpuBgConfigs2[bg].tilemap == 0x0)
          return TRUE;
      return FALSE;
+diff --git a/src/decompress.c b/src/decompress.c
+index f4740f917ed9ae7e0fd967107e1e63733bb8c66a..40f3ecee59f07c64b2fe7b515f098b587d311a25 100644
+--- a/src/decompress.c
++++ b/src/decompress.c
+@@ -2,6 +2,9 @@
+ #include "gflib.h"
+ #include "decompress.h"
+ #include "pokemon.h"
++#ifdef PORT_BRIDGE
++#include "port_platform.h"
++#endif
+ 
+ extern const struct CompressedSpriteSheet gMonFrontPicTable[];
+ extern const struct CompressedSpriteSheet gMonBackPicTable[];
+@@ -265,7 +268,7 @@ bool8 LoadCompressedSpriteSheetUsingHeap(const struct CompressedSpriteSheet* src
+     struct SpriteSheet dest;
+     void *buffer;
+ 
+-    buffer = AllocZeroed(*((u32 *)src->data) >> 8);
++    buffer = AllocZeroed(GetDecompressedDataSize((const u8 *)src->data));
+     if (!buffer)
+         return TRUE;
+     LZ77UnCompWram(src->data, buffer);
+@@ -282,7 +285,7 @@ bool8 LoadCompressedSpritePaletteUsingHeap(const struct CompressedSpritePalette
+     struct SpritePalette dest;
+     void *buffer;
+ 
+-    buffer = AllocZeroed(*((u32 *)src->data) >> 8);
++    buffer = AllocZeroed(GetDecompressedDataSize((const u8 *)src->data));
+     if (!buffer)
+         return TRUE;
+     LZ77UnCompWram(src->data, buffer);
+@@ -295,6 +298,15 @@ bool8 LoadCompressedSpritePaletteUsingHeap(const struct CompressedSpritePalette
+ 
+ u32 GetDecompressedDataSize(const u8 *ptr)
+ {
++#ifdef PORT_BRIDGE
++    // An INCBIN is a 4-byte stub here: the LZ77 header is the asset's own.
++    if (Port_IsAssetStub(ptr))
++    {
++        u32 size = Port_GetDecompressedAssetSize(ptr);
++        if (size != 0)
++            return size;
++    }
++#endif
+     u32 ptr32[1];
+     u8 *ptr8 = (u8 *)ptr32;
+ 
 diff --git a/src/intro.c b/src/intro.c
 index bec0f3144ece4167b27dd2eccc0fd12546bf95c4..fa0100aac759898ebd41f18d9d92e68291cb5658 100644
 --- a/src/intro.c
@@ -53,3 +136,395 @@ index bec0f3144ece4167b27dd2eccc0fd12546bf95c4..fa0100aac759898ebd41f18d9d92e682
              }
              else
              {
+diff --git a/src/main.c b/src/main.c
+index 542b0f5d16dd93107523d11163bfcb70a42b707a..78485b721e96614ce219a69fc1eecd166ade7bba 100644
+--- a/src/main.c
++++ b/src/main.c
+@@ -16,6 +16,12 @@
+ #include "save_failed_screen.h"
+ #include "quest_log.h"
+ #include "sloopsvc.h"
++#ifdef PORTABLE
++#include "platform.h"
++#endif
++#ifdef PORT_BRIDGE
++#include "port_platform.h"
++#endif
+ 
+ extern u32 intr_main[];
+ 
+@@ -102,7 +108,10 @@ void AgbMain()
+ #if REVISION >= 0xA
+     svc_stubbed();
+ #endif
+-#if MODERN
++#ifdef PORTABLE
++    // No GBA memory map: the port clears its emulated hardware before AgbMain
++    // (CtrEmu_Reset) and the game's variables start zeroed.
++#elif MODERN
+     // Modern compilers are liberal with the stack on entry to this function,
+     // so RegisterRamReset may crash if it resets IWRAM.
+     RegisterRamReset(RESET_ALL & ~RESET_IWRAM);
+@@ -145,7 +154,9 @@ void AgbMain()
+     InitIntrHandlers();
+     m4aSoundInit();
+     EnableVCountIntrAtLine150();
++#ifndef PORTABLE
+     InitRFU();
++#endif
+     CheckForFlashMemory();
+     InitMainCallbacks();
+     InitMapMusic();
+@@ -168,7 +179,8 @@ void AgbMain()
+ #endif
+ #endif
+ 
+-#if REVISION >= 1
++#if REVISION >= 1 && !defined(PORTABLE)
++    // the port's save storage stands in for the cartridge's flash chip
+     if (gFlashMemoryPresent != TRUE)
+         SetMainCallback2(NULL);
+ #endif
+@@ -177,6 +189,10 @@ void AgbMain()
+ 
+     for (;;)
+     {
++#ifdef PORT_BRIDGE
++        // between main-loop iterations: the only point asset payloads retire
++        Port_RecordMainLoopIteration();
++#endif
+         ReadKeys();
+ 
+         if (gSoftResetDisabled == FALSE
+@@ -295,7 +311,11 @@ void InitKeys(void)
+ 
+ static void ReadKeys(void)
+ {
++#ifndef PORTABLE
+     u16 keyInput = REG_KEYINPUT ^ KEYS_MASK;
++#else
++    u16 keyInput = Platform_GetKeyInput();
++#endif
+     gMain.newKeysRaw = keyInput & ~gMain.heldKeysRaw;
+     gMain.newKeys = gMain.newKeysRaw;
+     gMain.newAndRepeatedKeys = gMain.newKeysRaw;
+@@ -344,9 +364,12 @@ void InitIntrHandlers(void)
+     for (i = 0; i < INTR_COUNT; i++)
+         gIntrTable[i] = gIntrTableTemplate[i];
+ 
++#ifndef PORT_BRIDGE
++    // the backend calls the handlers itself (3ds_game_full.c CtrGame_VBlank)
+     DmaCopy32(3, intr_main, IntrMain_Buffer, sizeof(IntrMain_Buffer));
+ 
+     INTR_VECTOR = IntrMain_Buffer;
++#endif
+ 
+     SetVBlankCallback(NULL);
+     SetHBlankCallback(NULL);
+@@ -461,10 +484,16 @@ static void IntrDummy(void)
+ 
+ static void WaitForVBlank(void)
+ {
++#ifdef PORTABLE
++    // nothing raises the interrupt behind the game's back: the frame boundary
++    // is the platform's VBlankIntrWait, which runs VBlankIntr and presents
++    VBlankIntrWait();
++#else
+     gMain.intrCheck &= ~INTR_FLAG_VBLANK;
+ 
+     while (!(gMain.intrCheck & INTR_FLAG_VBLANK))
+         ;
++#endif
+ }
+ 
+ void SetVBlankCounter1Ptr(u32 *ptr)
+diff --git a/src/malloc.c b/src/malloc.c
+index 260c41d0d9f80afbf75fe3fdfbf11393e004bb14..83d1d44d0b8a11323d77e28d95dd0ca11ba41e06 100644
+--- a/src/malloc.c
++++ b/src/malloc.c
+@@ -1,4 +1,10 @@
+ #include "global.h"
++#include "malloc.h"
++
++#ifdef PORTABLE
++// The GBA build places the heap at the end of EWRAM from its linker script.
++u8 gHeap[HEAP_SIZE] ALIGNED(4);
++#endif
+ 
+ static void *sHeapStart;
+ static u32 sHeapSize;
+diff --git a/src/new_menu_helpers.c b/src/new_menu_helpers.c
+index 08c032027cda2c34bf0dded37458adeb250aa553..d505232bc779b050c682b193fc0f070acf0a0312 100644
+--- a/src/new_menu_helpers.c
++++ b/src/new_menu_helpers.c
+@@ -8,6 +8,7 @@
+ #include "field_specials.h"
+ #include "text_window.h"
+ #include "script.h"
++#include "decompress.h"
+ 
+ #define DLG_WINDOW_PALETTE_NUM 15
+ #define DLG_WINDOW_BASE_TILE_NUM 0x200
+@@ -306,6 +307,10 @@ static void TaskFreeBufAfterCopyingTileDataToVram(u8 taskId)
+ void *MallocAndDecompress(const void *src, u32 *size)
+ {
+     void *ptr;
++#ifdef PORT_BRIDGE
++    // src is a 4-byte INCBIN stub: the size comes from the asset's own header
++    *size = GetDecompressedDataSize(src);
++#else
+     u8 *sizeAsBytes = (u8 *)size;
+     const u8 *srcAsBytes = src;
+ 
+@@ -313,6 +318,7 @@ void *MallocAndDecompress(const void *src, u32 *size)
+     sizeAsBytes[1] = srcAsBytes[2];
+     sizeAsBytes[2] = srcAsBytes[3];
+     sizeAsBytes[3] = 0;
++#endif
+ 
+     ptr = Alloc(*size);
+     if (ptr)
+diff --git a/src/palette.c b/src/palette.c
+index 84f23428f2e7b2802bcadb497d4ca401af6c0531..d6125134eebfd3bc950061d1e82568fef1867453 100644
+--- a/src/palette.c
++++ b/src/palette.c
+@@ -3,6 +3,9 @@
+ #include "util.h"
+ #include "decompress.h"
+ #include "task.h"
++#ifdef PORT_BRIDGE
++#include "port_platform.h"
++#endif
+ 
+ enum
+ {
+@@ -87,6 +90,17 @@ void LoadCompressedPalette(const u32 *src, u16 offset, u16 size)
+ 
+ void LoadPalette(const void *src, u16 offset, u16 size)
+ {
++#ifdef PORT_BRIDGE
++    // An INCBIN is a one-element stub here, so sizeof(palette) is one color:
++    // the size of a whole-palette load is the asset's own.
++    if (size == sizeof(u16))
++    {
++        u32 assetSize = Port_GetAssetSizeExact(src);
++
++        if (assetSize > size && assetSize <= PLTT_SIZE && assetSize % sizeof(u16) == 0)
++            size = assetSize;
++    }
++#endif
+     CpuCopy16(src, &gPlttBufferUnfaded[offset], size);
+     CpuCopy16(src, &gPlttBufferFaded[offset], size);
+ }
+diff --git a/src/platform/bios.c b/src/platform/bios.c
+index be80475445506a268aff221e6a006a4092279c30..79cd47f3ab89b3d3adac55ce21aebd5d1374e1c3 100644
+--- a/src/platform/bios.c
++++ b/src/platform/bios.c
+@@ -638,6 +638,13 @@ u16 ArcTan2(s16 x, s16 y)
+     }
+ }
+ 
++// BIOS Div (swi 0x06): FireRed's wireless library uses it. A zero divisor
++// hangs the real BIOS; here it answers 0.
++s32 Div(s32 num, s32 denom)
++{
++    return denom ? num / denom : 0;
++}
++
+ u16 Sqrt(u32 num)
+ {
+     if (!num)
+diff --git a/src/platform/gba_fast_draw.c b/src/platform/gba_fast_draw.c
+index 952b4169db3e26d1353ac98c7fdf68086b14ae5e..fb01768cd49da954100d9735440e75e89e83e8f5 100644
+--- a/src/platform/gba_fast_draw.c
++++ b/src/platform/gba_fast_draw.c
+@@ -30,7 +30,8 @@
+ #define inline_hack
+ #endif
+ 
+-extern void (*const gIntrTable[])(void);
++// FireRed's main.h declares the table writable (IntrFunc gIntrTable[]).
++extern void (*gIntrTable[])(void);
+ 
+ struct scanlineData {
+     uint16_t bgcnts[4];
+diff --git a/src/pokemon_special_anim_scene.c b/src/pokemon_special_anim_scene.c
+index bdb070c96558c43eafb50c8619a85e9a9090d348..122d9b3eee02af00782cc9e4f74209309c3a44fd 100644
+--- a/src/pokemon_special_anim_scene.c
++++ b/src/pokemon_special_anim_scene.c
+@@ -1385,7 +1385,12 @@ void CreateLevelUpVerticalSpritesTask(u16 x, u16 y, u16 tileTag, u16 paletteTag,
+     u8 taskId;
+     spriteSheet.tag = tileTag;
+     spriteSheet.data = sLevelUp_Gfx;
++#ifdef PORT_BRIDGE
++    // the INCBIN is a stub: read the size from the asset's own LZ77 header
++    spriteSheet.size = GetDecompressedDataSize((const u8 *)sLevelUp_Gfx);
++#else
+     spriteSheet.size = sLevelUp_Gfx[0] >> 8;
++#endif
+     spritePalette.data = sLevelUp_Pal;
+     spritePalette.tag = paletteTag;
+     LoadCompressedSpriteSheet(&spriteSheet);
+diff --git a/src/stub.c b/src/stub.c
+index f464d2f042cddc5a4c7e4981f254f1abcde40002..91b9981b615a4ed78aad5596f1d28ce1861a37ca 100644
+--- a/src/stub.c
++++ b/src/stub.c
+@@ -9,7 +9,9 @@
+ #define STUB_FUNC_QUIET(func) func {}
+ #define STUB_FUNC_QUIET_BLOCK(func, block) func { block }
+ 
+-STUB_FUNC_QUIET_BLOCK(bool8 HandleLinkConnection(), return 0;)
++// FireRed builds its link, wireless and multiboot code as it is (nothing ever
++// answers on the emulated serial port): no stubs for HandleLinkConnection,
++// rfu_initializeAPI, InitRFUAPI or the MultiBoot* functions here.
+ STUB_FUNC_QUIET(void Task_InitUnionRoom())
+ STUB_FUNC(int MultiBoot(struct MultiBootParam *mp))
+ STUB_FUNC(void RegisterRamReset(u32 resetFlags))
+@@ -55,8 +57,6 @@ STUB_FUNC(void GameCubeMultiBoot_Init())
+ STUB_FUNC(void GameCubeMultiBoot_HandleSerialInterrupt())
+ STUB_FUNC(void GameCubeMultiBoot_Quit())
+ #endif
+-STUB_FUNC(void rfu_initializeAPI())
+-STUB_FUNC(void InitRFUAPI(void))
+ /*STUB_FUNC(void rfu_STC_clearAPIVariables())
+ STUB_FUNC(void rfu_REQ_PARENT_resumeRetransmitAndChange())
+ STUB_FUNC(void rfu_UNI_PARENT_getDRAC_ACK())
+@@ -257,9 +257,4 @@ STUB_FUNC(void SetPokemonCryStereo(u32 val))
+ STUB_FUNC(void SetPokemonCryPriority(u8 val))
+ STUB_FUNC(void IsPokemonCryPlaying(struct MusicPlayerInfo *mplayInfo))
+ */
+-STUB_FUNC(void MultiBootInit(struct MultiBootParam *mp))
+-STUB_FUNC(int MultiBootMain(struct MultiBootParam *mp))
+-STUB_FUNC(void MultiBootStartProbe(struct MultiBootParam *mp))
+-STUB_FUNC(void MultiBootStartMaster(struct MultiBootParam *mp, const u8 *srcp, int length, u8 palette_color, s8 palette_speed))
+-STUB_FUNC(int MultiBootCheckComplete(struct MultiBootParam *mp))
+ //STUB_FUNC(IntrFunc IntrSIO32(void))
+diff --git a/src/text.c b/src/text.c
+index f3eef07ce6dea8269980a5ecfdd6902c1c9c13d2..d7effe962b13a464277ebf994451ea2bc043c40d 100644
+--- a/src/text.c
++++ b/src/text.c
+@@ -6,6 +6,16 @@
+ #include "dynamic_placeholder_text_util.h"
+ #include "constants/songs.h"
+ 
++// The 3DS port keeps every INCBIN out of the executable as a 4-byte stub its
++// asset index resolves: a glyph is base + offset, and an offset past the stub
++// lands in the next font's, so the base is resolved first.
++#ifdef PORT_BRIDGE
++#include "port_platform.h"
++#define GLYPHS(base) ((const u16 *)Port_ResolveAssetPointer(base))
++#else
++#define GLYPHS(base) (base)
++#endif
++
+ #define TAG_CURSOR 0x8000
+ 
+ #define CURSOR_DELAY 8
+@@ -1369,7 +1379,7 @@ void DecompressGlyph_Small(u16 glyphId, bool32 isJapanese)
+ 
+     if (isJapanese == TRUE)
+     {
+-        glyphs = sFontSmallJapaneseGlyphs + (0x100 * (glyphId >> 0x4)) + (0x8 * (glyphId & 0xF));
++        glyphs = GLYPHS(sFontSmallJapaneseGlyphs) + (0x100 * (glyphId >> 0x4)) + (0x8 * (glyphId & 0xF));
+         DecompressGlyphTile(glyphs, (u16 *)gGlyphInfo.pixels);
+         DecompressGlyphTile(glyphs + 0x80, (u16 *)(gGlyphInfo.pixels + 0x40));
+         gGlyphInfo.width = 8;
+@@ -1377,7 +1387,7 @@ void DecompressGlyph_Small(u16 glyphId, bool32 isJapanese)
+     }
+     else
+     {
+-        glyphs = sFontSmallLatinGlyphs + (0x10 * glyphId);
++        glyphs = GLYPHS(sFontSmallLatinGlyphs) + (0x10 * glyphId);
+         DecompressGlyphTile(glyphs, (u16 *)gGlyphInfo.pixels);
+         DecompressGlyphTile(glyphs + 0x8, (u16 *)(gGlyphInfo.pixels + 0x40));
+         gGlyphInfo.width = sFontSmallLatinGlyphWidths[glyphId];
+@@ -1401,7 +1411,7 @@ static void DecompressGlyph_NormalCopy1(u16 glyphId, bool32 isJapanese)
+     {
+         // This font only differs from the Normal font in Japanese
+         int eff;
+-        glyphs = sFontTallJapaneseGlyphs + (0x100 * (glyphId >> 0x4)) + (0x8 * (glyphId & (eff = 0xF)));  // shh, no questions, only matching now
++        glyphs = GLYPHS(sFontTallJapaneseGlyphs) + (0x100 * (glyphId >> 0x4)) + (0x8 * (glyphId & (eff = 0xF)));  // shh, no questions, only matching now
+         DecompressGlyphTile(glyphs, (u16 *)gGlyphInfo.pixels);
+         DecompressGlyphTile(glyphs + 0x80, (u16 *)(gGlyphInfo.pixels + 0x40));
+         gGlyphInfo.width = 8;
+@@ -1409,7 +1419,7 @@ static void DecompressGlyph_NormalCopy1(u16 glyphId, bool32 isJapanese)
+     }
+     else
+     {
+-        glyphs = sFontNormalCopy1LatinGlyphs + (0x20 * glyphId);
++        glyphs = GLYPHS(sFontNormalCopy1LatinGlyphs) + (0x20 * glyphId);
+         DecompressGlyphTile(glyphs, (u16 *)gGlyphInfo.pixels);
+         DecompressGlyphTile(glyphs + 0x8, (u16 *)(gGlyphInfo.pixels + 0x20));
+         DecompressGlyphTile(glyphs + 0x10, (u16 *)(gGlyphInfo.pixels + 0x40));
+@@ -1449,7 +1459,7 @@ void DecompressGlyph_Normal(u16 glyphId, bool32 isJapanese)
+         }
+         else
+         {
+-            glyphs = sFontNormalJapaneseGlyphs + (0x100 * (glyphId >> 0x3)) + (0x10 * (glyphId & 0x7));
++            glyphs = GLYPHS(sFontNormalJapaneseGlyphs) + (0x100 * (glyphId >> 0x3)) + (0x10 * (glyphId & 0x7));
+             DecompressGlyphTile(glyphs, (u16 *)gGlyphInfo.pixels);
+             DecompressGlyphTile(glyphs + 0x8, (u16 *)(gGlyphInfo.pixels + 0x20));
+             DecompressGlyphTile(glyphs + 0x80, (u16 *)(gGlyphInfo.pixels + 0x40));
+@@ -1474,7 +1484,7 @@ void DecompressGlyph_Normal(u16 glyphId, bool32 isJapanese)
+         }
+         else
+         {
+-            glyphs = sFontNormalLatinGlyphs + (0x20 * glyphId);
++            glyphs = GLYPHS(sFontNormalLatinGlyphs) + (0x20 * glyphId);
+             DecompressGlyphTile(glyphs, (u16 *)gGlyphInfo.pixels);
+             DecompressGlyphTile(glyphs + 0x8, (u16 *)(gGlyphInfo.pixels + 0x20));
+             DecompressGlyphTile(glyphs + 0x10, (u16 *)(gGlyphInfo.pixels + 0x40));
+@@ -1522,7 +1532,7 @@ static void DecompressGlyph_NormalCopy2(u16 glyphId, bool32 isJapanese)
+         }
+         else
+         {
+-            glyphs = sFontNormalJapaneseGlyphs + (0x100 * (glyphId >> 0x3)) + (0x10 * (glyphId & 0x7));
++            glyphs = GLYPHS(sFontNormalJapaneseGlyphs) + (0x100 * (glyphId >> 0x3)) + (0x10 * (glyphId & 0x7));
+             DecompressGlyphTile(glyphs, (u16 *)gGlyphInfo.pixels);
+             DecompressGlyphTile(glyphs + 0x8, (u16 *)(gGlyphInfo.pixels + 0x20));
+             DecompressGlyphTile(glyphs + 0x80, (u16 *)(gGlyphInfo.pixels + 0x40));
+@@ -1565,7 +1575,7 @@ static void DecompressGlyph_Male(u16 glyphId, bool32 isJapanese)
+         }
+         else
+         {
+-            glyphs = sFontMaleJapaneseGlyphs + (0x100 * (glyphId >> 0x3)) + (0x10 * (glyphId & 0x7));
++            glyphs = GLYPHS(sFontMaleJapaneseGlyphs) + (0x100 * (glyphId >> 0x3)) + (0x10 * (glyphId & 0x7));
+             DecompressGlyphTile(glyphs, (u16 *)gGlyphInfo.pixels);
+             DecompressGlyphTile(glyphs + 0x8, (u16 *)(gGlyphInfo.pixels + 0x20));
+             DecompressGlyphTile(glyphs + 0x80, (u16 *)(gGlyphInfo.pixels + 0x40));
+@@ -1590,7 +1600,7 @@ static void DecompressGlyph_Male(u16 glyphId, bool32 isJapanese)
+         }
+         else
+         {
+-            glyphs = sFontMaleLatinGlyphs + (0x20 * glyphId);
++            glyphs = GLYPHS(sFontMaleLatinGlyphs) + (0x20 * glyphId);
+             DecompressGlyphTile(glyphs, (u16 *)gGlyphInfo.pixels);
+             DecompressGlyphTile(glyphs + 0x8, (u16 *)(gGlyphInfo.pixels + 0x20));
+             DecompressGlyphTile(glyphs + 0x10, (u16 *)(gGlyphInfo.pixels + 0x40));
+@@ -1636,7 +1646,7 @@ void DecompressGlyph_Female(u16 glyphId, bool32 isJapanese)
+         }
+         else
+         {
+-            glyphs = sFontFemaleJapaneseGlyphs + (0x100 * (glyphId >> 0x3)) + (0x10 * (glyphId & 0x7));
++            glyphs = GLYPHS(sFontFemaleJapaneseGlyphs) + (0x100 * (glyphId >> 0x3)) + (0x10 * (glyphId & 0x7));
+             DecompressGlyphTile(glyphs, (u16 *)gGlyphInfo.pixels);
+             DecompressGlyphTile(glyphs + 0x8, (u16 *)(gGlyphInfo.pixels + 0x20));
+             DecompressGlyphTile(glyphs + 0x80, (u16 *)(gGlyphInfo.pixels + 0x40));
+@@ -1661,7 +1671,7 @@ void DecompressGlyph_Female(u16 glyphId, bool32 isJapanese)
+         }
+         else
+         {
+-            glyphs = sFontFemaleLatinGlyphs + (0x20 * glyphId);
++            glyphs = GLYPHS(sFontFemaleLatinGlyphs) + (0x20 * glyphId);
+             DecompressGlyphTile(glyphs, (u16 *)gGlyphInfo.pixels);
+             DecompressGlyphTile(glyphs + 0x8, (u16 *)(gGlyphInfo.pixels + 0x20));
+             DecompressGlyphTile(glyphs + 0x10, (u16 *)(gGlyphInfo.pixels + 0x40));
+@@ -1687,7 +1697,7 @@ static s32 GetGlyphWidth_Female(u16 glyphId, bool32 isJapanese)
+ 
+ static void DecompressGlyph_Bold(u16 glyphId)
+ {
+-    const u16 *glyphs = sFontBoldJapaneseGlyphs + (0x100 * (glyphId >> 0x4)) + (0x8 * (glyphId & 0xF));
++    const u16 *glyphs = GLYPHS(sFontBoldJapaneseGlyphs) + (0x100 * (glyphId >> 0x4)) + (0x8 * (glyphId & 0xF));
+     DecompressGlyphTile(glyphs, (u16 *)gGlyphInfo.pixels);
+     DecompressGlyphTile(glyphs + 0x80, (u16 *)(gGlyphInfo.pixels + 0x40));
+     gGlyphInfo.width = 8;

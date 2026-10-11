@@ -181,117 +181,36 @@ void Port_RecordMainLoopIteration(void)
 
 /* ── Latin fonts ────────────────────────────────────────────────────────── */
 
-extern const u16 gFontSmallNarrowLatinGlyphs[];
-extern const u16 gFontSmallLatinGlyphs[];
-extern const u16 gFontNarrowLatinGlyphs[];
-extern const u16 gFontShortLatinGlyphs[];
-extern const u16 gFontNormalLatinGlyphs[];
-
 /*
- * The stubs of the five latin fonts are packed almost back to back, so an
- * interior pointer derived from one of them aliases another family. Callers
- * must resolve the base first and apply glyph offsets to the loaded buffer.
+ * FireRed's glyph tables are static in text.c, which resolves each table's
+ * base through the asset index before adding a glyph's offset (its GLYPHS
+ * macro); there is no global font table to keep here, as the Emerald port
+ * has. Fonts load on first use like every other asset.
  */
-static struct
-{
-    const u16 *stubBase;
-    const char *path;
-    u8 *raw;
-    u32 size;
-} sLatinFonts[] = {
-    { gFontSmallNarrowLatinGlyphs, "graphics/fonts/small_narrow.latfont", NULL, 0 },
-    { gFontSmallLatinGlyphs,       "graphics/fonts/small.latfont",        NULL, 0 },
-    { gFontNarrowLatinGlyphs,      "graphics/fonts/narrow.latfont",       NULL, 0 },
-    { gFontShortLatinGlyphs,       "graphics/fonts/short.latfont",        NULL, 0 },
-    { gFontNormalLatinGlyphs,      "graphics/fonts/normal.latfont",       NULL, 0 },
-};
-
-static bool LoadLatinFont(unsigned index)
-{
-    FILE *file;
-    long size;
-
-    if (sLatinFonts[index].raw != NULL)
-        return true;
-    file = CtrData_Open(sLatinFonts[index].path);
-    if (file == NULL)
-    {
-        PORT_LOG("[ERROR] font missing: %s\n", sLatinFonts[index].path);
-        return false;
-    }
-    if (fseek(file, 0, SEEK_END) != 0 || (size = ftell(file)) <= 0
-     || fseek(file, 0, SEEK_SET) != 0)
-    {
-        fclose(file);
-        return false;
-    }
-    sLatinFonts[index].raw = malloc((size_t)size);
-    if (sLatinFonts[index].raw == NULL
-     || fread(sLatinFonts[index].raw, 1, (size_t)size, file) != (size_t)size)
-    {
-        free(sLatinFonts[index].raw);
-        sLatinFonts[index].raw = NULL;
-        fclose(file);
-        PORT_LOG("[ERROR] font unreadable: %s\n", sLatinFonts[index].path);
-        return false;
-    }
-    fclose(file);
-    sLatinFonts[index].size = (u32)size;
-    return true;
-}
-
 const void *Port_ResolveFontPointer(const void *ptr)
 {
-    unsigned i;
-
-    for (i = 0; i < ARRAY_COUNT(sLatinFonts); i++)
-    {
-        if (ptr != sLatinFonts[i].stubBase)
-            continue;
-        if (!LoadLatinFont(i))
-            return ptr;
-        return sLatinFonts[i].raw;
-    }
-    return ptr;
+    return Port_ResolveAssetPointer(ptr);
 }
 
-void Port_PreloadLatinFonts(void)
-{
-    unsigned i;
+void Port_PreloadLatinFonts(void) {}
 
-    for (i = 0; i < ARRAY_COUNT(sLatinFonts); i++)
-        LoadLatinFont(i);
-}
-
-void Port_TextPreload(void)
-{
-    Port_PreloadLatinFonts();
-}
+void Port_TextPreload(void) {}
 
 bool Port_FontProbe_ReadNormalLatinGlyph(u16 glyphId, u8 *outBuf, u32 outSize)
 {
-    const u8 *raw;
-    u32 offset = (u32)glyphId * 0x40;
-
-    if (outBuf == NULL || outSize < 0x40 || !LoadLatinFont(4))
-        return false;
-    raw = sLatinFonts[4].raw;
-    if (offset + 0x40 > sLatinFonts[4].size)
-        return false;
-    memcpy(outBuf, raw + offset, 0x40);
-    return true;
+    (void)glyphId; (void)outBuf; (void)outSize;
+    return false;
 }
 
 const void *Port_FontProbe_GetNormalLatinStubBase(void)
 {
-    return sLatinFonts[4].stubBase;
+    return NULL;
 }
 
 u16 Port_FontProbe_CompareNormalLatinGlyph(u16 glyphId)
 {
-    u8 glyph[0x40];
-
-    return Port_FontProbe_ReadNormalLatinGlyph(glyphId, glyph, sizeof(glyph)) ? 0 : 0xFFFF;
+    (void)glyphId;
+    return 0xFFFF;
 }
 
 /* ── Save storage ───────────────────────────────────────────────────────────
@@ -417,13 +336,21 @@ fail:
 
 /* ── Entry points the excluded GBA link/multiboot units would provide ───── */
 
+/* FireRed builds its Mystery Gift and e-Reader screens as they are (no link
+ * partner ever answers); only the berry-fix multiboot program is left out. */
 u32 JoyBusRead(void) { return 0; }
 void JoyBusWrite(void) {}
 void CB2_InitBerryFixProgram(void) { CTR_STUB("BERRY_FIX", "GBA berry-fix program not applicable"); }
-void CreateEReaderTask(void) { CTR_STUB("EREADER", "e-Reader link not supported"); }
-void CB2_InitMysteryGift(void) { CTR_STUB("MYSTERY_GIFT", "link menu not supported"); }
-void CB2_InitEReader(void) { CTR_STUB("EREADER", "e-Reader menu not supported"); }
-void CB2_InitMysteryEventMenu(void) { CTR_STUB("MYSTERY_EVENT", "link menu not supported"); }
+
+/* src/rom_header.s, which the executable does not assemble: the cartridge
+ * identity the game compares against a link partner's. */
+const char RomHeaderGameCode[4] = {'B', 'P', 'R', 'E'};
+const char RomHeaderSoftwareVersion = 1;   /* rev 1 */
+
+/* src/crt0.s's interrupt dispatcher: main.c copies it into IntrMain_Buffer
+ * (0x800 bytes), which nothing runs here (CtrGame_VBlank calls the handlers
+ * itself). Zeroes of the copy's size, so the copy reads only its own source. */
+const u32 intr_main[0x200];
 
 /*
  * Save-image verification. The GBA original relocated its comparison loop into

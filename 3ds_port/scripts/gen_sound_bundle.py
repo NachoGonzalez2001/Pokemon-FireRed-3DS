@@ -62,7 +62,7 @@ def main() -> None:
     port = Path(args.port_dir).resolve()
     build_dir = Path(args.build_dir).resolve() if args.build_dir else port / "build" / "root"
     out_dir = Path(args.out_dir).resolve() if args.out_dir else port / "romfs" / "sound"
-    elf = Path(args.elf).resolve() if args.elf else port / "emerald3ds.elf"
+    elf = Path(args.elf).resolve() if args.elf else port / "firered3ds.elf"
     tmp = port / "build" / "songs.tmp"
     tmp.parent.mkdir(parents=True, exist_ok=True)
 

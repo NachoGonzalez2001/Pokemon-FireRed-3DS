@@ -26,7 +26,7 @@ PORT_DIR = ROOT / "3ds_port"
 # Optional: a separate decomp build tree to take generated assets from when the
 # main tree has not generated them.
 BUILD_EMERALD = ROOT / "build-emerald"
-MAP_FILE = PORT_DIR / "build" / "emerald3ds.map"
+MAP_FILE = PORT_DIR / "build" / "firered3ds.map"
 FS_DIR = PORT_DIR / "romfs"
 URI_PREFIX = ""
 OUT_MAP = FS_DIR / "assets" / "asset_map.txt"
@@ -36,6 +36,93 @@ GENERATE_ON_DEMAND_PREFIXES = (
     "graphics/",
     "data/tilesets/",
 )
+
+
+# The macros the game units are compiled with (3ds_port/Makefile GAMEFLAGS and
+# FULLFLAGS). FireRed draws some graphics per version (graphics/.../firered/
+# against .../leafgreen/, Deoxys's forms) under #if: only the branch the build
+# compiles may give a symbol its file. Conditions on anything else are not
+# decided here and keep every branch, as before.
+KNOWN_DEFINES = {
+    "FIRERED": 1, "REVISION": 1, "ENGLISH": 1, "MODERN": 1, "PORTABLE": 1,
+    "PORT_BRIDGE": 1, "PLATFORM_3DS": 1, "UBFIX": 1, "BUGFIX": 1, "NDEBUG": 1,
+}
+KNOWN_UNDEFINED = {"LEAFGREEN", "GERMAN", "FRENCH", "ITALIAN", "SPANISH", "JAPANESE"}
+
+
+def _eval_condition(expr: str):
+    """True/False for a condition over known macros, None if undecidable."""
+    expr = re.sub(r"//.*|/\*.*?\*/", "", expr).strip()
+
+    def defined(m):
+        name = m.group(1)
+        if name in KNOWN_DEFINES:
+            return "1"
+        if name in KNOWN_UNDEFINED:
+            return "0"
+        raise KeyError(name)
+
+    try:
+        expr = re.sub(r"defined\s*\(\s*(\w+)\s*\)|defined\s+(\w+)",
+                      lambda m: defined(re.match(r"(\w+)", m.group(1) or m.group(2))), expr)
+
+        def ident(m):
+            name = m.group(0)
+            if name in KNOWN_DEFINES:
+                return str(KNOWN_DEFINES[name])
+            if name in KNOWN_UNDEFINED:
+                return "0"
+            raise KeyError(name)
+        expr = re.sub(r"\b[A-Za-z_]\w*\b", ident, expr)
+        expr = expr.replace("&&", " and ").replace("||", " or ").replace("!", " not ")
+        expr = expr.replace(" not =", "!=")
+        return bool(eval(expr, {"__builtins__": {}}, {}))
+    except Exception:
+        return None
+
+
+def strip_conditionals(text: str) -> str:
+    """Blank out the lines of #if branches the build does not compile."""
+    out = []
+    # each frame: (parent_active, decided, taken, active)
+    stack = []
+    active = True
+    for line in text.splitlines(keepends=True):
+        s = line.strip()
+        m = re.match(r"#\s*(if|ifdef|ifndef|elif|else|endif)\b(.*)", s)
+        if not m:
+            out.append(line if active else "\n")
+            continue
+        kind, rest = m.group(1), m.group(2)
+        if kind in ("if", "ifdef", "ifndef"):
+            if kind == "ifdef":
+                cond = _eval_condition("defined(%s)" % rest.strip())
+            elif kind == "ifndef":
+                c = _eval_condition("defined(%s)" % rest.strip())
+                cond = None if c is None else not c
+            else:
+                cond = _eval_condition(rest)
+            stack.append([active, cond is not None, bool(cond), active])
+            active = active and (cond is not False)
+            stack[-1][3] = active
+        elif kind == "elif" and stack:
+            parent, decided, taken, _ = stack[-1]
+            cond = _eval_condition(rest)
+            if decided and taken:
+                active = False
+            elif decided and cond is not None:
+                active = parent and cond
+                stack[-1][2] = bool(cond)
+            else:
+                active = parent
+                stack[-1][1] = False
+        elif kind == "else" and stack:
+            parent, decided, taken, _ = stack[-1]
+            active = parent and (not taken if decided else True)
+        elif kind == "endif" and stack:
+            active = stack.pop()[0]
+        out.append("\n")
+    return "".join(out)
 
 
 def parse_incbins_by_source() -> list[tuple[Path, str, list[str], bool]]:
@@ -58,7 +145,7 @@ def parse_incbins_by_source() -> list[tuple[Path, str, list[str], bool]]:
     src_root = ROOT / "src"
     files = sorted(list(src_root.rglob("*.c")) + list(src_root.rglob("*.h")))
     for src_path in files:
-        text = src_path.read_text(encoding="utf-8", errors="ignore")
+        text = strip_conditionals(src_path.read_text(encoding="utf-8", errors="ignore"))
         seen: set[str] = set()
 
         for m in direct_pattern.finditer(text):
@@ -207,7 +294,7 @@ def configure(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
 
     PORT_DIR = Path(args.port_dir).resolve()
-    MAP_FILE = Path(args.map).resolve() if args.map else PORT_DIR / "build" / "emerald3ds.map"
+    MAP_FILE = Path(args.map).resolve() if args.map else PORT_DIR / "build" / "firered3ds.map"
     FS_DIR = Path(args.fs_dir).resolve() if args.fs_dir else PORT_DIR / "romfs"
     URI_PREFIX = args.uri_prefix
     OUT_MAP = FS_DIR / "assets" / "asset_map.txt"

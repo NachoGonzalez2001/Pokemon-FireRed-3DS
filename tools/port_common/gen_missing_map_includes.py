@@ -16,6 +16,9 @@ MAPJSON = ROOT / "tools" / "mapjson" / ("mapjson.exe" if os.name == "nt" else "m
 
 
 def main() -> None:
+    # mapjson's per-game formats differ (FireRed's hidden items carry a
+    # quantity and an underfoot flag): generate for the game being built.
+    game = os.environ.get("MAPJSON_GAME", "firered")
     if not MAPJSON.exists():
         raise SystemExit(f"mapjson tool not found: {MAPJSON}")
 
@@ -35,7 +38,7 @@ def main() -> None:
             [
                 str(MAPJSON),
                 "map",
-                "emerald",
+                game,
                 str(map_json),
                 str(LAYOUTS_JSON),
                 str(out_dir),

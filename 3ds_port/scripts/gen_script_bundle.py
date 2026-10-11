@@ -26,13 +26,13 @@ from ctr_bundle import Bundle
 ROOT = Path(__file__).resolve().parents[2]
 PORT = ROOT / "3ds_port"
 
-# Every object whose script_data carries unaligned relocations.
+# Every object whose script_data carries unaligned relocations (FireRed has no
+# contests, so no contest_ai_scripts; full.mk SCRIPT_DATA_SRCS lists the same).
 SCRIPT_OBJECTS = [
     "data/battle_ai_scripts.o",
     "data/battle_anim_scripts.o",
     "data/battle_scripts_1.o",
     "data/battle_scripts_2.o",
-    "data/contest_ai_scripts.o",
     "data/event_scripts.o",
     "data/field_effect_scripts.o",
 ]
@@ -55,7 +55,7 @@ def main() -> None:
     port = Path(args.port_dir).resolve()
     build_dir = Path(args.build_dir).resolve() if args.build_dir else port / "build" / "root"
     out_dir = Path(args.out_dir).resolve() if args.out_dir else port / "romfs" / "scripts"
-    elf = Path(args.elf).resolve() if args.elf else port / "emerald3ds.elf"
+    elf = Path(args.elf).resolve() if args.elf else port / "firered3ds.elf"
     tmp = port / "build" / "scripts.tmp"
     tmp.parent.mkdir(parents=True, exist_ok=True)
 

@@ -72,6 +72,8 @@ FULL_DATA_OBJS += build/root/3ds_script_blob.o build/root/3ds_script_keep.o
 FULL_DATA_OBJS += build/root/3ds_song_blob.o
 BACKEND_SRCS := src/3ds_assets.c src/3ds_map_loader.c src/3ds_compat.c
 BACKEND_SRCS += src/3ds_game_full.c src/3ds_game_bridge.c src/3ds_script_loader.c
+# Nothing on the bottom screen yet (the Emerald touch UI is left out).
+BACKEND_SRCS += src/3ds_bottom_stub.c
 # The frame profiler times the engine's own routines through linker wrappers.
 BACKEND_SRCS += src/3ds_prof_wrap.c
 PROF_WRAPPED := RunTasks AnimateSprites BuildOamBuffer ProcessDma3Requests \
@@ -108,8 +110,14 @@ $(FULL_OBJECTS): build/config
 
 # Every game C unit, for compiling them alone (make game-objs -k): the first
 # milestone of a port is the game compiling, before anything links.
-.PHONY: game-objs
+.PHONY: game-objs data-objs
 game-objs: $(FULL_C_OBJS)
+# Every assembled data unit: tables, maps, the script sections and the songs.
+data-objs: $(patsubst $(ROOT)/%.s,build/root/%.o,$(ROOT_DATA_SRCS)) build/root/data/maps.o \
+	$(SCRIPT_DATA_OBJS) $(ROOT_SONG_OBJS)
+
+# The platform layer's scanline renderer draws every frame (3ds_game_full.c).
+build/root/src/platform/gba_fast_draw.o: FULLCFLAGS += -DRENDERER_FAST_DRAW
 
 build/root/%.o: $(ROOT)/%.c Makefile full.mk
 	@mkdir -p $(dir $@)
@@ -170,9 +178,11 @@ build/root/data/map_events.o: $(ROOT)/data/map_events.s $(ROOT)/data/maps/events
 build/root/data/event_scripts.o: $(ROOT)/data/script_cmd_table.inc $(ROOT)/data/specials.inc
 build/root/data/battle_anim_scripts.o: $(ROOT)/asm/macros/battle_anim_script.inc $(ROOT)/include/constants/battle_anim.h
 
+# The backend's bridge units see game headers but allocate from the C library
+# (FireRed's malloc.h renames malloc/free to the game heap's Alloc/Free).
 build/bridge/%.o: src/%.c Makefile full.mk include/3ds_assets.h compat/port_platform.h
 	@mkdir -p $(dir $@)
-	"$(CC)" $(FULLFLAGS) $(FULLCFLAGS) -MMD -MP -c $< -o $@
+	"$(CC)" $(FULLFLAGS) $(FULLCFLAGS) -DCTR_NATIVE_MALLOC -MMD -MP -c $< -o $@
 
 build/maps.s build/map_layouts.inc $(ROMFS_MAP_OUT) &: $(SCRIPTS)/gen_map_data.py \
 		$(ROOT)/data/maps.s $(ROOT)/data/layouts/layouts.inc

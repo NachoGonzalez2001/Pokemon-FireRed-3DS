@@ -68,7 +68,7 @@ def loaded_range(elf: Path) -> tuple[int, int]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--elf", default=str(PORT / "emerald3ds.elf"))
+    parser.add_argument("--elf", default=str(PORT / "firered3ds.elf"))
     parser.add_argument("--out-dir", default=str(PORT / "romfs" / "scripts"))
     parser.add_argument("--tag", default="verify_scripts")
     parser.add_argument("--magic", default="C3SB")

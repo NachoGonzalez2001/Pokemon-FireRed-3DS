@@ -3,11 +3,20 @@
 #include "3ds_audio.h"
 #include "3ds_emu_regs.h"
 #include "3ds_bottom.h"
-#include "siirtc.h"
 #include "gba/flash_internal.h"
+/* FireRed has no real-time clock: the RTC entry points exist only for a game
+ * that does (Emerald's siirtc.h). */
+#if __has_include("siirtc.h")
+#include "siirtc.h"
+#define CTR_HAS_RTC 1
+#else
+#define CTR_HAS_RTC 0
+#endif
 
+#if CTR_HAS_RTC
 static time_t sClockOffset;
 static u8 sRtcStatus = SIIRTCINFO_24HOUR;
+#endif
 
 void CtrEmu_Reset(void)
 {
@@ -61,6 +70,7 @@ void SoftReset(u32 flags)
     CtrGame_SoftReset();
 }
 
+#if CTR_HAS_RTC
 static u8 Bcd(unsigned value) { return ((value / 10) << 4) | (value % 10); }
 static unsigned FromBcd(u8 value) { return (value >> 4) * 10 + (value & 15); }
 
@@ -125,6 +135,7 @@ void Platform_SetAlarm(u8 *alarmData)
     (void)alarmData;
     CTR_UNIMPLEMENTED("RTC_ALARM: hardware alarm not supported");
 }
+#endif /* CTR_HAS_RTC */
 
 /*
  * Nothing to flush: Port_WriteFlash commits each sector to the file as the game

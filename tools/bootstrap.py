@@ -96,13 +96,23 @@ def main() -> int:
     marker = tree / ".firered3ds-patches"
     digest = patch_digest(patches)
 
-    head = ""
+    # The tree is current when it sits on the pinned commit (its base, under
+    # one commit per patch) and the marker matches the patch set.
+    based = False
     if (tree / ".git").exists():
-        head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=tree, capture_output=True,
-                              text=True).stdout.strip()
+        based = subprocess.run(["git", "merge-base", "--is-ancestor", commit, "HEAD"], cwd=tree,
+                               capture_output=True).returncode == 0
     stale = not marker.exists() or marker.read_text().strip() != digest
-    if args.clean or head != commit or stale:
-        if head != commit:
+    if args.clean or not based or stale:
+        if based and not args.clean:
+            # A reset would throw away edits not yet exported as a patch.
+            dirty = subprocess.run(["git", "status", "--porcelain"], cwd=tree,
+                                   capture_output=True, text=True).stdout.strip()
+            if dirty:
+                sys.exit("bootstrap: %s has uncommitted upstream changes and the patch set "
+                         "changed; export them (tools/export_patch.py) or pass --clean:\n%s"
+                         % (tree, dirty))
+        if not based:
             fetch(tree, repo, commit)
         keep_lf(tree)
         run(["git", "reset", "-q", "--hard", commit], cwd=tree)
