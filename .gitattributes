@@ -1,0 +1,7 @@
+# Scripts, patches and build files keep LF whatever core.autocrlf says:
+# bash rejects CRLF scripts and the patches apply to an LF upstream tree.
+* text=auto eol=lf
+*.ps1 text eol=crlf
+*.png binary
+*.wav binary
+*.bin binary
