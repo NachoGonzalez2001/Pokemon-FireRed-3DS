@@ -81,8 +81,84 @@ index 6a1b272119ce6e3a8dcf45adf2eef8923a6d5175..3b1ef1dcd0d4c67959ad10ec1fb5d259
  
  struct SpritePalette
  {
+diff --git a/src/battle_controller_oak_old_man.c b/src/battle_controller_oak_old_man.c
+index 71926e57906f3fca9a034e9ce0d0714ecfb13062..048082a7e6f1e0819a7552885655019e3c2d08b1 100644
+--- a/src/battle_controller_oak_old_man.c
++++ b/src/battle_controller_oak_old_man.c
+@@ -17,6 +17,9 @@
+ #include "reshow_battle_screen.h"
+ #include "constants/songs.h"
+ #include "constants/items.h"
++#ifdef PORT_BRIDGE
++#include "port_platform.h"
++#endif
+ 
+ static void OakOldManHandleGetMonData(void);
+ static void OakOldManHandleGetRawMonData(void);
+@@ -188,6 +191,23 @@ static void HandleInputChooseAction(void)
+ 
+     DoBounceEffect(gActiveBattler, BOUNCE_HEALTHBOX, 7, 1);
+     DoBounceEffect(gActiveBattler, BOUNCE_MON, 7, 1);
++#ifdef PORT_BRIDGE
++    {
++        // The 3DS bottom screen's action buttons, as in the player's own.
++        s8 tap = Port_BattleMenu(PORT_BATTLE_ACTION, NULL);
++
++        if (tap >= 0 && tap < 4)
++        {
++            if (tap != gActionSelectionCursor[gActiveBattler])
++            {
++                ActionSelectionDestroyCursorAt(gActionSelectionCursor[gActiveBattler]);
++                gActionSelectionCursor[gActiveBattler] = tap;
++                ActionSelectionCreateCursorAt(tap, 0);
++            }
++            gMain.newKeys |= A_BUTTON;
++        }
++    }
++#endif
+     if (JOY_NEW(A_BUTTON))
+     {
+         PlaySE(SE_SELECT);
+@@ -1802,6 +1822,12 @@ static void HandleChooseActionAfterDma3(void)
+     {
+         gBattle_BG0_X = 0;
+         gBattle_BG0_Y = 160;
++#ifdef PORT_BRIDGE
++        // The first battle's menu is on the 3DS bottom screen; the old man's
++        // demonstration keeps its own on top.
++        if (gBattleTypeFlags & BATTLE_TYPE_FIRST_BATTLE)
++            gBattle_BG0_Y = 0;
++#endif
+         if (gBattleTypeFlags & BATTLE_TYPE_FIRST_BATTLE)
+             gBattlerControllerFuncs[gActiveBattler] = HandleInputChooseAction;
+         else
+@@ -1814,6 +1840,14 @@ static void OakOldManHandleChooseAction(void)
+     s32 i;
+ 
+     gBattlerControllerFuncs[gActiveBattler] = HandleChooseActionAfterDma3;
++#ifdef PORT_BRIDGE
++    if (gBattleTypeFlags & BATTLE_TYPE_FIRST_BATTLE)
++    {
++        BattleStringExpandPlaceholdersToDisplayedString(gText_WhatWillPkmnDo);
++        BattlePutTextOnWindow(gDisplayedStringBattle, B_WIN_MSG);
++        return;
++    }
++#endif
+     BattlePutTextOnWindow(gText_EmptyString3, B_WIN_MSG);
+     BattlePutTextOnWindow(gText_BattleMenu, B_WIN_ACTION_MENU);
+     for (i = 0; i < MAX_MON_MOVES; ++i)
+@@ -1837,6 +1871,9 @@ static void OakHandleChooseMove_WaitDma3(void)
+     {
+         gBattle_BG0_X = 0;
+         gBattle_BG0_Y = 320;
++#ifdef PORT_BRIDGE
++        gBattle_BG0_Y = 0;
++#endif
+         gBattlerControllerFuncs[gActiveBattler] = OakOldManHandleInputChooseMove;
+     }
+ }
 diff --git a/src/battle_controller_player.c b/src/battle_controller_player.c
-index d8e1fe71e4e06303476313c15ab371fee1f82139..b60840c69170e07f1c108cebc00b5f24a8997d7c 100644
+index d8e1fe71e4e06303476313c15ab371fee1f82139..a0653fc09577223d0898c5e7d4da3f7b5ea589e0 100644
 --- a/src/battle_controller_player.c
 +++ b/src/battle_controller_player.c
 @@ -23,6 +23,9 @@
@@ -148,6 +224,40 @@ index d8e1fe71e4e06303476313c15ab371fee1f82139..b60840c69170e07f1c108cebc00b5f24
      if (JOY_NEW(A_BUTTON))
      {
          u8 moveTarget;
+@@ -2405,6 +2447,10 @@ static void HandleChooseActionAfterDma3(void)
+     {
+         gBattle_BG0_X = 0;
+         gBattle_BG0_Y = 160;
++#ifdef PORT_BRIDGE
++        // The menu is on the 3DS bottom screen: the top keeps the message box.
++        gBattle_BG0_Y = 0;
++#endif
+         gBattlerControllerFuncs[gActiveBattler] = HandleInputChooseAction;
+     }
+ }
+@@ -2414,6 +2460,12 @@ static void PlayerHandleChooseAction(void)
+     s32 i;
+ 
+     gBattlerControllerFuncs[gActiveBattler] = HandleChooseActionAfterDma3;
++#ifdef PORT_BRIDGE
++    // Only the question, in the message box; the menu is on the bottom screen.
++    BattleStringExpandPlaceholdersToDisplayedString(gText_WhatWillPkmnDo);
++    BattlePutTextOnWindow(gDisplayedStringBattle, B_WIN_MSG);
++    return;
++#endif
+     BattlePutTextOnWindow(gText_EmptyString3, B_WIN_MSG);
+     BattlePutTextOnWindow(gText_BattleMenu, B_WIN_ACTION_MENU);
+     for (i = 0; i < 4; ++i)
+@@ -2433,6 +2485,9 @@ static void HandleChooseMoveAfterDma3(void)
+     {
+         gBattle_BG0_X = 0;
+         gBattle_BG0_Y = 320;
++#ifdef PORT_BRIDGE
++        gBattle_BG0_Y = 0;
++#endif
+         gBattlerControllerFuncs[gActiveBattler] = HandleInputChooseMove;
+     }
+ }
 diff --git a/src/battle_interface.c b/src/battle_interface.c
 index 36fc9a58492d2fdc2e6e578ca460959a4838cdf3..88910d23822cc552423f9ed385ddc60d86071ddb 100644
 --- a/src/battle_interface.c

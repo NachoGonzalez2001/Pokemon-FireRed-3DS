@@ -110,6 +110,8 @@ typedef struct {
 
 typedef struct {
     u8 choose;       /* PORT_BATTLE_* the player is choosing, or 0 */
+    u8 cursor;       /* the game's cursor in that menu */
+    u8 balls[PARTY_SIZE]; /* 0 none, 1 able, 2 fainted or status */
     u16 moves[MAX_MON_MOVES];
     u8 pp[MAX_MON_MOVES], maxPp[MAX_MON_MOVES];
     FighterView player, opponent;
@@ -342,6 +344,20 @@ static void SnapshotBattle(ViewState *s)
                 s->b.pp[i] = sBattleMoves.currentPp[i];
                 s->b.maxPp[i] = sBattleMoves.maxPp[i];
             }
+    }
+    if (s->b.choose)
+    {
+        u8 battler = GetBattlerAtPosition(B_POSITION_PLAYER_LEFT);
+
+        s->b.cursor = s->b.choose == PORT_BATTLE_MOVE ? gMoveSelectionCursor[battler] : gActionSelectionCursor[battler];
+    }
+    for (int i = 0; i < PARTY_SIZE; i++)
+    {
+        u16 species = GetMonData(&gPlayerParty[i], MON_DATA_SPECIES_OR_EGG);
+
+        if (species == SPECIES_NONE || species == SPECIES_EGG)
+            continue;
+        s->b.balls[i] = GetMonData(&gPlayerParty[i], MON_DATA_HP) == 0 || GetMonData(&gPlayerParty[i], MON_DATA_STATUS) ? 2 : 1;
     }
     SnapshotFighter(&s->b.player, B_POSITION_PLAYER_LEFT);
     SnapshotFighter(&s->b.opponent, B_POSITION_OPPONENT_LEFT);
@@ -655,8 +671,6 @@ static void RenderPanel(const ViewState *s)
 /* The battle's page                                                        */
 /* ------------------------------------------------------------------------ */
 
-#define BATTLE_INFO_H 56
-
 static const u8 sTypeRgb[NUMBER_OF_MON_TYPES][3] = {
     [TYPE_NORMAL]   = {21, 21, 15}, [TYPE_FIGHTING] = {24,  6,  5}, [TYPE_FLYING]  = {20, 17, 30},
     [TYPE_POISON]   = {20,  8, 20}, [TYPE_GROUND]   = {28, 24, 13}, [TYPE_ROCK]    = {23, 20,  7},
@@ -675,103 +689,130 @@ static u16 TypeColour(u8 type, bool8 light)
     return Rgb(c[0], c[1], c[2]);
 }
 
-static void DrawFighter(const FighterView *f, int x, int y, int w, bool8 numbers)
-{
-    u8 buf[16], *p;
-    int fill;
-    u16 c;
+#define C_BATTLE_BG    Rgb(6, 16, 18)
+#define C_BATTLE_LINE  Rgb(10, 24, 25)
+#define C_FOCUS        Rgb(31, 27, 6)
 
-    if (!f->present)
-        return;
-    Text(FONT_NORMAL, f->name, x, y, C_INK, C_INK_SH, TRUE);
-    buf[0] = CHAR_LV;
-    ConvertIntToDecimalStringN(buf + 1, f->level, STR_CONV_MODE_LEFT_ALIGN, 3);
-    TextRight(FONT_SMALL, buf, x + w, y + 2, C_INK, C_INK_SH);
-    fill = f->maxHp ? (w * f->hp + f->maxHp - 1) / f->maxHp : 0;
-    c = f->hp * 2 > f->maxHp ? Rgb(7, 27, 9) : f->hp * 5 > f->maxHp ? Rgb(30, 24, 2) : Rgb(29, 5, 4);
-    DrawBox(x - 1, y + 16, w + 2, 6, Rgb(10, 10, 10), C_INK);
-    FillRect(x, y + 17, fill, 4, c);
-    if (numbers)
+/* The action menu: FIGHT across the top, BAG, POKéMON and RUN below it. The
+ * move menu: four moves in a 2x2 grid, CANCEL under them. */
+static void ActionRect(int i, int *x, int *y, int *w, int *h)
+{
+    if (i == 0)
     {
-        p = ConvertIntToDecimalStringN(buf, f->hp, STR_CONV_MODE_LEFT_ALIGN, 3);
-        *p++ = CHAR_SLASH;
-        ConvertIntToDecimalStringN(p, f->maxHp, STR_CONV_MODE_LEFT_ALIGN, 3);
-        TextRight(FONT_SMALL, buf, x + w, y + 24, C_INK, C_INK_SH);
+        *x = 10, *y = 16, *w = W - 20, *h = 112;
+        return;
     }
+    *w = (W - 20 - 2 * 8) / 3;
+    *h = 92;
+    *x = 10 + (i - 1) * (*w + 8);
+    *y = 140;
 }
 
-/* The four buttons of a 2x2 grid below the info strip, above a cancel bar. */
-static void ButtonRect(int i, bool8 withCancel, int *x, int *y, int *w, int *h)
+static void MoveRect(int i, int *x, int *y, int *w, int *h)
 {
-    int top = BATTLE_INFO_H + 6, bottom = withCancel ? H - 34 : H - 4;
-
-    *w = (W - 12) / 2;
-    *h = (bottom - top - 4) / 2;
-    *x = 4 + (i & 1) * (*w + 4);
-    *y = top + (i >> 1) * (*h + 4);
+    if (i == 4)
+    {
+        *x = 10, *y = 200, *w = W - 20, *h = 32;
+        return;
+    }
+    *w = (W - 20 - 8) / 2;
+    *h = 84;
+    *x = 10 + (i & 1) * (*w + 8);
+    *y = 16 + (i >> 1) * (*h + 8);
 }
 
-static void DrawBigButton(int i, bool8 withCancel, u16 fill, u16 edge, bool8 pressed)
+/* A plate: white ground, a slanted band of colour, a darker rim; the
+ * focused one (the game's cursor) has a gold ring. */
+static void DrawSlantPlate(int x, int y, int w, int h, u16 colour, bool8 on, bool8 focus, bool8 pressed)
 {
-    int x, y, w, h;
+    u16 band = !on ? C_PLATE_OFF : pressed ? Dim(colour) : colour;
+    u16 ground = on ? C_WHITE : Rgb(26, 26, 25);
 
-    ButtonRect(i, withCancel, &x, &y, &w, &h);
-    DrawBox(x, y, w, h, pressed ? Dim(fill) : fill, edge);
-    FillRect(x + 2, y + 2, w - 4, 3, pressed ? fill : C_WHITE);
+    if (focus && on)
+        DrawBox(x - 3, y - 3, w + 6, h + 6, C_FOCUS, C_FOCUS);
+    DrawBox(x, y, w, h, ground, C_INK);
+    /* the band leans right: it starts a quarter in at the top */
+    for (int row = 1; row < h - 1; row++)
+    {
+        int from = x + w / 4 - (row * (w / 4)) / h;
+
+        FillRect(from, y + row, x + w - 1 - from, 1, band);
+    }
+    FillRect(x + 1, y + 1, w - 2, 2, on ? C_WHITE : ground);
+}
+
+static void DrawPartyBalls(const ViewState *s, int cx, int y)
+{
+    for (int i = 0; i < PARTY_SIZE; i++)
+    {
+        int x = cx - PARTY_SIZE * 6 + i * 12;
+        u16 top = s->b.balls[i] == 1 ? Rgb(29, 5, 4) : s->b.balls[i] == 2 ? Rgb(16, 16, 16) : Rgb(24, 24, 23);
+
+        DrawBox(x, y, 10, 10, C_WHITE, C_INK);
+        FillRect(x + 1, y + 1, 8, 4, s->b.balls[i] ? top : C_WHITE);
+        FillRect(x + 1, y + 5, 8, 1, C_INK);
+    }
 }
 
 static void DrawActions(const ViewState *s)
 {
-    static const u8 sRgb[4][3] = { {28, 8, 6}, {29, 22, 5}, {8, 22, 9}, {7, 13, 27} };
+    static const u8 sRgb[4][3] = { {28, 6, 6}, {29, 23, 5}, {6, 22, 9}, {6, 13, 28} };
     bool8 on = s->b.choose == PORT_BATTLE_ACTION;
 
     for (int i = 0; i < 4; i++)
     {
         int x, y, w, h;
-        u16 fill = on ? Rgb(sRgb[i][0], sRgb[i][1], sRgb[i][2]) : C_PLATE_OFF;
         const u8 *label = i == 0 ? Ascii("FIGHT") : i == 1 ? gText_MenuBag : i == 2 ? gText_MenuPokemon : Ascii("RUN");
 
-        DrawBigButton(i, FALSE, fill, C_INK, on && s->pressed == HIT_BATTLE + i);
-        ButtonRect(i, FALSE, &x, &y, &w, &h);
-        TextCentered(FONT_NORMAL, label, x + w / 2, y + h / 2 - 7, on ? C_WHITE : C_GREY, on ? C_INK : C_PLATE_OFF);
+        ActionRect(i, &x, &y, &w, &h);
+        DrawSlantPlate(x, y, w, h, Rgb(sRgb[i][0], sRgb[i][1], sRgb[i][2]), on, s->b.cursor == i,
+                       s->pressed == HIT_BATTLE + i);
+        if (i == 0)
+            TextCentered(FONT_NORMAL, label, x + w / 2, y + h / 2 - 7, on ? C_WHITE : C_GREY, on ? C_INK : C_PLATE_OFF);
+        else
+            TextCentered(FONT_NORMAL, label, x + w / 2, y + h - 22, on ? C_WHITE : C_GREY, on ? C_INK : C_PLATE_OFF);
+        if (i == 2)
+            DrawPartyBalls(s, x + w / 2, y + 14);
     }
 }
 
 static void DrawMoves(const ViewState *s)
 {
+    int x, y, w, h;
+
     for (int i = 0; i < MAX_MON_MOVES; i++)
     {
-        int x, y, w, h;
         u16 move = s->b.moves[i];
         u8 type, buf[16], *p;
 
-        ButtonRect(i, TRUE, &x, &y, &w, &h);
+        MoveRect(i, &x, &y, &w, &h);
         if (move == MOVE_NONE)
         {
-            DrawBox(x, y, w, h, C_PANEL, C_SLOT_EDGE);
+            DrawBox(x, y, w, h, C_BATTLE_LINE, C_INK);
             continue;
         }
         type = gBattleMoves[move].type;
-        DrawBigButton(i, TRUE, TypeColour(type, TRUE), TypeColour(type, FALSE), s->pressed == HIT_BATTLE + i);
-        Text(FONT_NORMAL, gMoveNames[move], x + 8, y + 8, C_INK, C_INK_SH, TRUE);
-        Text(FONT_SMALL, gTypeNames[type], x + 8, y + h - 18, TypeColour(type, FALSE), C_WHITE, TRUE);
+        DrawSlantPlate(x, y, w, h, TypeColour(type, FALSE), TRUE, s->b.cursor == i, s->pressed == HIT_BATTLE + i);
+        Text(FONT_NORMAL, gMoveNames[move], x + 10, y + 10, C_WHITE, C_INK, TRUE);
+        Text(FONT_SMALL, gTypeNames[type], x + 10, y + h - 22, C_WHITE, C_INK, TRUE);
         p = StringCopy(buf, Ascii("PP "));
         p = ConvertIntToDecimalStringN(p, s->b.pp[i], STR_CONV_MODE_LEFT_ALIGN, 2);
         *p++ = CHAR_SLASH;
         ConvertIntToDecimalStringN(p, s->b.maxPp[i], STR_CONV_MODE_LEFT_ALIGN, 2);
-        TextRight(FONT_SMALL, buf, x + w - 8, y + h - 18, s->b.pp[i] ? C_INK : Rgb(28, 4, 4), C_INK_SH);
+        TextRight(FONT_SMALL, buf, x + w - 10, y + h - 22, s->b.pp[i] ? C_WHITE : Rgb(31, 12, 10), C_INK);
     }
-    DrawBox(4, H - 30, W - 8, 26, s->pressed == HIT_BATTLE + 4 ? C_PLATE_ON : C_PLATE, C_INK);
-    TextCentered(FONT_NORMAL, Ascii("CANCEL"), W / 2, H - 25, C_INK, C_INK_SH);
+    MoveRect(4, &x, &y, &w, &h);
+    DrawBox(x, y, w, h, s->pressed == HIT_BATTLE + 4 ? C_PLATE_ON : C_PLATE, C_INK);
+    TextCentered(FONT_NORMAL, Ascii("CANCEL"), x + w / 2, y + h / 2 - 7, C_INK, C_INK_SH);
 }
 
 static void RenderBattle(const ViewState *s)
 {
-    FillRect(0, 0, W, H, C_PANEL);
-    FillRect(0, 0, W, BATTLE_INFO_H, C_SLOT);
-    FillRect(0, BATTLE_INFO_H, W, 2, C_SLOT_EDGE);
-    DrawFighter(&s->b.opponent, 8, 8, W / 2 - 20, FALSE);
-    DrawFighter(&s->b.player, W / 2 + 8, 8, W / 2 - 20, TRUE);
+    FillRect(0, 0, W, H, C_BATTLE_BG);
+    for (int y = 4; y < H; y += 8)
+        FillRect(0, y, W, 1, C_BATTLE_LINE);
+    FillRect(0, 0, W, 6, C_BATTLE_LINE);
+    FillRect(0, H - 4, W, 4, C_BATTLE_LINE);
     if (s->b.choose == PORT_BATTLE_MOVE)
         DrawMoves(s);
     else
@@ -849,13 +890,14 @@ static u8 BattleHitTest(const ViewState *s, int x, int y)
 {
     bool8 moves = s->b.choose == PORT_BATTLE_MOVE;
 
-    if (moves && y >= H - 30)
-        return HIT_BATTLE + 4;
-    for (int i = 0; i < 4; i++)
+    for (int i = 0; i < (moves ? 5 : 4); i++)
     {
         int bx, by, bw, bh;
 
-        ButtonRect(i, moves, &bx, &by, &bw, &bh);
+        if (moves)
+            MoveRect(i, &bx, &by, &bw, &bh);
+        else
+            ActionRect(i, &bx, &by, &bw, &bh);
         if (x >= bx && x < bx + bw && y >= by && y < by + bh)
             return HIT_BATTLE + i;
     }
