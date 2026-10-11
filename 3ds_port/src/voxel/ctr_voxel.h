@@ -1,0 +1,177 @@
+#ifndef CTR_VOXEL_H
+#define CTR_VOXEL_H
+
+#include <stdbool.h>
+#include <citro3d.h>
+
+bool CtrVoxel_Init(void);
+void CtrVoxel_Shutdown(void);
+
+/* Cheap and side-effect free: decides which renderer composes this frame. */
+bool CtrVoxel_IsAvailable(void);
+
+/* Called after C3D_FrameBegin(), with the previous frame's GPU work finished:
+ * everything it writes goes to linear memory that C3D_FrameEnd() then flushes. */
+bool CtrVoxel_Update(void);
+/*
+ * Called after C3D_FrameEnd() of a frame the voxel world was drawn in, with
+ * the tick C3D_FrameBegin() returned on: builds chunks and atlases while the
+ * GPU draws that frame, in what is left of it before the next VBlank once the
+ * game and the audio have had theirs. Nothing it does touches the GPU; what it
+ * finishes is uploaded by the next Update.
+ */
+void CtrVoxel_AfterSubmit(uint64_t frameBeginTick);
+/* Game VRAM animation transfer: tile numbers are relative to BG_VRAM. */
+void CtrVoxel_NotifyTilesetAnimWrite(unsigned firstTile, unsigned tileCount);
+
+/* Draws into the given target. Never opens or closes a frame. */
+void CtrVoxel_Draw(C3D_RenderTarget *target, float eyeOffset);
+/* The GBA brightness effect (BLDY) of the frame about to be drawn, as the
+ * compositor reads it: on the backgrounds and on the sprites, towards white
+ * or black. The palette fade is read by the voxel module itself. */
+void CtrVoxel_SetBrightness(float backgrounds, float sprites, bool white);
+/* How much glow the 2D compositor adds around the brightest parts of the
+ * voxel picture this frame (0: none): the light's bloom, 0 indoors. */
+float CtrVoxel_Bloom(void);
+/* Whether the world draws the game's fog itself (in the scene, see
+ * ctr_voxel.c): the compositor then leaves the fog's flat sprites out. */
+bool CtrVoxel_DrawsFog(void);
+/* The dark of a cave over the frame just drawn: an alpha texture to lay in
+ * black, centred on (x, y) of the logical surface, size pixels across, at
+ * amount. NULL when there is none. */
+const C3D_Tex *CtrVoxel_Gloom(float *x, float *y, float *size, float *amount);
+
+/*
+ * Stereoscopy (3D slider): the world is drawn once and each eye gets that
+ * picture moved sideways by its depth (see ctr_voxel.c). Per frame:
+ * - Sample, before the logical surface is cleared, when the previous frame
+ *   drew the world into it: reads the depth that frame left behind.
+ * - Begin, with the slider and the rows the tilt-shift blurs at the top and
+ *   at the bottom (0: none).
+ * - Draw, per eye (0 left, 1 right) into the current target, between a
+ *   C2D_Flush and a C2D_Prepare: the picture (COPY), a blur tap moved by
+ *   (dx, dy) pixels at `alpha` over the top or the bottom band, or the bloom
+ *   added at `alpha` (any texture laid out as the logical surface, scaled).
+ * - Shift: how far one eye moves the point (x, y) of the picture.
+ */
+typedef enum
+{
+    VOXEL_STEREO_COPY,
+    VOXEL_STEREO_TOP,
+    VOXEL_STEREO_BOTTOM,
+    VOXEL_STEREO_ADD,
+} VoxelStereoPass;
+
+bool CtrVoxel_StereoAvailable(void);
+void CtrVoxel_StereoSample(const C3D_RenderTarget *surface);
+void CtrVoxel_StereoBegin(float slider, int blurTop, int blurBottom);
+void CtrVoxel_StereoDraw(int eye, C3D_Tex *tex, VoxelStereoPass pass, float dx, float dy, float alpha);
+float CtrVoxel_StereoShift(int eye, float x, float y);
+
+typedef struct
+{
+    unsigned instances;
+    unsigned chunks;
+    unsigned visibleChunks;
+    unsigned vertices;
+    unsigned atlasRebuilds;
+    unsigned meshRebuilds;
+    unsigned spriteUpdates;
+    unsigned animationUploads, animatedMetatiles;
+    unsigned reflections;
+    unsigned errors;
+    /* Vertices the last chunk build could not fit. */
+    unsigned dropped;
+    /*
+     * Chunks the view needed this frame and did not get, because the per-frame
+     * build budget ran out before reaching them. A steady non-zero number is
+     * the cache thrashing rather than filling, which on screen is a black
+     * square-edged hole - so it is worth a number of its own.
+     */
+    unsigned chunksMissing;
+    /* Milliseconds the last frame spent visiting the view and building
+     * chunks and atlases, and the worst seen. The steady frame is fine; what
+     * the overlay could not show was the spike. */
+    float meshMs, meshPeakMs;
+    /* The whole update, billboards and page streaming included. */
+    float updateMs, updatePeakMs;
+    /* Where the rest of the update went: the maps on screen and the lighting
+     * reset that follows a change to them (region layouts come off RomFS
+     * there), the atlas job, and the billboards. */
+    float worldMs, atlasMs, spritesMs;
+    /* ... and of what no other figure holds: the building pages' stream, the
+     * animated tiles' recomposition, the drafts. */
+    float streamMs, animMs, draftMs;
+    /* Spent building after the last FrameEnd (CtrVoxel_AfterSubmit), and the
+     * budget it had. */
+    float afterMs, afterBudgetMs;
+    /* Chunks built this frame, and still waiting for a later one. */
+    unsigned frameBuilds, pendingBuilds;
+    /* Squares drawn this frame as their draft only, and drafts made in all. */
+    unsigned draftsVisible, draftsMade;
+    /* Bytes still free in the two pools this competes for. VRAM is here
+     * because it is almost entirely unused, which is the whole argument for
+     * moving the mesh into it. */
+    unsigned long linearFree, vramFree;
+} CtrVoxelStats;
+
+const CtrVoxelStats *CtrVoxel_GetStats(void);
+
+/*
+ * Why the last frame did or did not take the voxel path, as a short word for
+ * the debug overlay: off, nomap, noatlas, nomesh, on.
+ */
+const char *CtrVoxel_Status(void);
+
+/*
+ * Gives back the VRAM of atlases the overworld is not using right now - every
+ * tileset pair but the current map's. For the 2D compositor, on a frame the
+ * overworld does not draw. Returns the bytes released.
+ */
+unsigned long CtrVoxel_ReleaseIdleVram(void);
+
+/* A map just entered by a cut is still being built (see VOXEL_WARMUP_MS). */
+bool CtrVoxel_IsWarmingUp(void);
+
+/*
+ * Where the camera shows a point of the 240x160 picture the game lays out
+ * around the player: `tileX`, `tileY` are tiles from the player's tile
+ * centre (right, down), the point standing a tile up in the air - the top of
+ * a counter. The result is on the 400x240 screen. False without a world.
+ */
+bool CtrVoxel_ProjectPictureTile(float tileX, float tileY, float *screenX, float *screenY);
+/* The player on the logical surface, for the circle of light of a dark cave,
+ * and how many surface pixels one GBA pixel of the ground covers there. */
+bool CtrVoxel_PlayerLightSpot(float *x, float *y, float *scaleX, float *scaleY);
+
+/*
+ * The 3D battle (3ds_video.c, RenderBattleWorld). From Begin to End, Update
+ * draws the world as the battle's scenery: seen from a camera of its own on
+ * a stage chosen near the player (voxel_battle.c), with nobody in it. Begin
+ * once per battle, on its first frame; Update ends it by itself, giving the
+ * field its camera back, once the game has left the battle.
+ */
+bool CtrVoxel_IsAvailableForBattle(void);
+void CtrVoxel_BeginBattle(void);
+void CtrVoxel_EndBattle(void);
+bool CtrVoxel_InBattle(void);
+/* Before each battle Update: whether the intro is sliding its scenery in
+ * (the camera glides in meanwhile), and how far BG3 is scrolled from rest in
+ * GBA pixels (a move shaking the scenery shakes the camera). */
+void CtrVoxel_SetBattleFrame(bool introSliding, float shakeX, float shakeY);
+/*
+ * The battle's entrance as of the last Update, for the effects laid over the
+ * world (3ds_video.c, BattleIntroEffects); all zero outside a battle and once
+ * the camera has landed. Each 0..1 but `time`, the battle's frames so far.
+ */
+typedef struct
+{
+    float flight; /* the camera's arc: up and away mid-flight */
+    float speed;  /* how fast it travels */
+    float impact; /* the landing, dying away */
+    float bars;   /* the cinema bars, closed in */
+    float time;
+} CtrVoxelBattleIntro;
+void CtrVoxel_BattleIntro(CtrVoxelBattleIntro *intro);
+
+#endif

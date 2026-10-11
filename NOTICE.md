@@ -14,6 +14,15 @@ method of that project's `dump_region_art.py`, `voxel_building_specs.py` and
 `touch.ps1` are copied from that project's `3ds_port/scripts/emu/`, changed
 to target one emulator process (`-Id`) and Azahar's default START/SELECT keys.
 
+The 3DS backend in `3ds_port/` (`src/`, `include/`, `compat/`, `scripts/`,
+`tests/`, `forwarder/`, `Makefile`, `full.mk`, `firered3ds.ld.in`) and
+`tools/port_common/` start as copies of that project's files of the same
+names and are being adapted to FireRed; `tools/bootstrap.py` and
+`patches/pokefirered/0004-platform-layer.patch` are adapted from its
+bootstrap and its `0004-platform-layer.patch`. Files in
+`3ds_port/src/voxel/` additionally carry the attribution of their own
+`NOTICE.md` (pokeemerald-multiplatform, MIT).
+
 Its port code is distributed under the MIT License:
 
     MIT License

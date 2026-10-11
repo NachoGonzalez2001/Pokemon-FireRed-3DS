@@ -55,6 +55,19 @@ def keep_lf(tree: Path) -> None:
     run(["git", "config", "core.eol", "lf"], cwd=tree)
 
 
+OVERLAY_EXCLUDES = ["/3ds_port/", "/builder/", "/tools/port_common/", "/tools/bootstrap.py",
+                    "/tools/dkp.sh", "/tools/export_patch.py", "/upstream.lock",
+                    "/.firered3ds-patches"]
+
+
+def exclude_overlay(tree: Path) -> None:
+    """The port's own files are copied into the tree but are not upstream
+    changes: keep them out of the commits the patches are cut from."""
+    info = tree / ".git" / "info"
+    info.mkdir(parents=True, exist_ok=True)
+    (info / "exclude").write_text("\n".join(OVERLAY_EXCLUDES) + "\n", encoding="utf-8")
+
+
 def fetch(tree: Path, repo: str, commit: str) -> None:
     tree.mkdir(parents=True, exist_ok=True)
     if not (tree / ".git").exists():
@@ -105,8 +118,14 @@ def main() -> int:
                             ["git", "ls-files", "--error-unmatch", line[6:]], cwd=tree,
                             capture_output=True).returncode != 0:
                         created.unlink()
+        exclude_overlay(tree)
         for patch in patches:
             run(["git", "apply", "--whitespace=nowarn", patch], cwd=tree)
+            # One commit per patch: the next patch is whatever is left
+            # uncommitted on top (tools/export_patch.py writes it out).
+            run(["git", "add", "-A"], cwd=tree)
+            run(["git", "-c", "user.name=bootstrap", "-c", "user.email=bootstrap@localhost",
+                 "commit", "-q", "--no-verify", "-m", patch.stem], cwd=tree)
         marker.write_text(digest + "\n")
     else:
         print("bootstrap: upstream %s with %d patches already in place" % (commit[:12], len(patches)))

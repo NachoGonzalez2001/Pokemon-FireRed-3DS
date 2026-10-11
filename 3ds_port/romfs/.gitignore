@@ -1,0 +1,11 @@
+# Everything here is produced by `make` from sources already in the repository
+# (graphics/, data/layouts/, data/*.s) and is rebuilt whenever the executable is
+# relinked, because the asset index keys on the linker's stub addresses.
+# Committing it would add ~19 MiB of derived data per regeneration.
+assets/
+data/
+generated/
+graphics/
+maps/
+scripts/
+sound/

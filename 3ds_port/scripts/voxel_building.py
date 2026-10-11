@@ -61,11 +61,11 @@ import sys
 from PIL import Image, ImageDraw
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from fr_art import incbin_map, read_u16, Tilesets, ROOT  # noqa: E402  (FireRed: was dump_region_art)
+from dump_region_art import incbin_map, read_u16, Tilesets, ROOT  # noqa: E402
 
 import json  # noqa: E402
 
-NUM_PRIMARY = 640   # FireRed (Emerald: 512)
+NUM_PRIMARY = 512
 EPS = 1e-6
 
 # Face shades for the model's faces: the drawing already carries Emerald's lighting, so a face the GBA camera sees
@@ -103,8 +103,7 @@ class LayoutArt:
         self.attrs = incbin_map(r"gMetatileAttributes_(\w+)\[\]\s*=\s*INCBIN_U16\(\"([^\"]+)\"\)")
         self.mts = incbin_map(r"gMetatiles_(\w+)\[\]\s*=\s*INCBIN_U16\(\"([^\"]+)\"\)")
         layouts = _layouts_json()
-        # FireRed's layouts.json keeps empty {} placeholders for unused ids
-        entry = next(e for e in layouts if e.get("id") == layout_id)
+        entry = next(e for e in layouts if e["id"] == layout_id)
         self.layout_index = layouts.index(entry) + 1
         self.id = layout_id
         self.blocks = read_u16(os.path.join(ROOT, entry["blockdata_filepath"]))

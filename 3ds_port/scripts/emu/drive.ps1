@@ -1,4 +1,4 @@
-param([string]$Seq = "", [int]$Hold = 130, [int]$Gap = 180, [int]$Id = 0)
+param([string]$Seq = "", [int]$Hold = 130, [int]$Gap = 180)
 
 # Azahar ignores SendInput here even with the window in the foreground, so keys
 # go in as posted window messages instead. Qt reads them from its event queue,
@@ -26,15 +26,13 @@ public class D {
 }
 "@
 
-# The emulator's own mapping, read out of qt-config.ini (Azahar's defaults:
-# A=A, B=S, START=M, SELECT=N, d-pad T/G/F/H).
+# The emulator's own mapping, read out of qt-config.ini.
 $VK = @{
-  "a" = 0x41; "b" = 0x53; "start" = 0x4D; "select" = 0x4E
+  "a" = 0x41; "b" = 0x53; "start" = 0x0D; "select" = 0x08
   "up" = 0x54; "down" = 0x47; "left" = 0x46; "right" = 0x48
 }
 
-if ($Id) { $p = Get-Process -Id $Id -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } }
-else { $p = Get-Process azahar -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1 }
+$p = Get-Process azahar -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
 if (-not $p) { Write-Output "no azahar"; exit 1 }
 $ws = [D]::All($p.MainWindowHandle)
 

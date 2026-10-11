@@ -1,4 +1,4 @@
-param([string]$Out = "shot.png", [int]$Id = 0)
+param([string]$Out = "shot.png")
 
 Add-Type -AssemblyName System.Windows.Forms, System.Drawing
 Add-Type @"
@@ -15,9 +15,7 @@ public class W {
 }
 "@
 
-# With -Id, exactly that process: another Azahar the user has open is not ours.
-if ($Id) { $p = Get-Process -Id $Id -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } }
-else { $p = Get-Process azahar -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1 }
+$p = Get-Process azahar -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
 if (-not $p) { Write-Output "no azahar window"; exit 1 }
 $h = $p.MainWindowHandle
 # The shot is a copy of the screen under the window's rectangle, so anything
