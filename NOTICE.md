@@ -10,7 +10,9 @@ primary and secondary metatiles at 640 instead of 512 (plus tolerating the
 empty placeholders in FireRed's `layouts.json`). `fr_art.py`,
 `fr_building_specs.py` and `fr_gen_buildings.py` follow the interfaces and
 method of that project's `dump_region_art.py`, `voxel_building_specs.py` and
-`gen_voxel_buildings.py`.
+`gen_voxel_buildings.py`. `3ds_port/scripts/emu/grab.ps1`, `drive.ps1` and
+`touch.ps1` are copied from that project's `3ds_port/scripts/emu/`, changed
+to target one emulator process (`-Id`) and Azahar's default START/SELECT keys.
 
 Its port code is distributed under the MIT License:
 
