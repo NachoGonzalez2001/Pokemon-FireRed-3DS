@@ -51,11 +51,48 @@ index bf89badc53a4cad8ba5615900d5014cc34f76fea..6ac93a797cef1b53caa3ac2e9b3fc7b2
  
  #define FREE_AND_SET_NULL(ptr)          \
  {                                       \
+diff --git a/include/sprite.h b/include/sprite.h
+index 6a1b272119ce6e3a8dcf45adf2eef8923a6d5175..8b82b98183a31ad918611a024ab439db356d36f8 100644
+--- a/include/sprite.h
++++ b/include/sprite.h
+@@ -28,10 +28,19 @@ struct SpriteFrameImage
+ {
+     const void *data;
+     u16 size;
++#ifdef PORT_BRIDGE
++    // The frame's place in its INCBIN: data stays the INCBIN itself, which is
++    // a stub the port resolves, and base + offset would name another stub.
++    u32 offset;
++#endif
+ };
+ 
+ #define obj_frame_tiles(ptr) {.data = (u8 *)ptr, .size = sizeof ptr}
++#ifdef PORT_BRIDGE
++#define overworld_frame(ptr, width, height, frame) {.data = (u8 *)ptr, .size = (width * height * 64)/2, .offset = (width * height * frame * 64)/2}
++#else
+ #define overworld_frame(ptr, width, height, frame) {.data = (u8 *)ptr + (width * height * frame * 64)/2, .size = (width * height * 64)/2}
++#endif
+ 
+ struct SpritePalette
+ {
 diff --git a/src/bg.c b/src/bg.c
-index aa11ae01f87242edecc5656bb6649b04e319357a..d784a556683736c5b599b4f0e82d71750abd3e7c 100644
+index aa11ae01f87242edecc5656bb6649b04e319357a..6e6cb28168420f5254be9f164bb897986dfdcc83 100644
 --- a/src/bg.c
 +++ b/src/bg.c
-@@ -1207,8 +1207,11 @@ bool32 IsInvalidBg32(u8 bg)
+@@ -494,6 +494,12 @@ bool8 IsDma3ManagerBusyWithBgCopy(void)
+ {
+     int i;
+ 
++#ifdef PORTABLE
++    // On the GBA the VBlank interrupt runs the queued copies in the middle of
++    // a loop that waits for them (the map load spins on this in one frame).
++    // Nothing interrupts the game here: run them now, as that VBlank would.
++    ProcessDma3Requests();
++#endif
+     for (i = 0; i < 0x80; i++)
+     {
+         u8 div = i / 0x20;
+@@ -1207,8 +1213,11 @@ bool32 IsInvalidBg32(u8 bg)
  
  bool32 IsTileMapOutsideWram(u8 bg)
  {
@@ -67,6 +104,137 @@ index aa11ae01f87242edecc5656bb6649b04e319357a..d784a556683736c5b599b4f0e82d7175
      if (sGpuBgConfigs2[bg].tilemap == 0x0)
          return TRUE;
      return FALSE;
+diff --git a/src/data.c b/src/data.c
+index 498f281b48ca9bbbcba32a9200e981316a3d54bf..946721e53424134d515ceb84a64d6992873c6f49 100644
+--- a/src/data.c
++++ b/src/data.c
+@@ -12,84 +12,84 @@
+ 
+ const struct SpriteFrameImage gBattlerPicTable_PlayerLeft[] =
+ {
+-    BATTLER_OFFSET(0), MON_PIC_SIZE,
+-    BATTLER_OFFSET(1), MON_PIC_SIZE,
+-    BATTLER_OFFSET(2), MON_PIC_SIZE,
+-    BATTLER_OFFSET(3), MON_PIC_SIZE,
++    {BATTLER_OFFSET(0), MON_PIC_SIZE},
++    {BATTLER_OFFSET(1), MON_PIC_SIZE},
++    {BATTLER_OFFSET(2), MON_PIC_SIZE},
++    {BATTLER_OFFSET(3), MON_PIC_SIZE},
+ };
+ 
+ const struct SpriteFrameImage gBattlerPicTable_OpponentLeft[] =
+ {
+-    BATTLER_OFFSET(4), MON_PIC_SIZE,
+-    BATTLER_OFFSET(5), MON_PIC_SIZE,
+-    BATTLER_OFFSET(6), MON_PIC_SIZE,
+-    BATTLER_OFFSET(7), MON_PIC_SIZE,
++    {BATTLER_OFFSET(4), MON_PIC_SIZE},
++    {BATTLER_OFFSET(5), MON_PIC_SIZE},
++    {BATTLER_OFFSET(6), MON_PIC_SIZE},
++    {BATTLER_OFFSET(7), MON_PIC_SIZE},
+ };
+ 
+ const struct SpriteFrameImage gBattlerPicTable_PlayerRight[] =
+ {
+-    BATTLER_OFFSET(8),  MON_PIC_SIZE,
+-    BATTLER_OFFSET(9),  MON_PIC_SIZE,
+-    BATTLER_OFFSET(10), MON_PIC_SIZE,
+-    BATTLER_OFFSET(11), MON_PIC_SIZE,
++    {BATTLER_OFFSET(8), MON_PIC_SIZE},
++    {BATTLER_OFFSET(9), MON_PIC_SIZE},
++    {BATTLER_OFFSET(10), MON_PIC_SIZE},
++    {BATTLER_OFFSET(11), MON_PIC_SIZE},
+ };
+ 
+ const struct SpriteFrameImage gBattlerPicTable_OpponentRight[] =
+ {
+-    BATTLER_OFFSET(12), MON_PIC_SIZE,
+-    BATTLER_OFFSET(13), MON_PIC_SIZE,
+-    BATTLER_OFFSET(14), MON_PIC_SIZE,
+-    BATTLER_OFFSET(15), MON_PIC_SIZE,
++    {BATTLER_OFFSET(12), MON_PIC_SIZE},
++    {BATTLER_OFFSET(13), MON_PIC_SIZE},
++    {BATTLER_OFFSET(14), MON_PIC_SIZE},
++    {BATTLER_OFFSET(15), MON_PIC_SIZE},
+ };
+ 
+ const struct SpriteFrameImage gTrainerBackPicTable_Red[] =
+ {
+-    gTrainerBackPic_Red, 0x0800,
+-    gTrainerBackPic_Red + 0x0800, 0x0800,
+-    gTrainerBackPic_Red + 0x1000, 0x0800,
+-    gTrainerBackPic_Red + 0x1800, 0x0800,
+-    gTrainerBackPic_Red + 0x2000, 0x0800,
++    {gTrainerBackPic_Red, 0x0800},
++    {gTrainerBackPic_Red + 0x0800, 0x0800},
++    {gTrainerBackPic_Red + 0x1000, 0x0800},
++    {gTrainerBackPic_Red + 0x1800, 0x0800},
++    {gTrainerBackPic_Red + 0x2000, 0x0800},
+ };
+ 
+ const struct SpriteFrameImage gTrainerBackPicTable_Leaf[] =
+ {
+-    gTrainerBackPic_Leaf, 0x0800,
+-    gTrainerBackPic_Leaf + 0x0800, 0x0800,
+-    gTrainerBackPic_Leaf + 0x1000, 0x0800,
+-    gTrainerBackPic_Leaf + 0x1800, 0x0800,
+-    gTrainerBackPic_Leaf + 0x2000, 0x0800,
++    {gTrainerBackPic_Leaf, 0x0800},
++    {gTrainerBackPic_Leaf + 0x0800, 0x0800},
++    {gTrainerBackPic_Leaf + 0x1000, 0x0800},
++    {gTrainerBackPic_Leaf + 0x1800, 0x0800},
++    {gTrainerBackPic_Leaf + 0x2000, 0x0800},
+ };
+ 
+ const struct SpriteFrameImage gTrainerBackPicTable_Pokedude[] =
+ {
+-    gTrainerBackPic_Pokedude, 0x0800,
+-    gTrainerBackPic_Pokedude + 0x0800, 0x0800,
+-    gTrainerBackPic_Pokedude + 0x1000, 0x0800,
+-    gTrainerBackPic_Pokedude + 0x1800, 0x0800,
++    {gTrainerBackPic_Pokedude, 0x0800},
++    {gTrainerBackPic_Pokedude + 0x0800, 0x0800},
++    {gTrainerBackPic_Pokedude + 0x1000, 0x0800},
++    {gTrainerBackPic_Pokedude + 0x1800, 0x0800},
+ };
+ 
+ const struct SpriteFrameImage gTrainerBackPicTable_OldMan[] =
+ {
+-    gTrainerBackPic_OldMan, 0x0800,
+-    gTrainerBackPic_OldMan + 0x0800, 0x0800,
+-    gTrainerBackPic_OldMan + 0x1000, 0x0800,
+-    gTrainerBackPic_OldMan + 0x1800, 0x0800,
++    {gTrainerBackPic_OldMan, 0x0800},
++    {gTrainerBackPic_OldMan + 0x0800, 0x0800},
++    {gTrainerBackPic_OldMan + 0x1000, 0x0800},
++    {gTrainerBackPic_OldMan + 0x1800, 0x0800},
+ };
+ 
+ const struct SpriteFrameImage gTrainerBackPicTable_RSBrendan[] =
+ {
+-    gTrainerBackPic_RSBrendan, 0x0800,
+-    gTrainerBackPic_RSBrendan + 0x0800, 0x0800,
+-    gTrainerBackPic_RSBrendan + 0x1000, 0x0800,
+-    gTrainerBackPic_RSBrendan + 0x1800, 0x0800,
++    {gTrainerBackPic_RSBrendan, 0x0800},
++    {gTrainerBackPic_RSBrendan + 0x0800, 0x0800},
++    {gTrainerBackPic_RSBrendan + 0x1000, 0x0800},
++    {gTrainerBackPic_RSBrendan + 0x1800, 0x0800},
+ };
+ 
+ const struct SpriteFrameImage gTrainerBackPicTable_RSMay[] =
+ {
+-    gTrainerBackPic_RSMay, 0x0800,
+-    gTrainerBackPic_RSMay + 0x0800, 0x0800,
+-    gTrainerBackPic_RSMay + 0x1000, 0x0800,
+-    gTrainerBackPic_RSMay + 0x1800, 0x0800,
++    {gTrainerBackPic_RSMay, 0x0800},
++    {gTrainerBackPic_RSMay + 0x0800, 0x0800},
++    {gTrainerBackPic_RSMay + 0x1000, 0x0800},
++    {gTrainerBackPic_RSMay + 0x1800, 0x0800},
+ };
+ 
+ static const union AnimCmd sAnim_GeneralFrame0[] =
 diff --git a/src/decompress.c b/src/decompress.c
 index f4740f917ed9ae7e0fd967107e1e63733bb8c66a..40f3ecee59f07c64b2fe7b515f098b587d311a25 100644
 --- a/src/decompress.c
@@ -115,6 +283,151 @@ index f4740f917ed9ae7e0fd967107e1e63733bb8c66a..40f3ecee59f07c64b2fe7b515f098b58
      u32 ptr32[1];
      u8 *ptr8 = (u8 *)ptr32;
  
+diff --git a/src/dma3_manager.c b/src/dma3_manager.c
+index a3a2374beafc956f2e75203d1d84ce56f52a80a1..c416eec1556bcbf8d7db2e75eba035c070de2f64 100644
+--- a/src/dma3_manager.c
++++ b/src/dma3_manager.c
+@@ -1,5 +1,8 @@
+ #include "global.h"
+ #include "dma3.h"
++#ifdef PORT_BRIDGE
++#include "port_platform.h"
++#endif
+ 
+ #define MAX_DMA_REQUESTS 128
+ 
+@@ -92,6 +95,19 @@ s16 RequestDma3Copy(const void *src, void *dest, u16 size, u8 mode)
+     int cursor;
+     int var = 0;
+ 
++#ifdef PORT_BRIDGE
++    // Resolve an INCBIN stub now: the copy is split into blocks later, and a
++    // pointer past the stub's 4 bytes no longer names the asset. A request
++    // sized by sizeof(the INCBIN) takes the asset's own size.
++    if (size <= 4)
++    {
++        u32 assetSize = Port_GetAssetSizeExact(src);
++
++        if (assetSize > size && assetSize <= 0xFFFF)
++            size = assetSize;
++    }
++    src = Port_ResolveAssetPointerSized(src, size);
++#endif
+     gDma3ManagerLocked = 1;
+ 
+     cursor = gDma3RequestCursor;
+diff --git a/src/field_camera.c b/src/field_camera.c
+index 88f94bff08ef951523facf2b579fbc3d4d8455b2..e2a57878279058cf01280748f8263184bd9b1b94 100644
+--- a/src/field_camera.c
++++ b/src/field_camera.c
+@@ -7,6 +7,16 @@
+ #include "new_menu_helpers.h"
+ #include "overworld.h"
+ 
++// The 3DS port keeps INCBINs and map blockdata outside the executable: a
++// layout's or tileset's data pointer names a stub (or a map descriptor) that
++// must be resolved before it is indexed.
++#ifdef PORT_BRIDGE
++#include "port_platform.h"
++#define PORT_RES(p) ((__typeof__(p))Port_ResolveAssetPointer(p))
++#else
++#define PORT_RES(p) (p)
++#endif
++
+ EWRAM_DATA bool8 gBikeCameraAheadPanback = FALSE;
+ 
+ // Static type declarations
+@@ -230,10 +240,10 @@ static void DrawMetatileAt(const struct MapLayout *mapLayout, u16 offset, int x,
+     if (metatileId > NUM_METATILES_TOTAL)
+         metatileId = 0;
+     if (metatileId < NUM_METATILES_IN_PRIMARY)
+-        metatiles = mapLayout->primaryTileset->metatiles;
++        metatiles = PORT_RES(mapLayout->primaryTileset->metatiles);
+     else
+     {
+-        metatiles = mapLayout->secondaryTileset->metatiles;
++        metatiles = PORT_RES(mapLayout->secondaryTileset->metatiles);
+         metatileId -= NUM_METATILES_IN_PRIMARY;
+     }
+     DrawMetatile(MapGridGetMetatileLayerTypeAt(x, y), metatiles + metatileId * NUM_TILES_PER_METATILE, offset);
+diff --git a/src/fieldmap.c b/src/fieldmap.c
+index 41567772299000ba5855419e5c39ad9373a34c20..9feeba0ac0eb79df0489c83e87520bdd22daee0e 100644
+--- a/src/fieldmap.c
++++ b/src/fieldmap.c
+@@ -6,6 +6,16 @@
+ #include "quest_log.h"
+ #include "fieldmap.h"
+ 
++// The 3DS port keeps INCBINs and map blockdata outside the executable: a
++// layout's or tileset's data pointer names a stub (or a map descriptor) that
++// must be resolved before it is indexed.
++#ifdef PORT_BRIDGE
++#include "port_platform.h"
++#define PORT_RES(p) ((__typeof__(p))Port_ResolveAssetPointer(p))
++#else
++#define PORT_RES(p) (p)
++#endif
++
+ struct ConnectionFlags
+ {
+     u8 south:1;
+@@ -51,7 +61,7 @@ static u32 GetAttributeByMetatileIdAndMapLayout(const struct MapLayout *, u16, u
+     yprime += 8 * mapLayout->borderHeight;                                                        \
+     yprime %= mapLayout->borderHeight;                                                            \
+                                                                                                   \
+-    block = mapLayout->border[xprime + yprime * mapLayout->borderWidth] | MAPGRID_COLLISION_MASK; \
++    block = PORT_RES(mapLayout->border)[xprime + yprime * mapLayout->borderWidth] | MAPGRID_COLLISION_MASK; \
+ })
+ 
+ #define AreCoordsWithinMapGridBounds(x, y) (x >= 0 && x < VMap.Xsize && y >= 0 && y < VMap.Ysize)
+@@ -108,7 +118,7 @@ static void InitMapLayoutData(struct MapHeader * mapHeader)
+     VMap.Xsize = mapLayout->width + MAP_OFFSET_W;
+     VMap.Ysize = mapLayout->height + MAP_OFFSET_H;
+     AGB_ASSERT_EX(VMap.Xsize * VMap.Ysize <= VIRTUAL_MAP_SIZE, ABSPATH("fieldmap.c"), 158);
+-    InitBackupMapLayoutData(mapLayout->map, mapLayout->width, mapLayout->height);
++    InitBackupMapLayoutData(PORT_RES(mapLayout->map), mapLayout->width, mapLayout->height);
+     InitBackupMapLayoutConnections(mapHeader);
+ }
+ 
+@@ -178,7 +188,7 @@ static void FillConnection(s32 x, s32 y, const struct MapHeader *connectedMapHea
+     s32 mapWidth;
+ 
+     mapWidth = connectedMapHeader->mapLayout->width;
+-    src = &connectedMapHeader->mapLayout->map[mapWidth * y2 + x2];
++    src = &PORT_RES(connectedMapHeader->mapLayout->map)[mapWidth * y2 + x2];
+     dest = &VMap.map[VMap.Xsize * y + x];
+ 
+     for (i = 0; i < height; i++)
+@@ -435,12 +445,12 @@ static u32 GetAttributeByMetatileIdAndMapLayout(const struct MapLayout *mapLayou
+ 
+     if (metatile < NUM_METATILES_IN_PRIMARY)
+     {
+-        attributes = mapLayout->primaryTileset->metatileAttributes;
++        attributes = PORT_RES(mapLayout->primaryTileset->metatileAttributes);
+         return ExtractMetatileAttribute(attributes[metatile], attributeType);
+     }
+     else if (metatile < NUM_METATILES_TOTAL)
+     {
+-        attributes = mapLayout->secondaryTileset->metatileAttributes;
++        attributes = PORT_RES(mapLayout->secondaryTileset->metatileAttributes);
+         return ExtractMetatileAttribute(attributes[metatile - NUM_METATILES_IN_PRIMARY], attributeType);
+     }
+     else
+@@ -891,12 +901,12 @@ static void LoadTilesetPalette(struct Tileset const *tileset, u16 destOffset, u1
+         if (tileset->isSecondary == FALSE)
+         {
+             LoadPalette(&black, destOffset, PLTT_SIZEOF(1));
+-            LoadPalette(tileset->palettes[0] + 1, destOffset + 1, size - PLTT_SIZEOF(1));
++            LoadPalette(PORT_RES(tileset->palettes)[0] + 1, destOffset + 1, size - PLTT_SIZEOF(1));
+             ApplyGlobalTintToPaletteEntries(destOffset + 1, (size - 2) >> 1);
+         }
+         else if (tileset->isSecondary == TRUE)
+         {
+-            LoadPalette(tileset->palettes[NUM_PALS_IN_PRIMARY], destOffset, size);
++            LoadPalette(PORT_RES(tileset->palettes)[NUM_PALS_IN_PRIMARY], destOffset, size);
+             ApplyGlobalTintToPaletteEntries(destOffset, size >> 1);
+         }
+         else
 diff --git a/src/intro.c b/src/intro.c
 index bec0f3144ece4167b27dd2eccc0fd12546bf95c4..fa0100aac759898ebd41f18d9d92e68291cb5658 100644
 --- a/src/intro.c
@@ -136,6 +449,45 @@ index bec0f3144ece4167b27dd2eccc0fd12546bf95c4..fa0100aac759898ebd41f18d9d92e682
              }
              else
              {
+diff --git a/src/load_save.c b/src/load_save.c
+index 8b723dd044c6024b3671bb890b25b56a53f99ec5..0708dc382196d2efb2b3dd2769330faeeaaffa85 100644
+--- a/src/load_save.c
++++ b/src/load_save.c
+@@ -58,12 +58,22 @@ void CheckForFlashMemory(void)
+ 
+ void ClearSav2(void)
+ {
++#ifdef PORTABLE
++    // The port does not lay each block out followed by its move range, so
++    // clearing past the struct would wipe whatever the linker put next.
++    CpuFill16(0, &gSaveBlock2, sizeof(struct SaveBlock2));
++#else
+     CpuFill16(0, &gSaveBlock2, sizeof(struct SaveBlock2) + sizeof(gSaveBlock2_DMA));
++#endif
+ }
+ 
+ void ClearSav1(void)
+ {
++#ifdef PORTABLE
++    CpuFill16(0, &gSaveBlock1, sizeof(struct SaveBlock1));
++#else
+     CpuFill16(0, &gSaveBlock1, sizeof(struct SaveBlock1) + sizeof(gSaveBlock1_DMA));
++#endif
+ }
+ 
+ void SetSaveBlocksPointers(void)
+@@ -73,6 +83,11 @@ void SetSaveBlocksPointers(void)
+     void *oldSave = (void *)gSaveBlock1Ptr;
+ 
+     offset = (Random()) & ((SAVEBLOCK_MOVE_RANGE - 1) & ~3);
++#ifdef PORTABLE
++    // No move range follows the blocks here: a shifted block would overlap
++    // the next one. The shift only ever defeated GBA memory cheats.
++    offset = 0;
++#endif
+ 
+     gSaveBlock2Ptr = (void *)(&gSaveBlock2) + offset;
+     *sav1_LocalVar = (void *)(&gSaveBlock1) + offset;
 diff --git a/src/main.c b/src/main.c
 index 542b0f5d16dd93107523d11163bfcb70a42b707a..78485b721e96614ce219a69fc1eecd166ade7bba 100644
 --- a/src/main.c
@@ -253,6 +605,24 @@ index 260c41d0d9f80afbf75fe3fdfbf11393e004bb14..83d1d44d0b8a11323d77e28d95dd0ca1
  
  static void *sHeapStart;
  static u32 sHeapSize;
+diff --git a/src/naming_screen.c b/src/naming_screen.c
+index deef7054a11e4793ebfdb5e2710f9fc056540546..dbfadc96b531ddd0b58430f096dc4a24c29f46ee 100644
+--- a/src/naming_screen.c
++++ b/src/naming_screen.c
+@@ -722,6 +722,13 @@ static bool8 MainState_Exit(void)
+             SeedRngAndSetTrainerId();
+         SetMainCallback2(sNamingScreen->returnCallback);
+         DestroyTask(FindTaskIdByFunc(Task_NamingScreen));
++#ifdef PORTABLE
++        // The cursor's and the underscores' sprite callbacks read sNamingScreen
++        // every frame: on the GBA a frame after the free reads BIOS bytes
++        // through NULL, here it faults (and GetTextEntryPosition never ends).
++        ResetVHBlank();
++        ResetSpriteData();
++#endif
+         FreeAllWindowBuffers();
+         FREE_AND_SET_NULL(sNamingScreen);
+         RestoreHelpContext();
 diff --git a/src/new_menu_helpers.c b/src/new_menu_helpers.c
 index 08c032027cda2c34bf0dded37458adeb250aa553..d505232bc779b050c682b193fc0f070acf0a0312 100644
 --- a/src/new_menu_helpers.c
@@ -317,10 +687,50 @@ index 84f23428f2e7b2802bcadb497d4ca401af6c0531..d6125134eebfd3bc950061d1e82568fe
      CpuCopy16(src, &gPlttBufferFaded[offset], size);
  }
 diff --git a/src/platform/bios.c b/src/platform/bios.c
-index be80475445506a268aff221e6a006a4092279c30..79cd47f3ab89b3d3adac55ce21aebd5d1374e1c3 100644
+index be80475445506a268aff221e6a006a4092279c30..d22580208a0d999798d5f52e0e266790543a84e3 100644
 --- a/src/platform/bios.c
 +++ b/src/platform/bios.c
-@@ -638,6 +638,13 @@ u16 ArcTan2(s16 x, s16 y)
+@@ -130,6 +130,22 @@ static void Fill32(u8 *dest, u32 value, u32 count)
+     }
+ }
+ 
++#ifdef PORT_BRIDGE
++// A copy sized by sizeof(an INCBIN) asks for a stub's 4 bytes or less: the
++// game meant the whole asset.
++static u32 StubCopySize(const void *src, u32 bytes)
++{
++    if (bytes <= 4)
++    {
++        u32 assetSize = Port_GetAssetSizeExact(src);
++
++        if (assetSize > bytes)
++            return assetSize;
++    }
++    return bytes;
++}
++#endif
++
+ void CpuSet(const void *src, void *dst, u32 cnt)
+ {
+     if(dst == NULL)
+@@ -147,6 +163,7 @@ void CpuSet(const void *src, void *dst, u32 cnt)
+     if (!((cnt >> 24) & 1))
+     {
+         u32 maxBytes = ((cnt >> 26) & 1) ? ((cnt & 0x1FFFFF) * 4) : ((cnt & 0x1FFFFF) * 2);
++        maxBytes = StubCopySize(src, maxBytes);
+         if (Port_LoadAssetPointerToBufferSized(src, dst, maxBytes)
+          || Port_LoadAssetPointerToBuffer(src, dst, maxBytes))
+             return;
+@@ -223,7 +240,7 @@ void CpuFastSet(const void *src, void *dst, u32 cnt)
+ #ifdef PORT_BRIDGE
+     if (!((cnt >> 24) & 1))
+     {
+-        u32 maxBytes = (cnt & 0x1FFFFF) * 4;
++        u32 maxBytes = StubCopySize(src, (cnt & 0x1FFFFF) * 4);
+         if (Port_LoadAssetPointerToBufferSized(src, dst, maxBytes)
+          || Port_LoadAssetPointerToBuffer(src, dst, maxBytes))
+             return;
+@@ -638,6 +655,13 @@ u16 ArcTan2(s16 x, s16 y)
      }
  }
  
@@ -335,7 +745,7 @@ index be80475445506a268aff221e6a006a4092279c30..79cd47f3ab89b3d3adac55ce21aebd5d
  {
      if (!num)
 diff --git a/src/platform/gba_fast_draw.c b/src/platform/gba_fast_draw.c
-index 952b4169db3e26d1353ac98c7fdf68086b14ae5e..fb01768cd49da954100d9735440e75e89e83e8f5 100644
+index 952b4169db3e26d1353ac98c7fdf68086b14ae5e..253d0398a11fb68fb36fa0405a8895015b22d081 100644
 --- a/src/platform/gba_fast_draw.c
 +++ b/src/platform/gba_fast_draw.c
 @@ -30,7 +30,8 @@
@@ -348,6 +758,137 @@ index 952b4169db3e26d1353ac98c7fdf68086b14ae5e..fb01768cd49da954100d9735440e75e8
  
  struct scanlineData {
      uint16_t bgcnts[4];
+@@ -125,6 +126,89 @@ static bool winCheckHorizontalBounds(u16 left, u16 right, u16 xpos)
+         return (xpos >= left && xpos < right);
+ }
+ 
++// 256-colour text backgrounds (FireRed's title logo is one): the scanline
++// paths below are 4bpp only. This one goes pixel by pixel, with the same
++// window and blend rules as they apply.
++static void RenderBGScanline8bpp(int bgNum, uint16_t control, uint16_t hoffs, uint16_t voffs, int lineNum,
++                                 uint16_t *line, struct scanlineData *scanline, bool windowsEnabled,
++                                 bool insideWinIn, bool blend)
++{
++    unsigned int charBaseBlock = (control >> 2) & 3;
++    unsigned int screenBaseBlock = (control >> 8) & 0x1F;
++    unsigned int mapWidthInPixels = bgMapSizes[control >> 14][0] * 8;
++    unsigned int mapHeightInPixels = bgMapSizes[control >> 14][1] * 8;
++    uint8_t *bgtiles = (uint8_t *)BG_CHAR_ADDR(charBaseBlock);
++    uint16_t *pal = (uint16_t *)PLTT;
++    uint16_t *mask = scanline->bgMask;
++    uint8_t blendMode = (REG_BLDCNT >> 6) & 3;
++    unsigned int yy;
++
++    if (windowsEnabled && !insideWinIn && !(REG_WINOUT & (1 << bgNum)))
++        return;
++    if (control & BGCNT_MOSAIC)
++        lineNum = applyBGVerticalMosaicEffect(lineNum);
++    yy = (lineNum + voffs) & 0x1FF;
++
++    // without mosaic the map entry and tile row change once per 8 pixels
++    {
++        uint16_t *rowmap = (uint16_t *)BG_SCREEN_ADDR(screenBaseBlock);
++        unsigned int tileY = yy & 7;
++        unsigned int x = 0;
++
++        if (yy > 255 && mapHeightInPixels > 256)
++            rowmap += (mapWidthInPixels > 256) ? 0x800 : 0x400;
++        rowmap += ((yy & 0xFF) / 8) * 32;
++
++        while (x < DISPLAY_WIDTH)
++        {
++            unsigned int xx = (((control & BGCNT_MOSAIC) ? applyBGHorizontalMosaicEffect(x) : x) + hoffs) & 0x1FF;
++            uint16_t *bgmap = rowmap + ((xx > 255 && mapWidthInPixels > 256) ? 0x400 : 0);
++            uint16_t entry = bgmap[(xx & 0xFF) / 8];
++            unsigned int row = (entry & (1 << 11)) ? 7 - tileY : tileY;
++            const uint8_t *tile = &bgtiles[(entry & 0x3FF) * 64 + row * 8];
++            unsigned int run = (control & BGCNT_MOSAIC) ? 1 : 8 - (xx & 7);
++
++            for (unsigned int k = 0; k < run && x < DISPLAY_WIDTH; k++, x++)
++            {
++                unsigned int tileX = (xx + k) & 7;
++                uint16_t color;
++                uint8_t pixel;
++                bool clr;
++
++                if (insideWinIn && !(scanline->winMask[x] & (1 << bgNum)))
++                    continue;
++                pixel = tile[(entry & (1 << 10)) ? 7 - tileX : tileX];
++                if (pixel == 0)
++                    continue;
++                color = pal[pixel];
++                if (blend)
++                {
++                    clr = insideWinIn ? (scanline->winMask[x] & WINMASK_CLR) != 0
++                                      : (!windowsEnabled || (REG_WINOUT & WINOUT_WIN01_CLR));
++                    if (clr)
++                    {
++                        switch (blendMode)
++                        {
++                        case 1:
++                            if (mask[x] & (REG_BLDCNT >> 8))
++                                color = alphaBlendColor(color, line[x]);
++                            break;
++                        case 2:
++                            color = alphaBrightnessIncrease(color);
++                            break;
++                        case 3:
++                            color = alphaBrightnessDecrease(color);
++                            break;
++                        }
++                    }
++                }
++                line[x] = color | 0x8000;
++                mask[x] = 1 << bgNum;
++            }
++        }
++    }
++}
++
+ static void RenderBGScanlineWinBlend(int bgNum, uint16_t control, uint16_t hoffs, uint16_t voffs, int lineNum, uint16_t *line, struct scanlineData* scanline, bool windowsEnabled)
+ {
+     unsigned int charBaseBlock = (control >> 2) & 3;
+@@ -2500,10 +2584,12 @@ static void DrawScanline(uint16_t *pixels, uint16_t vcount)
+     //figure out if WIN1 masks on this scanline
+     if (REG_DISPCNT & DISPCNT_WIN1_ON)
+     {
+-        WIN1bottom = (REG_WIN0V & 0xFF); //y2;
+-        WIN1top = (REG_WIN0V & 0xFF00) >> 8; //y1;
+-        WIN1right = (REG_WIN0H & 0xFF); //x2
+-        WIN1left = (REG_WIN0H & 0xFF00) >> 8; //x1
++        // WIN1's own registers (this read WIN0's, which hid every scene
++        // that opens its picture through window 1)
++        WIN1bottom = (REG_WIN1V & 0xFF); //y2;
++        WIN1top = (REG_WIN1V & 0xFF00) >> 8; //y1;
++        WIN1right = (REG_WIN1H & 0xFF); //x2
++        WIN1left = (REG_WIN1H & 0xFF00) >> 8; //x1
+         
+         if (WIN1top > WIN1bottom) {
+             if (vcount >= WIN1top || vcount < WIN1bottom)
+@@ -2574,7 +2660,10 @@ static void DrawScanline(uint16_t *pixels, uint16_t vcount)
+                     uint16_t bgvoffs = *(uint16_t *)(REG_ADDR_BG0VOFS + bgnum * 4);
+                     bool doesBGblend = (blendMode != 0 && REG_BLDCNT & (1 << bgnum));
+                     
+-                    if (IsInsideWinIn)
++                    if (scanline.bgcnts[bgnum] & BGCNT_256COLOR)
++                        RenderBGScanline8bpp(bgnum, scanline.bgcnts[bgnum], bghoffs, bgvoffs, vcount, pixels,
++                                             &scanline, windowsEnabled, IsInsideWinIn, doesBGblend);
++                    else if (IsInsideWinIn)
+                     {
+                         //blending check
+                         if (doesBGblend)
+@@ -2612,7 +2701,10 @@ static void DrawScanline(uint16_t *pixels, uint16_t vcount)
+                     
+                     if (bgnum != 2)
+                     {
+-                        if (IsInsideWinIn)
++                        if (scanline.bgcnts[bgnum] & BGCNT_256COLOR)
++                            RenderBGScanline8bpp(bgnum, scanline.bgcnts[bgnum], bghoffs, bgvoffs, vcount, pixels,
++                                                 &scanline, windowsEnabled, IsInsideWinIn, doesBGblend);
++                        else if (IsInsideWinIn)
+                         {
+                             //blending check
+                             if (doesBGblend)
 diff --git a/src/pokemon_special_anim_scene.c b/src/pokemon_special_anim_scene.c
 index bdb070c96558c43eafb50c8619a85e9a9090d348..122d9b3eee02af00782cc9e4f74209309c3a44fd 100644
 --- a/src/pokemon_special_anim_scene.c
@@ -365,6 +906,137 @@ index bdb070c96558c43eafb50c8619a85e9a9090d348..122d9b3eee02af00782cc9e4f7420930
      spritePalette.data = sLevelUp_Pal;
      spritePalette.tag = paletteTag;
      LoadCompressedSpriteSheet(&spriteSheet);
+diff --git a/src/sprite.c b/src/sprite.c
+index d0198d53004775c8664dcccf57833e178833776e..ad7180e63225ee15d8b2902c2ff838474e6eab90 100644
+--- a/src/sprite.c
++++ b/src/sprite.c
+@@ -1,5 +1,8 @@
+ #include "global.h"
+ #include "gflib.h"
++#ifdef PORT_BRIDGE
++#include "port_platform.h"
++#endif
+ 
+ #define MAX_SPRITE_COPY_REQUESTS 64
+ 
+@@ -287,6 +290,25 @@ EWRAM_DATA s16 gSpriteCoordOffsetY = 0;
+ EWRAM_DATA struct OamMatrix gOamMatrices[OAM_MATRIX_COUNT] = {0};
+ EWRAM_DATA bool8 gAffineAnimsDisabled = 0;
+ 
++#ifdef PORT_BRIDGE
++// A frame image is an INCBIN (a stub here, resolved by the port) at an offset,
++// or a buffer in RAM (mon and trainer pics), which carries no offset.
++static u32 FrameImageSize(const struct SpriteFrameImage *image)
++{
++    return Port_GetSpriteFrameSize(image->data, image->size);
++}
++
++static const void *FrameImageSource(const struct SpriteFrameImage *image, u32 size)
++{
++    if (Port_GetAssetSizeExact(image->data) != 0)
++        return Port_ResolveSpriteFramePointer(image->data, size, image->offset);
++    return image->data;
++}
++#define FRAME_IMAGE_SIZE(image) FrameImageSize(image)
++#else
++#define FRAME_IMAGE_SIZE(image) ((image)->size)
++#endif
++
+ void ResetSpriteData(void)
+ {
+     ResetOamRange(0, 128);
+@@ -555,7 +577,7 @@ u8 CreateSpriteAt(u8 index, const struct SpriteTemplate *template, s16 x, s16 y,
+     {
+         s16 tileNum;
+         sprite->images = template->images;
+-        tileNum = AllocSpriteTiles((u8)(sprite->images->size / TILE_SIZE_4BPP));
++        tileNum = AllocSpriteTiles((u8)(FRAME_IMAGE_SIZE(sprite->images) / TILE_SIZE_4BPP));
+         if (tileNum == -1)
+         {
+             ResetSprite(sprite);
+@@ -614,7 +636,7 @@ void DestroySprite(struct Sprite *sprite)
+         if (!sprite->usingSheet)
+         {
+             u16 i;
+-            u16 tileEnd = (sprite->images->size / TILE_SIZE_4BPP) + sprite->oam.tileNum;
++            u16 tileEnd = (FRAME_IMAGE_SIZE(sprite->images) / TILE_SIZE_4BPP) + sprite->oam.tileNum;
+             for (i = sprite->oam.tileNum; i < tileEnd; i++)
+                 FREE_SPRITE_TILE(i);
+         }
+@@ -779,7 +801,7 @@ void FreeSpriteTilesIfNotUsingSheet(struct Sprite *sprite)
+     if (!sprite->usingSheet)
+     {
+         int i;
+-        int end = (sprite->images[0].size / TILE_SIZE_4BPP) + sprite->oam.tileNum;
++        int end = (FRAME_IMAGE_SIZE(&sprite->images[0]) / TILE_SIZE_4BPP) + sprite->oam.tileNum;
+ 
+         for (i = sprite->oam.tileNum; i < end; i++)
+             FREE_SPRITE_TILE(i);
+@@ -811,9 +833,17 @@ void RequestSpriteFrameImageCopy(u16 index, u16 tileNum, const struct SpriteFram
+ {
+     if (gSpriteCopyRequestCount < MAX_SPRITE_COPY_REQUESTS)
+     {
+-        gSpriteCopyRequests[gSpriteCopyRequestCount].src = images[index].data;
++        const void *src = images[index].data;
++        u32 size = images[index].size;
++#ifdef PORT_BRIDGE
++        size = FrameImageSize(&images[index]);
++        src = FrameImageSource(&images[index], size);
++        if (src == NULL || size == 0)
++            return;
++#endif
++        gSpriteCopyRequests[gSpriteCopyRequestCount].src = src;
+         gSpriteCopyRequests[gSpriteCopyRequestCount].dest = (u8 *)OBJ_VRAM0 + TILE_SIZE_4BPP * tileNum;
+-        gSpriteCopyRequests[gSpriteCopyRequestCount].size = images[index].size;
++        gSpriteCopyRequests[gSpriteCopyRequestCount].size = size;
+         gSpriteCopyRequestCount++;
+     }
+ }
+@@ -822,6 +852,9 @@ void RequestSpriteCopy(const u8 *src, u8 *dest, u16 size)
+ {
+     if (gSpriteCopyRequestCount < MAX_SPRITE_COPY_REQUESTS)
+     {
++#ifdef PORT_BRIDGE
++        src = Port_ResolveAssetPointer(src);
++#endif
+         gSpriteCopyRequests[gSpriteCopyRequestCount].src = src;
+         gSpriteCopyRequests[gSpriteCopyRequestCount].dest = dest;
+         gSpriteCopyRequests[gSpriteCopyRequestCount].size = size;
+@@ -1475,16 +1508,31 @@ void SetOamMatrixRotationScaling(u8 matrixNum, s16 xScale, s16 yScale, u16 rotat
+ 
+ u16 LoadSpriteSheet(const struct SpriteSheet *sheet)
+ {
+-    s16 tileStart = AllocSpriteTiles(sheet->size / TILE_SIZE_4BPP);
++    u32 sheetSize = sheet->size;
++    const void *src = sheet->data;
++    s16 tileStart;
+ 
++#ifdef PORT_BRIDGE
++    // A sheet declared with sizeof(an INCBIN) has a stub's size: less than a
++    // tile. Its real size is the asset's, and the tiles come from there.
++    if (sheetSize < TILE_SIZE_4BPP)
++    {
++        u32 assetSize = Port_GetAssetSize(src);
++
++        if (assetSize != 0)
++            sheetSize = assetSize;
++    }
++    src = Port_ResolveAssetPointerSized(src, sheetSize);
++#endif
++    tileStart = AllocSpriteTiles(sheetSize / TILE_SIZE_4BPP);
+     if (tileStart < 0)
+     {
+         return 0;
+     }
+     else
+     {
+-        AllocSpriteTileRange(sheet->tag, (u16)tileStart, sheet->size / TILE_SIZE_4BPP);
+-        CpuCopy16(sheet->data, (u8 *)OBJ_VRAM0 + TILE_SIZE_4BPP * tileStart, sheet->size);
++        AllocSpriteTileRange(sheet->tag, (u16)tileStart, sheetSize / TILE_SIZE_4BPP);
++        CpuCopy16(src, (u8 *)OBJ_VRAM0 + TILE_SIZE_4BPP * tileStart, sheetSize);
+         return (u16)tileStart;
+     }
+ }
 diff --git a/src/stub.c b/src/stub.c
 index f464d2f042cddc5a4c7e4981f254f1abcde40002..91b9981b615a4ed78aad5596f1d28ce1861a37ca 100644
 --- a/src/stub.c
@@ -528,3 +1200,213 @@ index f3eef07ce6dea8269980a5ecfdd6902c1c9c13d2..d7effe962b13a464277ebf994451ea2b
      DecompressGlyphTile(glyphs, (u16 *)gGlyphInfo.pixels);
      DecompressGlyphTile(glyphs + 0x80, (u16 *)(gGlyphInfo.pixels + 0x40));
      gGlyphInfo.width = 8;
+diff --git a/tools/dev/README.md b/tools/dev/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..036bdbed63d342711065c4313e2d0b31b4f0077d
+--- /dev/null
++++ b/tools/dev/README.md
+@@ -0,0 +1,13 @@
++﻿# Development helpers
++
++| Script | Use |
++|---|---|
++| `mk.sh <log> <make args>` | make in `C:\fr3ds\upstream\3ds_port`, log to `C:\fr3ds\<log>.log`, summarize errors |
++| `cycle.ps1 [-Wait s] [-Shot name] [-Keys seq]` | bootstrap overlay, build the 3dsx, run it in Azahar, capture `build/<name>.png`, print port.log and emulator errors |
++| `a2l.sh <addr>...` | addr2line on `firered3ds.elf` |
++| `raw2png.py <frame.raw> <out.png>` | convert a `CTR_FRAME_DUMP` frame (BGR555 240x160 + regs + palette) |
++| `merge3.py <em_ref> <emerald patch> <tree> <file>...` | 3-way merge an Emerald-port patch's hunks into FireRed files |
++| `take_ours.py <file>...` | resolve merge conflicts keeping the port side |
++| `sizeof_scan.py` | count `sizeof()` uses on INCBIN arrays (stubs in this build) |
++
++Run the bash ones through devkitPro's MSYS2: `$env:MSYSTEM='MSYS'; & C:\devkitPro\msys2\usr\bin\bash.exe -l tools/dkp.sh /c/fr3ds bash tools/dev/mk.sh ...`
+diff --git a/tools/dev/a2l.sh b/tools/dev/a2l.sh
+new file mode 100644
+index 0000000000000000000000000000000000000000..ed07298b3540a63a170b2659dad40e735ac67323
+--- /dev/null
++++ b/tools/dev/a2l.sh
+@@ -0,0 +1,4 @@
++cd /c/fr3ds/upstream/3ds_port
++for a in "$@"; do
++  arm-none-eabi-addr2line -f -i -C -e firered3ds.elf "$a"
++done
+diff --git a/tools/dev/cycle.ps1 b/tools/dev/cycle.ps1
+new file mode 100644
+index 0000000000000000000000000000000000000000..750b979cb733bee78011e2b8099108bb1877d88f
+--- /dev/null
++++ b/tools/dev/cycle.ps1
+@@ -0,0 +1,26 @@
++﻿param([int]$Wait = 15, [string]$Shot = "boot", [string]$Keys = "")
++# Build the 3dsx, run it in Azahar, capture, close, and print the port log
++# tail plus the emulator's distinct errors.
++$P = 'C:\Users\ignac\OneDrive\Escritorio\pokemon voxel mod\pokefirered-3ds'
++$scratch = ($PSScriptRoot -replace '\\','/')
++$boot = python "$P\tools\bootstrap.py" --dir C:\fr3ds\upstream 2>&1
++if ($LASTEXITCODE -ne 0) { $boot; "bootstrap failed: not building"; exit 1 }
++$boot | Select-Object -Last 1
++# Every frame dump from a previous run is stale
++Remove-Item "$env:APPDATA\Azahar\sdmc\3ds\emerald3ds\frame_*.raw" -ErrorAction SilentlyContinue
++$env:MSYSTEM = 'MSYS'
++& C:\devkitPro\msys2\usr\bin\bash.exe -l "$P\tools\dkp.sh" /c/fr3ds bash "$scratch/mk.sh" all all -j4
++if (-not (Test-Path C:\fr3ds\upstream\3ds_port\firered3ds.3dsx)) { "no 3dsx"; exit 1 }
++$sd = "$env:APPDATA\Azahar\sdmc\3ds\emerald3ds"
++Remove-Item "$sd\port.log" -ErrorAction SilentlyContinue
++& "$P\3ds_port\scripts\emu\run.ps1" -App C:\fr3ds\upstream\3ds_port\firered3ds.3dsx -Out "$P\build\$Shot.png" -Wait $Wait -Keys $Keys -Keep
++Get-Process azahar -ErrorAction SilentlyContinue | ForEach-Object { $_.CloseMainWindow() | Out-Null }
++Start-Sleep -Milliseconds 2500
++Get-Process azahar -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
++"---- port.log"
++if (Test-Path "$sd\port.log") { Get-Content "$sd\port.log" -Tail 40 }
++"---- emulator errors"
++$f = "$env:APPDATA\Azahar\log\azahar_log.txt"
++Select-String -Path $f -Pattern '<Error>|<Critical>' | Where-Object { $_.Line -notmatch 'update_checker|ClCertA|title id|ConfigureNew3DSCPU|port-prev|Rename|Delay generator' } |
++  ForEach-Object { ($_.Line -replace '^\[\s*[\d.]+\]\s*','') -replace '@ 0x[0-9A-F]+','@ ...' } |
++  Group-Object | Sort-Object Count -Descending | Select-Object -First 15 | ForEach-Object { "{0,6}x {1}" -f $_.Count, $_.Name.Substring(0, [Math]::Min(170, $_.Name.Length)) }
+diff --git a/tools/dev/merge3.py b/tools/dev/merge3.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..bf16665460b8f450185b55587c942177b69022a1
+--- /dev/null
++++ b/tools/dev/merge3.py
+@@ -0,0 +1,54 @@
++"""3-way merge Emerald-port changes into FireRed files.
++
++usage: merge3.py <emerald_ref_root> <emerald_patch> <fr_tree> <relpath>...
++
++For each relpath: base = pokeemerald original, ours = base + the Emerald port
++patch hunks for that file, theirs = FireRed's committed version (BOM removed).
++The merged result (with conflict markers if any) is written into fr_tree.
++"""
++import os
++import re
++import subprocess
++import sys
++import tempfile
++
++ref, patch, tree = sys.argv[1:4]
++files = sys.argv[4:]
++text = open(patch, encoding="utf-8", errors="surrogateescape").read()
++chunks = re.split(r"(?m)^(?=diff --git )", text)
++
++
++def git(*a, cwd=None, inp=None):
++    return subprocess.run(["git", "-c", "core.autocrlf=false", *a], cwd=cwd, input=inp,
++                          capture_output=True)
++
++
++for rel in files:
++    chunk = next((c for c in chunks if c.startswith("diff --git a/%s b/" % rel)), None)
++    if chunk is None:
++        print("%s: no hunks in patch" % rel)
++        continue
++    with tempfile.TemporaryDirectory() as td:
++        base = open(os.path.join(ref, rel), "rb").read().replace(b"\r\n", b"\n")
++        os.makedirs(os.path.join(td, os.path.dirname(rel)), exist_ok=True)
++        open(os.path.join(td, rel), "wb").write(base)
++        git("init", "-q", cwd=td)
++        r = git("apply", "--whitespace=nowarn", "-", cwd=td,
++                inp=chunk.encode("utf-8", "surrogateescape"))
++        if r.returncode:
++            print("%s: patch does not apply to the Emerald base: %s" % (rel, r.stderr.decode()[:300]))
++            continue
++        ours = os.path.join(td, rel)
++        basef = os.path.join(td, "base.tmp")
++        open(basef, "wb").write(base)
++        theirs = git("show", "HEAD:" + rel, cwd=tree).stdout
++        if theirs.startswith(b"\xef\xbb\xbf"):
++            theirs = theirs[3:]
++        theirsf = os.path.join(td, "theirs.tmp")
++        open(theirsf, "wb").write(theirs.replace(b"\r\n", b"\n"))
++        # merge-file writes into its first argument
++        r = subprocess.run(["git", "merge-file", "-L", "emerald-port", "-L", "emerald", "-L", "firered",
++                            ours, basef, theirsf], capture_output=True)
++        out = open(ours, "rb").read()
++        open(os.path.join(tree, rel), "wb").write(out)
++        print("%s: %s" % (rel, "clean" if r.returncode == 0 else "%d conflict(s)" % r.returncode))
+diff --git a/tools/dev/mk.sh b/tools/dev/mk.sh
+new file mode 100644
+index 0000000000000000000000000000000000000000..c2e675c0b95c768707b544cd93889e624740a8ff
+--- /dev/null
++++ b/tools/dev/mk.sh
+@@ -0,0 +1,10 @@
++#!/bin/bash
++# mk.sh <logname> <make args...>: run make in the port dir, log, summarize errors
++cd /c/fr3ds/upstream/3ds_port
++log=/c/fr3ds/$1.log; shift
++make "$@" > "$log" 2>&1
++code=$?
++echo "make exit=$code"
++grep -E "error:|undefined reference|Error:|multiple definition|\*\*\*" "$log" \
++  | sed -E 's/^.*(src\/|include\/|data\/)/\1/' | sed -E 's/^.*: (undefined reference to)/\1/' \
++  | cut -c1-200 | sort | uniq -c | sort -rn | head -n 60
+diff --git a/tools/dev/raw2png.py b/tools/dev/raw2png.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..69013d490aa3ce4844f4adc3904d621aee9b08aa
+--- /dev/null
++++ b/tools/dev/raw2png.py
+@@ -0,0 +1,17 @@
++import struct, sys
++from PIL import Image
++raw = open(sys.argv[1], "rb").read()
++W, H = 240, 160
++px = struct.unpack("<%dH" % (W * H), raw[:W * H * 2])
++img = Image.new("RGB", (W, H))
++img.putdata([((c & 31) << 3, ((c >> 5) & 31) << 3, ((c >> 10) & 31) << 3) for c in px])
++img.resize((W * 3, H * 3), Image.NEAREST).save(sys.argv[2])
++regs = struct.unpack("<48H", raw[W * H * 2:W * H * 2 + 0x60])
++pal = struct.unpack("<32H", raw[W * H * 2 + 0x60:W * H * 2 + 0xA0])
++print("nonzero pixels:", sum(1 for c in px if c & 0x7FFF), "distinct:", len(set(c & 0x7FFF for c in px)))
++print("regs:", " ".join("%04x" % r for r in regs[:16]))
++print("DISPCNT=%04x BG0..3CNT=%04x %04x %04x %04x WIN0H=%04x WIN1H=%04x WIN0V=%04x WIN1V=%04x "
++      "WININ=%04x WINOUT=%04x MOSAIC=%04x BLDCNT=%04x BLDALPHA=%04x BLDY=%04x"
++      % (regs[0], regs[4], regs[5], regs[6], regs[7], regs[0x20], regs[0x21], regs[0x22], regs[0x23],
++         regs[0x24], regs[0x25], regs[0x26], regs[0x28], regs[0x29], regs[0x2A]))
++print("pal:", " ".join("%04x" % p for p in pal))
+diff --git a/tools/dev/sizeof_scan.py b/tools/dev/sizeof_scan.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..197fd33bbda28c34c8a47617b513243c711b050b
+--- /dev/null
++++ b/tools/dev/sizeof_scan.py
+@@ -0,0 +1,29 @@
++"""List sizeof() uses on INCBIN arrays (one-element stubs in the 3DS build).
++
++    python tools/dev/sizeof_scan.py [--all]
++
++Without --all, LoadPalette calls are left out (palette.c resolves those).
++"""
++import pathlib
++import re
++import sys
++
++root = pathlib.Path(r"C:\fr3ds\upstream\src")
++syms = set()
++for p in list(root.rglob("*.c")) + list(root.rglob("*.h")):
++    t = p.read_text(encoding="utf-8", errors="ignore")
++    for m in re.finditer(r"(\w+)\s*(?:\[[^\]]*\])+\s*=\s*INCBIN_[US]\d+\s*\(", t):
++        syms.add(m.group(1))
++show_all = "--all" in sys.argv
++count = 0
++for p in sorted(root.rglob("*.c")):
++    lines = p.read_text(encoding="utf-8", errors="ignore").splitlines()
++    for i, line in enumerate(lines, 1):
++        for m in re.finditer(r"sizeof\s*\(\s*(\w+)\s*\)", line):
++            if m.group(1) not in syms:
++                continue
++            if not show_all and "LoadPalette" in line:
++                continue
++            count += 1
++            print("%s:%d: %s" % (p.name, i, line.strip()))
++print("total:", count)
+diff --git a/tools/dev/take_ours.py b/tools/dev/take_ours.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..08675d1093f74dae9894ddb1a722aaf0c1f91a83
+--- /dev/null
++++ b/tools/dev/take_ours.py
+@@ -0,0 +1,9 @@
++"""Resolve merge-file conflict blocks by keeping the first (port) side."""
++import re
++import sys
++
++for path in sys.argv[1:]:
++    t = open(path, encoding="utf-8", errors="surrogateescape").read()
++    t, n = re.subn(r"<<<<<<< [^\n]*\n(.*?)=======\n.*?>>>>>>> [^\n]*\n", r"\1", t, flags=re.S)
++    open(path, "w", encoding="utf-8", errors="surrogateescape", newline="\n").write(t)
++    print(path, n, "resolved")

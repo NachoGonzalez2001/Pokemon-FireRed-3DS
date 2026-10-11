@@ -206,7 +206,10 @@ void CtrGame_VBlank(void)
 #ifdef CTR_FRAME_DUMP
     /* Diagnostic: the rendered frame and the registers the renderer read,
      * as they stand at frame CTR_FRAME_DUMP (tools: raw BGR555, 240x160). */
-    if (sFrames % CTR_FRAME_DUMP == 0 && sFrames / CTR_FRAME_DUMP <= 8)
+#ifndef CTR_FRAME_DUMP_COUNT
+#define CTR_FRAME_DUMP_COUNT 8
+#endif
+    if (sFrames % CTR_FRAME_DUMP == 0 && sFrames / CTR_FRAME_DUMP <= CTR_FRAME_DUMP_COUNT)
     {
         char name[64];
         FILE *file;

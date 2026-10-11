@@ -8,3 +8,4 @@ echo "make exit=$code"
 grep -E "error:|undefined reference|Error:|multiple definition|\*\*\*" "$log" \
   | sed -E 's/^.*(src\/|include\/|data\/)/\1/' | sed -E 's/^.*: (undefined reference to)/\1/' \
   | cut -c1-200 | sort | uniq -c | sort -rn | head -n 60
+exit $code

@@ -1,4 +1,7 @@
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include "global.h"
 #include "3ds_platform.h"
 #include "3ds_audio.h"
 #include "3ds_emu_regs.h"
@@ -24,6 +27,13 @@ void CtrEmu_Reset(void)
     memset(PLTT, 0, PLTT_SIZE);
     memset(VRAM_, 0, VRAM_SIZE);
     memset(OAM, 0, OAM_SIZE);
+    /* The BIOS's reset leaves the affine backgrounds at the identity
+     * (PA = PD = 1.0), and games rely on it: FireRed's Oak speech shows its
+     * 256-colour pictures on an affine BG2 without ever setting it. */
+    REG_BG2PA = 0x100;
+    REG_BG2PD = 0x100;
+    REG_BG3PA = 0x100;
+    REG_BG3PD = 0x100;
     REG_IME = 1;
     REG_KEYINPUT = KEYS_MASK;
     INTR_CHECK = 0;
@@ -44,10 +54,87 @@ void CtrEmu_EndVBlank(void)
     REG_VCOUNT = 0;
 }
 
+#ifdef CTR_INPUT_SCRIPT
+/*
+ * Test input, for driving the game without anyone at the keys:
+ * sdmc:/3ds/emerald3ds/keys.txt, one press per line,
+ *     <frame> <BUTTON>[+<BUTTON>...] [frames held, default 4]
+ * with BUTTON one of A B SELECT START RIGHT LEFT UP DOWN R L, and '#'
+ * starting a comment. The presses are held over the real keys.
+ */
+#define MAX_SCRIPT_PRESSES 512
+static struct { u32 frame, length; u16 keys; } sScript[MAX_SCRIPT_PRESSES];
+static unsigned sScriptCount;
+static bool sScriptLoaded;
+uint32_t CtrGame_Frames(void);
+
+static u16 ScriptButton(const char *name)
+{
+    static const struct { const char *name; u16 key; } names[] = {
+        {"A", A_BUTTON}, {"B", B_BUTTON}, {"SELECT", SELECT_BUTTON}, {"START", START_BUTTON},
+        {"RIGHT", DPAD_RIGHT}, {"LEFT", DPAD_LEFT}, {"UP", DPAD_UP}, {"DOWN", DPAD_DOWN},
+        {"R", R_BUTTON}, {"L", L_BUTTON},
+    };
+    for (unsigned i = 0; i < ARRAY_COUNT(names); ++i)
+        if (strcmp(name, names[i].name) == 0)
+            return names[i].key;
+    return 0;
+}
+
+static void LoadInputScript(void)
+{
+    FILE *file = fopen("sdmc:/3ds/emerald3ds/keys.txt", "r");
+    char line[128];
+
+    sScriptLoaded = true;
+    if (file == NULL)
+        return;
+    while (sScriptCount < MAX_SCRIPT_PRESSES && fgets(line, sizeof(line), file))
+    {
+        char buttons[64], *name, *save;
+        unsigned long frame, length = 4;
+        u16 keys = 0;
+        int fields;
+
+        if (line[0] == '#')
+            continue;
+        fields = sscanf(line, "%lu %63s %lu", &frame, buttons, &length);
+        if (fields < 2)
+            continue;
+        for (name = strtok_r(buttons, "+", &save); name; name = strtok_r(NULL, "+", &save))
+            keys |= ScriptButton(name);
+        if (keys == 0)
+            continue;
+        sScript[sScriptCount].frame = frame;
+        sScript[sScriptCount].length = length;
+        sScript[sScriptCount].keys = keys;
+        ++sScriptCount;
+    }
+    fclose(file);
+    CtrLog_Write(CTR_LOG_INPUT, "input script: %u presses", sScriptCount);
+}
+
+static u16 ScriptedKeys(void)
+{
+    u32 now = CtrGame_Frames();
+    u16 keys = 0;
+
+    if (!sScriptLoaded)
+        LoadInputScript();
+    for (unsigned i = 0; i < sScriptCount; ++i)
+        if (now >= sScript[i].frame && now < sScript[i].frame + sScript[i].length)
+            keys |= sScript[i].keys;
+    return keys;
+}
+#endif
+
 u16 Platform_GetKeyInput(void)
 {
     const CtrInput *input = CtrInput_Get();
     u16 held = input->held;
+#ifdef CTR_INPUT_SCRIPT
+    held |= ScriptedKeys();
+#endif
 
     /* Y is the 3DS's own SELECT: the registered item, as the bottom screen's
      * Y button says. */

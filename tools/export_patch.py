@@ -50,13 +50,14 @@ def main():
     if not a.rev:
         git(a.tree, "-c", "user.name=bootstrap", "-c", "user.email=bootstrap@localhost",
             "commit", "-q", "--no-verify", "-m", a.name)
-        # the tree now holds exactly the exported patch set
-        import hashlib
-        digest = hashlib.sha256()
-        for p in sorted(out.parent.glob("*.patch")):
-            digest.update(p.name.encode())
-            digest.update(p.read_bytes())
-        (Path(a.tree) / ".firered3ds-patches").write_text(digest.hexdigest() + "\n")
+    # the tree now holds exactly the exported patch set (with --rev too: the
+    # exported commit is the tree's own)
+    import hashlib
+    digest = hashlib.sha256()
+    for p in sorted(out.parent.glob("*.patch")):
+        digest.update(p.name.encode())
+        digest.update(p.read_bytes())
+    (Path(a.tree) / ".firered3ds-patches").write_text(digest.hexdigest() + "\n")
     print("wrote %s (%d bytes)" % (out, out.stat().st_size))
 
 

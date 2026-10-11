@@ -117,7 +117,7 @@ data-objs: $(patsubst $(ROOT)/%.s,build/root/%.o,$(ROOT_DATA_SRCS)) build/root/d
 	$(SCRIPT_DATA_OBJS) $(ROOT_SONG_OBJS)
 
 # The platform layer's scanline renderer draws every frame (3ds_game_full.c).
-build/root/src/platform/gba_fast_draw.o: FULLCFLAGS += -DRENDERER_FAST_DRAW
+build/root/src/platform/gba_fast_draw.o: FULLCFLAGS += -DRENDERER_FAST_DRAW -O3
 
 build/root/%.o: $(ROOT)/%.c Makefile full.mk
 	@mkdir -p $(dir $@)
