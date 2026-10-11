@@ -775,6 +775,33 @@ index 88f94bff08ef951523facf2b579fbc3d4d8455b2..b5f392061c5154e2e918f22fca25884f
          metatileId -= NUM_METATILES_IN_PRIMARY;
      }
      DrawMetatile(MapGridGetMetatileLayerTypeAt(x, y), metatiles + metatileId * NUM_TILES_PER_METATILE, offset);
+diff --git a/src/field_control_avatar.c b/src/field_control_avatar.c
+index b1b6465941133b927505be92d189a7c283e4722f..a0afdb910e34bf00eae1169420136527899258af 100644
+--- a/src/field_control_avatar.c
++++ b/src/field_control_avatar.c
+@@ -8,6 +8,9 @@
+ #include "event_scripts.h"
+ #include "fieldmap.h"
+ #include "field_control_avatar.h"
++#ifdef PORT_BRIDGE
++bool8 CtrStartMenu_AcceptStart(void);
++#endif
+ #include "field_fadetransition.h"
+ #include "field_player_avatar.h"
+ #include "field_poison.h"
+@@ -107,6 +110,12 @@ void FieldGetPlayerInput(struct FieldInput *input, u16 newKeys, u16 heldKeys)
+         {
+             if ((newKeys & START_BUTTON) && !(gPlayerAvatar.flags & PLAYER_AVATAR_FLAG_FORCED))
+                 input->pressedStartButton = TRUE;
++#ifdef PORT_BRIDGE
++            // The start menu lives on the 3DS bottom screen: START alone opens
++            // nothing, unless that screen asked for an entry or can't serve here.
++            if (input->pressedStartButton && !CtrStartMenu_AcceptStart())
++                input->pressedStartButton = FALSE;
++#endif
+             if (!QL_IS_PLAYBACK_STATE)
+             {
+                 if (!(gPlayerAvatar.flags & PLAYER_AVATAR_FLAG_FORCED))
 diff --git a/src/field_door.c b/src/field_door.c
 index c3be102da4310e1923cc2e7b0379550e196f3dac..1e54818e3f44a3b561b95111ec188cd6d862da89 100644
 --- a/src/field_door.c
@@ -2336,7 +2363,7 @@ index d0198d53004775c8664dcccf57833e178833776e..05b92b4240055b20d81e2aba96db6a7a
      }
  }
 diff --git a/src/start_menu.c b/src/start_menu.c
-index 88cc377cea556d3663aa5ea5f5bd4537cb29ea72..b4f2d1072203f9401e86a25b823d2006f1915711 100644
+index 88cc377cea556d3663aa5ea5f5bd4537cb29ea72..eeab6974f63ac78c30c5e80d39c2d8c14b7d91ea 100644
 --- a/src/start_menu.c
 +++ b/src/start_menu.c
 @@ -368,8 +368,23 @@ static bool8 FieldCB2_DrawStartMenu(void)
@@ -2374,7 +2401,7 @@ index 88cc377cea556d3663aa5ea5f5bd4537cb29ea72..b4f2d1072203f9401e86a25b823d2006
      if (!IsUpdateLinkStateCBActive())
      {
          FreezeObjectEvents();
-@@ -1014,3 +1033,94 @@ void AppendToList(u8 *list, u8 *cursor, u8 newEntry)
+@@ -1014,3 +1033,104 @@ void AppendToList(u8 *list, u8 *cursor, u8 newEntry)
      list[*cursor] = newEntry;
      (*cursor)++;
  }
@@ -2450,6 +2477,16 @@ index 88cc377cea556d3663aa5ea5f5bd4537cb29ea72..b4f2d1072203f9401e86a25b823d2006
 +    }
 +    CreateTask(Task_CtrStartMenuAction, 80);
 +    return TRUE;
++}
++
++// Whether a START press in the field should open anything: the entry the
++// bottom screen asked for, or the menu itself where that screen can't serve
++// (a link, the union room, the Safari Zone with its RETIRE).
++bool8 CtrStartMenu_AcceptStart(void)
++{
++    if (sCtrRequest != CTR_START_NONE)
++        return TRUE;
++    return IsUpdateLinkStateCBActive() || InUnionRoom() || GetSafariZoneFlag();
 +}
 +
 +// STARTMENU_* to open on the next START press.
