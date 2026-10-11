@@ -35,4 +35,14 @@ for f, t in texts.items():
                 hits += 1
                 print(f"{f.relative_to(tree).as_posix()}:{no}: {line.strip()[:150]}")
                 break
+# An asset handed to a pointer variable, which may be offset later: review.
+assign = re.compile(r"(\w+)\s*=\s*(\w+)\s*;")
+for f, t in texts.items():
+    for no, line in enumerate(t.splitlines(), 1):
+        if "INCBIN_" in line or "PORT_RES(" in line or line.lstrip().startswith("extern"):
+            continue
+        m = assign.search(line)
+        if m and m.group(2) in names:
+            hits += 1
+            print(f"{f.relative_to(tree).as_posix()}:{no}: (assigned) {line.strip()[:150]}")
 print(f"{len(names)} INCBIN assets, {hits} interior uses", file=sys.stderr)

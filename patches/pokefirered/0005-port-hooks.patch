@@ -301,8 +301,34 @@ index 36fc9a58492d2fdc2e6e578ca460959a4838cdf3..88910d23822cc552423f9ed385ddc60d
      LoadSpritePalette(&sPartySummaryBarSpritePals[isOpponent]);
      LoadSpritePalette(&sPartySummaryBallSpritePals[isOpponent]);
  
+diff --git a/src/battle_message.c b/src/battle_message.c
+index a6392be9a91cd8171d920ff45c684b627b0c98b1..487486da48ba6feef82cb7b640728ae4536b22d5 100644
+--- a/src/battle_message.c
++++ b/src/battle_message.c
+@@ -21,6 +21,12 @@
+ #include "constants/trainers.h"
+ #include "constants/weather.h"
+ 
++#ifdef PORT_BRIDGE
++#include "port_platform.h"
++#else
++#define PORT_RES(p) (p)
++#endif
++
+ struct BattleWindowText
+ {
+     u8 fillValue;
+@@ -2810,7 +2816,7 @@ bool8 BattleStringShouldBeColored(u16 stringId)
+ void SetPpNumbersPaletteInMoveSelection(void)
+ {
+     struct ChooseMoveStruct *chooseMoveStruct = (struct ChooseMoveStruct *)(&gBattleBufferA[gActiveBattler][4]);
+-    const u16 *palPtr = gPPTextPalette;
++    const u16 *palPtr = PORT_RES(gPPTextPalette);
+     u8 var = GetCurrentPpToMaxPpState(chooseMoveStruct->currentPp[gMoveSelectionCursor[gActiveBattler]],
+                                       chooseMoveStruct->maxPp[gMoveSelectionCursor[gActiveBattler]]);
+ 
 diff --git a/src/battle_transition.c b/src/battle_transition.c
-index 8a23dfe5d1f1f2c7b7e4a57b7a9816de472df54e..a8a3de891be5314c13257efb7c195ecc3a3b6193 100644
+index 8a23dfe5d1f1f2c7b7e4a57b7a9816de472df54e..90d882617e7633b452a90c43a8e94035bcb22da5 100644
 --- a/src/battle_transition.c
 +++ b/src/battle_transition.c
 @@ -18,6 +18,12 @@
@@ -331,6 +357,24 @@ index 8a23dfe5d1f1f2c7b7e4a57b7a9816de472df54e..a8a3de891be5314c13257efb7c195ecc
          FREE_AND_SET_NULL(sTransitionData);
          DestroyTask(taskId);
          return TRUE;
+@@ -946,7 +958,7 @@ static bool8 BigPokeball_SetGfx(struct Task *task)
+ {
+     s16 i, j;
+     u16 *tilemap, *tileset;
+-    const u16 *bigPokeballMap = sBigPokeball_Tilemap;
++    const u16 *bigPokeballMap = PORT_RES(sBigPokeball_Tilemap);
+ 
+     GetBg0TilesDst(&tilemap, &tileset);
+     for (i = 0; i < 20; i++)
+@@ -1906,7 +1918,7 @@ static bool8 Mugshot_SetGfx(struct Task *task)
+ {
+     s16 i, j;
+     u16 *tilemap, *tileset;
+-    const u16 *mugshotsMap = sMugshotsTilemap;
++    const u16 *mugshotsMap = PORT_RES(sMugshotsTilemap);
+     
+     GetBg0TilesDst(&tilemap, &tileset);
+     CpuCopy16(sMugshotBanner_Gfx, tileset, sizeof(sMugshotBanner_Gfx));
 @@ -2606,7 +2618,7 @@ static bool8 GridSquares_Main(struct Task *task)
          GetBg0TilemapDst(&tileset);
          task->tDelay = 3;
@@ -943,6 +987,32 @@ index ffc11a28d418c08b149eb22e9dd4ae8e5831cf75..17973c15eeba63625bc653286ee1b726
      }
      else
      {
+diff --git a/src/help_message.c b/src/help_message.c
+index 7cd44dbb20f2d468f91a589b0828d0cc888e12c9..ee6a0dd403f45cc64e0fdc548e7659c2cff6ac52 100644
+--- a/src/help_message.c
++++ b/src/help_message.c
+@@ -3,6 +3,12 @@
+ #include "menu.h"
+ #include "malloc.h"
+ 
++#ifdef PORT_BRIDGE
++#include "port_platform.h"
++#else
++#define PORT_RES(p) (p)
++#endif
++
+ static EWRAM_DATA u8 sHelpMessageWindowId = 0;
+ 
+ const u8 gHelpMessageWindow_Gfx[] = INCBIN_U8("graphics/help_system/msg_window.4bpp");
+@@ -50,7 +56,7 @@ void DestroyHelpMessageWindow(u8 a0)
+ // Creates the bottom bar window that displays help text for e.g. the options in the Start menu
+ void DrawHelpMessageWindowTilesById(u8 windowId)
+ {
+-    const u8 *ptr = gHelpMessageWindow_Gfx;
++    const u8 *ptr = PORT_RES(gHelpMessageWindow_Gfx);
+     u8 *buffer;
+     u8 i, j;
+     u8 width, height;
 diff --git a/src/help_system_util.c b/src/help_system_util.c
 index d07881e00ab9fcd3285c572d8cd63e2dac677b75..ad3f79f60e492377e75d8f107acfc6b2ac009603 100644
 --- a/src/help_system_util.c
@@ -1719,20 +1789,26 @@ index bdb070c96558c43eafb50c8619a85e9a9090d348..122d9b3eee02af00782cc9e4f7420930
      spritePalette.tag = paletteTag;
      LoadCompressedSpriteSheet(&spriteSheet);
 diff --git a/src/pokemon_storage_system_tasks.c b/src/pokemon_storage_system_tasks.c
-index fdc5250c347a304547f613b5ed8685157341345a..a5587d405fbb5e8c8aa6bd4f3c877cb460204db1 100644
+index fdc5250c347a304547f613b5ed8685157341345a..2725c4d70611e002d04b1cfdffeac35a9cc5d1f3 100644
 --- a/src/pokemon_storage_system_tasks.c
 +++ b/src/pokemon_storage_system_tasks.c
-@@ -25,6 +25,9 @@
+@@ -25,6 +25,15 @@
  #include "constants/items.h"
  #include "constants/help_system.h"
  #include "constants/songs.h"
 +#ifdef PORT_BRIDGE
 +#include "port_platform.h"
++
++#ifdef PORT_BRIDGE
++#include "port_platform.h"
++#else
++#define PORT_RES(p) (p)
++#endif
 +#endif
  
  EWRAM_DATA struct PokemonStorageSystemData *gStorage = NULL;
  static EWRAM_DATA bool8 sInPartyMenu = 0;
-@@ -400,6 +403,9 @@ static void VBlankCB_PokeStorage(void)
+@@ -400,6 +409,9 @@ static void VBlankCB_PokeStorage(void)
  
  static void CB2_PokeStorage(void)
  {
@@ -1742,6 +1818,18 @@ index fdc5250c347a304547f613b5ed8685157341345a..a5587d405fbb5e8c8aa6bd4f3c877cb4
      RunTasks();
      DoScheduledBgTilemapCopiesToVram();
      ScrollBackground();
+@@ -2485,9 +2497,9 @@ static void SetPartySlotTilemap(u8 pos, bool8 isFilled)
+     const u16 *tilemap;
+ 
+     if (isFilled)
+-        tilemap = sPartySlotFilled_Tilemap;
++        tilemap = PORT_RES(sPartySlotFilled_Tilemap);
+     else
+-        tilemap = sPartySlotEmpty_Tilemap;
++        tilemap = PORT_RES(sPartySlotEmpty_Tilemap);
+ 
+     index = 3 * (3 * (pos - 1) + 1);
+     index *= 4;
 diff --git a/src/pokemon_summary_screen.c b/src/pokemon_summary_screen.c
 index b3e3c7763d3e1c9cf2185cd7344fdf49ba78ae85..0d1e2eb1b6e6542f5eb3c6bc5e172a9dbf3efa84 100644
 --- a/src/pokemon_summary_screen.c
@@ -1805,6 +1893,32 @@ index b3e3c7763d3e1c9cf2185cd7344fdf49ba78ae85..0d1e2eb1b6e6542f5eb3c6bc5e172a9d
          }
  
          sMonSummaryScreen->switchMonTaskState++;
+diff --git a/src/quest_log.c b/src/quest_log.c
+index 0a2f76f2c4019fa0938d5044da73fcea1b2b069c..57dac6dac43d6a413eda86334af6c198dcc0763f 100644
+--- a/src/quest_log.c
++++ b/src/quest_log.c
+@@ -30,6 +30,12 @@
+ #include "constants/field_weather.h"
+ #include "constants/event_object_movement.h"
+ 
++#ifdef PORT_BRIDGE
++#include "port_platform.h"
++#else
++#define PORT_RES(p) (p)
++#endif
++
+ enum {
+     WIN_TOP_BAR,      // Contains the "Previously on..." text
+     WIN_BOTTOM_BAR,   // Empty, only briefly visible at the end or when the description window isn't covering it.
+@@ -1042,7 +1048,7 @@ static void DrawSceneDescription(void)
+ 
+ static void CopyDescriptionWindowTiles(u8 windowId)
+ {
+-    const u16 *src = sDescriptionWindow_Gfx;
++    const u16 *src = PORT_RES(sDescriptionWindow_Gfx);
+     u16 *buffer = Alloc(DESC_WIN_SIZE);
+     u8 i, j, y;
+ 
 diff --git a/src/region_map.c b/src/region_map.c
 index d65f99fefa2c3a4bff11a69e674894bfd9a51374..f0af2399754078a3fee92c093ea5a91daac2befb 100644
 --- a/src/region_map.c
