@@ -187,6 +187,19 @@ static void SampleAudioStats(void)
 
 void CtrGame_VBlank(void)
 {
+#ifdef CTR_WATCH_HEAP
+    {
+        extern bool32 CheckHeap(void);
+        static bool8 reported;
+
+        if (!reported && !CheckHeap())
+        {
+            reported = TRUE;
+            CtrLog_Write(CTR_LOG_ERROR, "heap corrupt at frame %lu cb2=%08lx", (unsigned long)sFrames,
+                         (unsigned long)(uintptr_t)gMain.callback2);
+        }
+    }
+#endif
     PORT_PROF_BEGIN(vblank);
     CtrEmu_BeginVBlank();
     /*
@@ -228,6 +241,13 @@ void CtrGame_VBlank(void)
             fwrite(REG_BASE, 0x60, 1, file);
             fwrite(PLTT, 0x40, 1, file);
             fclose(file);
+        }
+        {
+            /* the bottom screen's canvas beside it (fr_bottom_ui.c) */
+            extern void CtrBottom_Dump(const char *path);
+
+            snprintf(name, sizeof(name), "sdmc:/3ds/emerald3ds/bottom_%04lu.raw", (unsigned long)sFrames);
+            CtrBottom_Dump(name);
         }
         {
             extern u16 gPlttBufferUnfaded[], gPlttBufferFaded[];

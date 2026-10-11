@@ -61,9 +61,11 @@ void CtrEmu_EndVBlank(void)
  *     <frame> <BUTTON>[+<BUTTON>...] [frames held, default 4]
  * with BUTTON one of A B SELECT START RIGHT LEFT UP DOWN R L, and '#'
  * starting a comment. The presses are held over the real keys.
+ *     <frame> TOUCH <x> <y> [frames held]
+ * touches the bottom screen at (x, y).
  */
 #define MAX_SCRIPT_PRESSES 512
-static struct { u32 frame, length; u16 keys; } sScript[MAX_SCRIPT_PRESSES];
+static struct { u32 frame, length; u16 keys, touchX, touchY; bool touch; } sScript[MAX_SCRIPT_PRESSES];
 static unsigned sScriptCount;
 static bool sScriptLoaded;
 uint32_t CtrGame_Frames(void);
@@ -96,8 +98,21 @@ static void LoadInputScript(void)
         u16 keys = 0;
         int fields;
 
+        unsigned touchX, touchY;
+
         if (line[0] == '#')
             continue;
+        if (sscanf(line, "%lu TOUCH %u %u %lu", &frame, &touchX, &touchY, &length) >= 3)
+        {
+            sScript[sScriptCount].frame = frame;
+            sScript[sScriptCount].length = length;
+            sScript[sScriptCount].keys = 0;
+            sScript[sScriptCount].touch = true;
+            sScript[sScriptCount].touchX = touchX;
+            sScript[sScriptCount].touchY = touchY;
+            ++sScriptCount;
+            continue;
+        }
         fields = sscanf(line, "%lu %63s %lu", &frame, buttons, &length);
         if (fields < 2)
             continue;
@@ -108,6 +123,7 @@ static void LoadInputScript(void)
         sScript[sScriptCount].frame = frame;
         sScript[sScriptCount].length = length;
         sScript[sScriptCount].keys = keys;
+        sScript[sScriptCount].touch = false;
         ++sScriptCount;
     }
     fclose(file);
@@ -125,6 +141,23 @@ static u16 ScriptedKeys(void)
         if (now >= sScript[i].frame && now < sScript[i].frame + sScript[i].length)
             keys |= sScript[i].keys;
     return keys;
+}
+
+/* A scripted touch on the bottom screen this frame (fr_bottom_ui.c). */
+bool CtrScript_Touch(u16 *x, u16 *y)
+{
+    u32 now = CtrGame_Frames();
+
+    if (!sScriptLoaded)
+        LoadInputScript();
+    for (unsigned i = 0; i < sScriptCount; ++i)
+        if (sScript[i].touch && now >= sScript[i].frame && now < sScript[i].frame + sScript[i].length)
+        {
+            *x = sScript[i].touchX;
+            *y = sScript[i].touchY;
+            return true;
+        }
+    return false;
 }
 #endif
 

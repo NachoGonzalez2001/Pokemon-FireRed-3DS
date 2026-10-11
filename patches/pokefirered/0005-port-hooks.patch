@@ -822,6 +822,21 @@ index 8f52ead00ec1e34df74dadb71aa23439d507b073..ef43359b6e12ecb808d6068e701dc8be
      ScheduleBgCopyTilemapToVram(1);
  }
  
+diff --git a/src/link.c b/src/link.c
+index 84506bf0e9a2374bbd8b06c6e78e03905927d17a..17d7b91305762a7ee6dfa7d0fd0b85ceafcd8114 100644
+--- a/src/link.c
++++ b/src/link.c
+@@ -242,6 +242,10 @@ static const u8 sLinkErrorTextColor[] = { 0x00, 0x01, 0x02 };
+ 
+ bool8 IsWirelessAdapterConnected(void)
+ {
++#ifdef PORTABLE
++    // No serial port to ask: the adapter's reset waits on it forever.
++    return FALSE;
++#endif
+     if (QL_IS_PLAYBACK_STATE)
+         return FALSE;
+ 
 diff --git a/src/list_menu.c b/src/list_menu.c
 index 36b81faec0de5f45d38c539954e3e22fe35aa51a..372de1e70bc75c231c21eebf22a136623be5594b 100644
 --- a/src/list_menu.c
@@ -886,7 +901,7 @@ index 8b723dd044c6024b3671bb890b25b56a53f99ec5..0708dc382196d2efb2b3dd2769330fae
      gSaveBlock2Ptr = (void *)(&gSaveBlock2) + offset;
      *sav1_LocalVar = (void *)(&gSaveBlock1) + offset;
 diff --git a/src/main.c b/src/main.c
-index 542b0f5d16dd93107523d11163bfcb70a42b707a..78485b721e96614ce219a69fc1eecd166ade7bba 100644
+index 542b0f5d16dd93107523d11163bfcb70a42b707a..45f22e15114b92001595c5d43c70b37140daeb06 100644
 --- a/src/main.c
 +++ b/src/main.c
 @@ -16,6 +16,12 @@
@@ -945,7 +960,19 @@ index 542b0f5d16dd93107523d11163bfcb70a42b707a..78485b721e96614ce219a69fc1eecd16
          ReadKeys();
  
          if (gSoftResetDisabled == FALSE
-@@ -295,7 +311,11 @@ void InitKeys(void)
+@@ -231,6 +247,11 @@ static void InitMainCallbacks(void)
+     SetMainCallback2(CB2_InitCopyrightScreenAfterBootup);
+     gSaveBlock2Ptr = &gSaveBlock2;
+     gSaveBlock1Ptr = &gSaveBlock1;
++#ifdef PORTABLE
++    // The boot-time save load copies the PC boxes through this pointer too;
++    // left NULL, as on the GBA, they land at address 0, which faults here.
++    gPokemonStoragePtr = &gPokemonStorage;
++#endif
+     gSaveBlock2.encryptionKey = 0;
+     gQuestLogPlaybackState = QL_PLAYBACK_STATE_STOPPED;
+ #if REVISION >= 0xA
+@@ -295,7 +316,11 @@ void InitKeys(void)
  
  static void ReadKeys(void)
  {
@@ -957,7 +984,7 @@ index 542b0f5d16dd93107523d11163bfcb70a42b707a..78485b721e96614ce219a69fc1eecd16
      gMain.newKeysRaw = keyInput & ~gMain.heldKeysRaw;
      gMain.newKeys = gMain.newKeysRaw;
      gMain.newAndRepeatedKeys = gMain.newKeysRaw;
-@@ -344,9 +364,12 @@ void InitIntrHandlers(void)
+@@ -344,9 +369,12 @@ void InitIntrHandlers(void)
      for (i = 0; i < INTR_COUNT; i++)
          gIntrTable[i] = gIntrTableTemplate[i];
  
@@ -970,7 +997,7 @@ index 542b0f5d16dd93107523d11163bfcb70a42b707a..78485b721e96614ce219a69fc1eecd16
  
      SetVBlankCallback(NULL);
      SetHBlankCallback(NULL);
-@@ -461,10 +484,16 @@ static void IntrDummy(void)
+@@ -461,10 +489,16 @@ static void IntrDummy(void)
  
  static void WaitForVBlank(void)
  {
@@ -1091,6 +1118,23 @@ index 08c032027cda2c34bf0dded37458adeb250aa553..d89e23ce6adfb23af6d1e24dbcd7dcca
  }
  
  void DisplayItemMessageOnField(u8 taskId, u8 fontId, const u8 *string, TaskFunc callback)
+diff --git a/src/overworld.c b/src/overworld.c
+index 339014da46ae8543143edc99ab72bf7496203a0d..a9a3515389ec3fb841665e1c0d5a72373e9f015a 100644
+--- a/src/overworld.c
++++ b/src/overworld.c
+@@ -441,6 +441,12 @@ static void LoadSaveblockObjEventScripts(void)
+ 
+     for (i = 0; i < OBJECT_EVENT_TEMPLATES_COUNT; i++)
+     {
++#ifdef PORTABLE
++        // Past the map's own objects the GBA reads whatever follows in ROM;
++        // here that can be unmapped (a map with none has no array at all).
++        if (i >= gMapHeader.events->objectEventCount)
++            break;
++#endif
+         savObjTemplates[i].script = src[i].script;
+     }
+ }
 diff --git a/src/palette.c b/src/palette.c
 index 84f23428f2e7b2802bcadb497d4ca401af6c0531..d6125134eebfd3bc950061d1e82568fef1867453 100644
 --- a/src/palette.c
@@ -1646,6 +1690,140 @@ index d0198d53004775c8664dcccf57833e178833776e..ad7180e63225ee15d8b2902c2ff83847
          return (u16)tileStart;
      }
  }
+diff --git a/src/start_menu.c b/src/start_menu.c
+index 88cc377cea556d3663aa5ea5f5bd4537cb29ea72..b4f2d1072203f9401e86a25b823d2006f1915711 100644
+--- a/src/start_menu.c
++++ b/src/start_menu.c
+@@ -368,8 +368,23 @@ static bool8 FieldCB2_DrawStartMenu(void)
+     return TRUE;
+ }
+ 
++#ifdef PORT_BRIDGE
++static bool8 CtrStartMenu_IsReplaced(void);
++static bool8 CtrStartMenu_Divert(void);
++static bool8 CtrFieldCB2_ReturnToField(void);
++#endif
++
+ void SetUpReturnToStartMenu(void)
+ {
++#ifdef PORT_BRIDGE
++    // An action the bottom screen asked for goes back to the field, not to
++    // the start menu it never opened.
++    if (CtrStartMenu_IsReplaced())
++    {
++        gFieldCallback2 = CtrFieldCB2_ReturnToField;
++        return;
++    }
++#endif
+     sDrawStartMenuState[0] = 0;
+     sDrawStartMenuState[1] = 0;
+     gFieldCallback2 = FieldCB2_DrawStartMenu;
+@@ -395,6 +410,10 @@ void Task_StartMenuHandleInput(u8 taskId)
+ 
+ void ShowStartMenu(void)
+ {
++#ifdef PORT_BRIDGE
++    if (CtrStartMenu_Divert())
++        return;
++#endif
+     if (!IsUpdateLinkStateCBActive())
+     {
+         FreezeObjectEvents();
+@@ -1014,3 +1033,94 @@ void AppendToList(u8 *list, u8 *cursor, u8 newEntry)
+     list[*cursor] = newEntry;
+     (*cursor)++;
+ }
++
++#ifdef PORT_BRIDGE
++// The 3DS bottom screen opens the start menu's screens. It asks for one of
++// the menu's actions and then presses START, so the request is served exactly
++// when and where the game would have opened the menu; the action then runs as
++// if chosen from it, without the menu being drawn. START pressed on its own
++// still opens the menu as usual.
++
++#define CTR_START_NONE 0xFF
++static u8 sCtrRequest = CTR_START_NONE;
++static bool8 sCtrReturning;
++
++static bool8 CtrStartMenu_IsReplaced(void)
++{
++    return sCtrReturning;
++}
++
++static void Task_CtrReturnToField(u8 taskId)
++{
++    if (FieldFadeTransitionBackgroundEffectIsFinished() == TRUE)
++    {
++        ClearPlayerHeldMovementAndUnfreezeObjectEvents();
++        UnlockPlayerFieldControls();
++        DestroyTask(taskId);
++    }
++}
++
++static bool8 CtrFieldCB2_ReturnToField(void)
++{
++    sCtrReturning = FALSE;
++    FadeInFromBlack();
++    CreateTask(Task_CtrReturnToField, 80);
++    LockPlayerFieldControls();
++    return TRUE;
++}
++
++static void Task_CtrStartMenuAction(u8 taskId)
++{
++    if (sStartMenuCallback() == TRUE)
++        DestroyTask(taskId);
++}
++
++static bool8 CtrStartMenu_Divert(void)
++{
++    u8 action = sCtrRequest;
++
++    if (action == CTR_START_NONE)
++        return FALSE;
++    sCtrRequest = CTR_START_NONE;
++    if (IsUpdateLinkStateCBActive() || InUnionRoom() || GetSafariZoneFlag())
++        return FALSE;
++    if (action == STARTMENU_POKEDEX && GetNationalPokedexCount(0) == 0)
++        return FALSE;
++
++    FreezeObjectEvents();
++    HandleEnforcedLookDirectionOnPlayerStopMoving();
++    StopPlayerAvatar();
++    LockPlayerFieldControls();
++    sStartMenuCallback = sStartMenuActionTable[action].func.u8_void;
++    if (action == STARTMENU_SAVE)
++    {
++        // The save dialog ends with the start menu's own cleanup or redraw.
++        sStartMenuCallback = StartCB_Save1;
++    }
++    else
++    {
++        sCtrReturning = TRUE;
++        StopPokemonLeagueLightingEffectTask();
++        FadeScreen(FADE_TO_BLACK, 0);
++    }
++    CreateTask(Task_CtrStartMenuAction, 80);
++    return TRUE;
++}
++
++// STARTMENU_* to open on the next START press.
++void CtrStartMenu_Request(u8 action)
++{
++    sCtrRequest = action;
++}
++
++bool8 CtrStartMenu_Pending(void)
++{
++    return sCtrRequest != CTR_START_NONE;
++}
++
++// One of the bottom screen's actions (or its save dialog) is running.
++bool8 CtrStartMenu_Busy(void)
++{
++    return FuncIsActiveTask(Task_CtrStartMenuAction);
++}
++#endif
 diff --git a/src/stub.c b/src/stub.c
 index f464d2f042cddc5a4c7e4981f254f1abcde40002..91b9981b615a4ed78aad5596f1d28ce1861a37ca 100644
 --- a/src/stub.c
@@ -1681,7 +1859,7 @@ index f464d2f042cddc5a4c7e4981f254f1abcde40002..91b9981b615a4ed78aad5596f1d28ce1
 -STUB_FUNC(int MultiBootCheckComplete(struct MultiBootParam *mp))
  //STUB_FUNC(IntrFunc IntrSIO32(void))
 diff --git a/src/text.c b/src/text.c
-index f3eef07ce6dea8269980a5ecfdd6902c1c9c13d2..9cfb556eb5b7ee48256f1d480716e8803377aa18 100644
+index f3eef07ce6dea8269980a5ecfdd6902c1c9c13d2..e585a5e73ca3409d7dbb3673ae8e390dde5bdd63 100644
 --- a/src/text.c
 +++ b/src/text.c
 @@ -6,6 +6,22 @@
@@ -1833,7 +2011,7 @@ index f3eef07ce6dea8269980a5ecfdd6902c1c9c13d2..9cfb556eb5b7ee48256f1d480716e880
              DecompressGlyphTile(glyphs, (u16 *)gGlyphInfo.pixels);
              DecompressGlyphTile(glyphs + 0x8, (u16 *)(gGlyphInfo.pixels + 0x20));
              DecompressGlyphTile(glyphs + 0x10, (u16 *)(gGlyphInfo.pixels + 0x40));
-@@ -1687,7 +1703,7 @@ static s32 GetGlyphWidth_Female(u16 glyphId, bool32 isJapanese)
+@@ -1687,9 +1703,37 @@ static s32 GetGlyphWidth_Female(u16 glyphId, bool32 isJapanese)
  
  static void DecompressGlyph_Bold(u16 glyphId)
  {
@@ -1842,6 +2020,36 @@ index f3eef07ce6dea8269980a5ecfdd6902c1c9c13d2..9cfb556eb5b7ee48256f1d480716e880
      DecompressGlyphTile(glyphs, (u16 *)gGlyphInfo.pixels);
      DecompressGlyphTile(glyphs + 0x80, (u16 *)(gGlyphInfo.pixels + 0x40));
      gGlyphInfo.width = 8;
+     gGlyphInfo.height = 12;
+ }
++
++#ifdef PORT_BRIDGE
++// The 3DS bottom screen draws the game's own fonts: one glyph into gGlyphInfo
++// with colour indices 1 (text), 2 (shadow) and 0 (background), leaving the
++// text printer's colours as they were.
++void Port_DecompressGlyph(u8 fontId, u16 glyphId)
++{
++    u8 fg = GetLastTextColor(0), bg = GetLastTextColor(2), shadow = GetLastTextColor(1);
++
++    GenerateFontHalfRowLookupTable(1, 0, 2);
++    switch (fontId)
++    {
++    case FONT_SMALL:
++        DecompressGlyph_Small(glyphId, FALSE);
++        break;
++    case FONT_MALE:
++        DecompressGlyph_Male(glyphId, FALSE);
++        break;
++    case FONT_FEMALE:
++        DecompressGlyph_Female(glyphId, FALSE);
++        break;
++    default:
++        DecompressGlyph_Normal(glyphId, FALSE);
++        break;
++    }
++    GenerateFontHalfRowLookupTable(fg, bg, shadow);
++}
++#endif
 diff --git a/src/title_screen.c b/src/title_screen.c
 index 75f0e6743a2a84c906090df230bac7accb8dbe84..7a24607753f0578947c3509b5027ca7ac851d100 100644
 --- a/src/title_screen.c
@@ -1914,6 +2122,23 @@ index 98d129039a8cb641eacf45d7d3e1228800a838b1..eb62f8b475881a01bf55970f32281e34
      }
  
      if (sWirelessSignalAnimParams[tIdx][0] == 0 && tCounter == 0)
+diff --git a/src/trainer_card.c b/src/trainer_card.c
+index ab959d6c45b89fed49fa1db3fb970e0d40044c30..0316d80bbad5a2b3ed1b808dca998a11fd81ee6e 100644
+--- a/src/trainer_card.c
++++ b/src/trainer_card.c
+@@ -475,6 +475,12 @@ static void CloseTrainerCard(u8 taskId)
+ {
+     SetMainCallback2(sTrainerCardDataPtr->callback2);
+     FreeAllWindowBuffers();
++#ifdef PORTABLE
++    // The blanking callbacks read the card's data until the next screen
++    // replaces them; on the GBA a NULL read lands in the BIOS, here it faults.
++    SetVBlankCallback(NULL);
++    SetHBlankCallback(NULL);
++#endif
+     FREE_AND_SET_NULL(sTrainerCardDataPtr);
+     DestroyTask(taskId);
+ }
 diff --git a/src/union_room_chat_objects.c b/src/union_room_chat_objects.c
 index d7e26a46a01a504e7afdfda4ff81cc53c0dcdc0d..43f8238ec660ac217aa7a20af573aa5ce7199ad9 100644
 --- a/src/union_room_chat_objects.c
