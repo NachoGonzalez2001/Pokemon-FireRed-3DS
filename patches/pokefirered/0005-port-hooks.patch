@@ -409,10 +409,20 @@ index 545d1450cde43135f0caba9b55b95e9a6fe6c468..a46a774c266bfbbca1cec7db1131641c
      AnimateSprites();
      BuildOamBuffer();
 diff --git a/src/bg.c b/src/bg.c
-index aa11ae01f87242edecc5656bb6649b04e319357a..6e6cb28168420f5254be9f164bb897986dfdcc83 100644
+index aa11ae01f87242edecc5656bb6649b04e319357a..01c5be83a5aa60ff0c4df889989164d9c2640855 100644
 --- a/src/bg.c
 +++ b/src/bg.c
-@@ -494,6 +494,12 @@ bool8 IsDma3ManagerBusyWithBgCopy(void)
+@@ -3,6 +3,9 @@
+ #include "bg.h"
+ #include "dma3.h"
+ #include "gpu_regs.h"
++#ifdef PORT_BRIDGE
++#include "port_platform.h"
++#endif
+ 
+ #define DISPCNT_ALL_BG_AND_MODE_BITS    (DISPCNT_BG_ALL_ON | 0x7)
+ 
+@@ -494,6 +497,12 @@ bool8 IsDma3ManagerBusyWithBgCopy(void)
  {
      int i;
  
@@ -425,7 +435,29 @@ index aa11ae01f87242edecc5656bb6649b04e319357a..6e6cb28168420f5254be9f164bb89798
      for (i = 0; i < 0x80; i++)
      {
          u8 div = i / 0x20;
-@@ -1207,8 +1213,11 @@ bool32 IsInvalidBg32(u8 bg)
+@@ -871,6 +880,10 @@ void CopyToBgTilemapBufferRect(u8 bg, const void *src, u8 destX, u8 destY, u8 wi
+     u16 destX16;
+     u16 destY16;
+     u16 mode;
++#ifdef PORT_BRIDGE
++    // A tilemap INCBIN is a stub: it is read row by row here.
++    src = Port_ResolveAssetPointer(src);
++#endif
+ 
+     if (IsInvalidBg32(bg) == FALSE && IsTileMapOutsideWram(bg) == FALSE)
+     {
+@@ -916,6 +929,10 @@ void CopyRectToBgTilemapBufferRect(u8 bg, const void *src, u8 srcX, u8 srcY, u8
+     u16 var;
+     const void *srcPtr;
+     u16 i, j;
++#ifdef PORT_BRIDGE
++    // A tilemap INCBIN is a stub: it is read row by row here.
++    src = Port_ResolveAssetPointer(src);
++#endif
+ 
+     if (!IsInvalidBg32(bg) && !IsTileMapOutsideWram(bg))
+     {
+@@ -1207,8 +1224,11 @@ bool32 IsInvalidBg32(u8 bg)
  
  bool32 IsTileMapOutsideWram(u8 bg)
  {
@@ -2732,6 +2764,31 @@ index f3eef07ce6dea8269980a5ecfdd6902c1c9c13d2..e585a5e73ca3409d7dbb3673ae8e390d
 +    GenerateFontHalfRowLookupTable(fg, bg, shadow);
 +}
 +#endif
+diff --git a/src/tilemap_util.c b/src/tilemap_util.c
+index fe2f34866383438d6d679d5bd92de0fe868a4b8f..d41aa2fd28e26db68d92abfeafef6f85a093abd2 100644
+--- a/src/tilemap_util.c
++++ b/src/tilemap_util.c
+@@ -2,6 +2,9 @@
+ #include "bg.h"
+ #include "tilemap_util.h"
+ #include "malloc.h"
++#ifdef PORT_BRIDGE
++#include "port_platform.h"
++#endif
+ 
+ //  Handles 3 particular tilemaps ("PKMN Data" text, party menu, close box
+ //  button) used for Pokémon Storage System in a somewhat unusual way.
+@@ -97,6 +100,10 @@ void TilemapUtil_SetTilemap(u8 tilemapId, u8 bg, const void *tilemap, u16 width,
+     if (tilemapId < sNumTilemapUtilIds)
+     {
+         sTilemapUtil[tilemapId].savedTilemap = NULL;
++#ifdef PORT_BRIDGE
++        // An INCBIN here is a stub: the rectangles are read at offsets into it.
++        tilemap = Port_ResolveAssetPointer(tilemap);
++#endif
+         sTilemapUtil[tilemapId].tilemap = tilemap;
+         sTilemapUtil[tilemapId].bg = bg;
+         sTilemapUtil[tilemapId].width = width;
 diff --git a/src/title_screen.c b/src/title_screen.c
 index 75f0e6743a2a84c906090df230bac7accb8dbe84..7a24607753f0578947c3509b5027ca7ac851d100 100644
 --- a/src/title_screen.c
