@@ -804,6 +804,186 @@ CANOPY_EXACT = [(0, 29, 48, 48), (1, 48, 5, 62), (44, 48, 48, 62)]
 VERMILION_GROUND = [GRASS, 0x008, 0x009, 0x010, 0x001, 0x004, 0x115, 0x12B, 0x12C, 0x1DF]
 VERMILION_HOUSES = [(8, 3, 5), (18, 3, 4), (25, 3, 5), (18, 14, 4), (27, 21, 4), (11, 14, 5)]
 
+
+# ── Celadon City ───────────────────────────────────────────────────────────
+
+def celadon_block(cells, rows, roof_extra):
+    """Celadon's green blocks, from a kit: a top edge, one or two rows of
+    flat roof, then floors of facade. In the 5-row block:
+
+        rows  8-13   the roof's back rim
+        rows 14-34   its panels, lines every 8 rows (20, 28)
+        rows 35-38   the front rim; rows 39-41 the parapet's face
+        rows 42-79   facade: floors of windows, doors, the base
+
+    A block with `roof_extra` more rows of roof has all of it that much
+    lower. The block keeps its whole footprint; the roof grows back with
+    more panels.
+    """
+    width, height = cells * 16, rows * 16
+    shift = 16 * roof_extra
+    facade_top = 42 + shift
+
+    def parts(art):
+        front_z, back_z = height, 16
+        wall_top = height - facade_top
+        plaster = Tile(1, 56 + shift, 9, 61 + shift, top=wall_top)
+        walls = Prism(
+            "walls", 0, width,
+            [(front_z, 0), (front_z, wall_top), (back_z, wall_top), (back_z, 0)],
+            edges={0: Proj(facade_top, height), 2: plaster}, skip=(1, 3),
+            caps=[Band(0, wall_top + 1, plaster, front_z)])
+        roof = flat_roof("roof", 0, width, front_z, back_z, wall_top, (39 + shift, 42 + shift),
+                         Strip((14 + shift, 39 + shift), repeat=(21 + shift, 29 + shift),
+                               start=21 + shift, tail=(8 + shift, 14 + shift)),
+                         Tile(0, 39 + shift, 8, 42 + shift))
+        return [walls, roof], art
+    return parts
+
+
+def celadon_exact(cells, rows, roof_extra):
+    width, height, shift = cells * 16, rows * 16, 16 * roof_extra
+    return [(0, 42 + shift, width, height), (0, 39 + shift, width, 42 + shift),
+            (0, 14 + shift, width, 39 + shift)]
+
+
+def celadon_dept_store(art):
+    """The Department Store (cells 9..17 x 5..15), 144 x 176:
+
+        rows  0-4    the roof's back rim
+        rows  5-55   the grey roof, its pattern 8 rows tall
+        x 32..112:   the penthouse at the roof's front - its top (a yellow
+                     panel) on rows 4..35, its face on 36..55
+        rows 56-65   the parapet; rows 66-164 the facade, glass bays
+                     between pink columns, the doors
+    """
+    front_z, back_z = 164, 16
+    wall_top = front_z - 66
+    roof_y = wall_top + 10
+    pink = Tile(4, 100, 8, 140, top=wall_top)
+    walls = Prism(
+        "walls", 1, 143,
+        [(front_z, 0), (front_z, wall_top), (back_z, wall_top), (back_z, 0)],
+        edges={0: Proj(66, 166), 2: pink}, skip=(1, 3),
+        caps=[Band(0, wall_top + 1, pink, front_z)])
+    roof = flat_roof("roof", 0, 144, front_z, back_z, wall_top, (56, 66),
+                     Strip((5, 56), repeat=(24, 32), tail=(0, 5)), Tile(8, 56, 16, 66))
+    zp, yp = front_z - 1, front_z - 1 - 36
+    grey = Tile(36, 42, 44, 50, top=yp)
+    penthouse = Prism(
+        "penthouse", 32, 112, [(zp, roof_y), (zp, yp), (60, yp), (60, roof_y)],
+        edges={0: Proj(36, 56), 1: Strip((14, 36), repeat=(20, 24), tail=(4, 14)), 2: grey},
+        skip=(3,), caps=[Band(roof_y, yp + 1, grey, zp)])
+    return [walls, roof, penthouse], art
+
+
+DEPT_STORE_EXACT = [(8, 66, 136, 160), (0, 56, 144, 66), (32, 36, 112, 56)]
+
+
+def game_corner(art):
+    """The Game Corner (cells 31..37 x 17..21), 112 x 96:
+
+        rows  0-8    a border of lights round the roof's back
+        rows  9-48   the flat roof, skylights every 16 rows
+        rows 49-56   its rounded front edge and eave
+        rows 57-79   facade
+        x 40..71:    the entrance arch, standing forward of the facade: its
+                     sign on rows 45..56, its posts (x 40-47, 64-71) down
+                     to row 85
+    """
+    front_z, back_z = 80, 16
+    wall_top = 23
+    white = Tile(8, 60, 16, 64, top=wall_top)
+    walls = Prism(
+        "walls", 0, 112,
+        [(front_z, 0), (front_z, wall_top), (back_z, wall_top), (back_z, 0)],
+        edges={0: Proj(57, 80), 2: white}, skip=(1, 3),
+        caps=[Band(0, wall_top + 1, white, front_z)])
+    roof = flat_roof("roof", 0, 112, front_z, back_z, wall_top, (49, 57),
+                     Strip((9, 49), repeat=(17, 33), start=24, tail=(0, 9)), Tile(8, 49, 16, 57))
+    za, zb = 86, 82
+    arch = Prism("arch", 40, 72, [(za, 29), (za, 41), (zb, 41), (zb, 29)],
+                 edges={0: Proj(45, 57)}, skip=(3,),
+                 caps=[Band(29, 42, Tile(44, 50, 48, 56, top=41), za)])
+    post = Tile(41, 70, 47, 80, top=29)
+    posts = [Prism(name, x0, x0 + 8, [(za, 0), (za, 29), (zb, 29), (zb, 0)],
+                   edges={0: Proj(57, 86), 2: post}, skip=(1, 3), caps=[Band(0, 30, post, za)])
+             for name, x0 in (("post_w", 40), ("post_e", 64))]
+    return [walls, roof, arch] + posts, art
+
+
+GAME_CORNER_EXACT = [(8, 57, 40, 80), (72, 57, 104, 80), (4, 49, 40, 57), (72, 49, 108, 57),
+                     (8, 9, 104, 41), (40, 45, 72, 57), (40, 57, 48, 86), (64, 57, 72, 86)]
+
+
+def prize_corner(art):
+    """The prize exchange (cells 38..40 x 17..20), 48 x 64: a flat roof on
+    rows 9..32, its rounded edge on 33..38, the facade on 39..63."""
+    front_z, back_z = 64, 16
+    wall_top = 25
+    white = Tile(8, 44, 14, 48, top=wall_top)
+    walls = Prism(
+        "walls", 0, 48,
+        [(front_z, 0), (front_z, wall_top), (back_z, wall_top), (back_z, 0)],
+        edges={0: Proj(39, 64), 2: white}, skip=(1, 3),
+        caps=[Band(0, wall_top + 1, white, front_z)])
+    roof = flat_roof("roof", 0, 48, front_z, back_z, wall_top, (33, 39),
+                     Strip((9, 33), repeat=(9, 17), tail=(0, 9)), Tile(8, 33, 14, 39))
+    return [walls, roof], art
+
+
+PRIZE_CORNER_EXACT = [(8, 39, 40, 64), (4, 33, 44, 39), (8, 13, 40, 27)]
+
+
+CELADON_GROUND = [GRASS, 0x008, 0x009, 0x010, 0x001, 0x004, 0x165, 0x166, 0x167, 0x16D,
+                  0x16E, 0x16F, 0x175, 0x176, 0x177, 0x195, 0x196, 0x19D, 0x19E, 0x0D7,
+                  0x00E, 0x00F, 0x01E, 0x01F, 0x016, 0x017, 0x024, 0x025, 0x026, 0x027]
+CELADON_BLOCKS = [(4, 4, 5, 8, 1), (18, 4, 7, 8, 1), (27, 4, 7, 8, 1),
+                  (34, 7, 4, 5, 0), (38, 7, 4, 5, 0), (42, 7, 4, 5, 0),
+                  (44, 17, 4, 5, 0), (48, 17, 4, 5, 0), (4, 25, 4, 5, 0), (16, 25, 4, 5, 0),
+                  (32, 25, 4, 5, 0), (36, 25, 4, 5, 0), (40, 25, 4, 5, 0), (44, 25, 4, 5, 0),
+                  (48, 25, 4, 5, 0), (20, 26, 4, 4, 0)]
+
+
+# ── General's route house ──────────────────────────────────────────────────
+
+def route_house(art):
+    """The blue-roofed house of General's own tiles (Celadon's restaurant,
+    the houses on Routes 2, 12 and 16), 96 x 48:
+
+        row   0      the ridge line
+        rows  1-23   the front slope, courses ending in lines at 4/5,
+                     11/12 and 19/20; hips drawn as stripes, x 0-11 lit and
+                     84-95 shaded
+        rows 24-26   fascia; rows 27-31 the wall's top in the eave's shade
+        rows 32-47   facade: windows, the door
+    """
+    art, band0 = extend(art, 96)
+    hip_w = hip_band(art, band0, list(range(0, 12)), 15, 48)
+    hip_e = hip_band(art, band0 + 48, list(range(95, 83, -1)), 15, 48)
+    front_z, back_z = 48, 0
+    overhang = 2
+    wall_top = front_z + overhang - 27
+    courses = (12, 84)
+    roof = FrHipRoof(
+        "roof", 0, 96, zf=front_z + overhang, zb=back_z + 2, y0=wall_top,
+        fascia=Strip((24, 27), wrap=courses),
+        slope=KeepStrip((1, 24), repeat=(12, 20), start=19, wrap=courses, keep=(12, 84)),
+        teeth=(0, 1), cap=(0, 1), pitch=HOUSE_PITCH, run=12,
+        ridge_u=(12, 84), end_tile=Tile(12, 0, 13, 1),
+        hip_w=Strip(hip_w, wrap=(0, 40)), hip_e=Strip(hip_e, wrap=(0, 40)))
+    plaster = Tile(16, 27, 24, 48, top=wall_top)
+    corner = Tile(1, 27, 4, 48, top=wall_top)
+    walls = Prism(
+        "walls", 1, 95,
+        [(front_z, 0), (front_z, wall_top), (back_z + 4, wall_top), (back_z + 4, 0)],
+        edges={0: Proj(27, 48), 2: plaster}, skip=(1, 3),
+        caps=[Band(0, wall_top + 1, plaster, front_z, front=corner, back=corner, z1=back_z + 4)])
+    return [walls, roof], art
+
+
+ROUTE_HOUSE_EXACT = [(4, 27, 92, 48), (12, 1, 84, 24)]
+
 SPECS = [
     {
         "name": "pallet_house",
@@ -971,3 +1151,63 @@ SPECS += [
     }
     for (x, y) in ((35, 20), (22, 33))
 ]
+SPECS += [
+    {
+        "name": "celadon_block_%d_%d" % (x, y),
+        "layout": "LAYOUT_CELADON_CITY",
+        "rect": (x, y, cells, rows),
+        "ground": CELADON_GROUND,
+        "owned": {(i, j) for i in range(cells) for j in range(rows)},
+        "parts": celadon_block(cells, rows, extra),
+        "exact": celadon_exact(cells, rows, extra),
+    }
+    for (x, y, cells, rows, extra) in CELADON_BLOCKS
+]
+SPECS.append({
+    "name": "celadon_dept_store",
+    "layout": "LAYOUT_CELADON_CITY",
+    "rect": (9, 5, 9, 11),
+    "ground": CELADON_GROUND,
+    "owned": {(i, j) for i in range(9) for j in range(10)},
+    "parts": celadon_dept_store,
+    "exact": DEPT_STORE_EXACT,
+})
+SPECS += [
+    {
+        "name": "celadon_game_corner",
+        "layout": "LAYOUT_CELADON_CITY",
+        "rect": (31, 17, 7, 6),
+        "ground": CELADON_GROUND,
+        "owned": {(i, j) for i in range(7) for j in range(5)},
+        "parts": game_corner,
+        "exact": GAME_CORNER_EXACT,
+    },
+    {
+        "name": "celadon_prize_corner",
+        "layout": "LAYOUT_CELADON_CITY",
+        "rect": (38, 17, 3, 4),
+        "ground": CELADON_GROUND,
+        "owned": {(i, j) for i in range(3) for j in range(4)},
+        "parts": prize_corner,
+        "exact": PRIZE_CORNER_EXACT,
+    },
+]
+# the block standing in front of (20, 26): its top rim is drawn in that
+# block's last row, which stays the other's
+SPECS.append({
+    "name": "celadon_block_20_29",
+    "layout": "LAYOUT_CELADON_CITY",
+    "rect": (20, 29, 4, 6),
+    "ground": CELADON_GROUND,
+    "owned": {(i, j) for i in range(4) for j in range(1, 6)},
+    "parts": celadon_block(4, 6, 0),
+    "exact": celadon_exact(4, 6, 0),
+})
+SPECS.append({
+    "name": "route_house",
+    "layout": "LAYOUT_CELADON_CITY",
+    "rect": (24, 16, 6, 3),
+    "ground": CELADON_GROUND,
+    "parts": route_house,
+    "exact": ROUTE_HOUSE_EXACT,
+})
