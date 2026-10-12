@@ -22,6 +22,7 @@ Palette 0 of General: 1-4 leaves, 5-6 trunk, 8/D/E grass, F shadow.
 """
 
 import argparse
+import json
 import os
 from pathlib import Path
 import struct
@@ -30,7 +31,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import fr_art  # noqa: E402
 
-DIM = 128
+DIM = 256
 GRASS = {0x8, 0xD, 0xE}
 SHADOW = 0xF
 
@@ -77,6 +78,12 @@ def prop_ids(root):
     return sorted(set(ids), key=ids.index)
 
 
+FENCES += [0x0F4, 0x0F5]   # the white posts of a fence running north-south
+# The mailbox has no metatile of its own in General: each town draws it from
+# these General tiles in metatiles of its own tileset.
+MAILBOX_TILES = {0x150, 0x151, 0x160, 0x161, 0x170, 0x171}
+
+
 def prop_slots():
     """16x16 slots of the texture clear of the tree (x < 64, y < 48)."""
     for sy in range(DIM // 16):
@@ -85,23 +92,29 @@ def prop_slots():
                 yield sx * 16, sy * 16
 
 
+def outdoor_secondaries(root):
+    """The secondary tilesets of every outdoor layout on General."""
+    layouts = json.load(open(root / "data/layouts/layouts.json", encoding="utf-8"))["layouts"]
+    names = sorted({l["secondary_tileset"] for l in layouts
+                    if l.get("primary_tileset") == "gTileset_General"
+                    and l.get("secondary_tileset") not in (None, "NULL", "0")})
+    return [n for n in names if fr_art.tileset_dir(n)]
+
+
 def build_props(root, ts, metatile, image):
-    """Each prop's upper layer into a slot. Returns [(id, x, y, r0, r1,
-    ground)]: the opaque rows r0..r1 of the slot, and a metatile drawing
-    the same lower layer with nothing over it (the prop's own when none)."""
+    """Each prop's upper layer into a slot (the same drawing shares one).
+    Returns [(set, id, x, y, r0, r1, ground)] and the tilesets `set` counts
+    from (0 is General): the opaque rows r0..r1 of the slot, and a metatile
+    drawing the same lower layer with nothing over it (its own when none)."""
     blob = (root / "data/tilesets/primary/general/metatiles.bin").read_bytes()
-    count = len(blob) // 16
-    plain = {}
-    for i in range(count):
-        e = metatile(i)
-        if not any(e[4:]):
-            plain.setdefault(e[:4], i)
-    out = []
+    general = [struct.unpack_from("<8H", blob, i * 16) for i in range(len(blob) // 16)]
     slots = prop_slots()
-    for mid in prop_ids(root):
-        e = metatile(mid)
-        top = layer(ts, e, 1)
-        base = layer(ts, e, 0)
+    seen = {}
+    out = []
+
+    def place(tiles, set_index, mid, e, plain):
+        top = layer(tiles, e, 1)
+        base = layer(tiles, e, 0)
         # the flowers' upper layer repeats the grass round them: what draws
         # the same colour as the ground below is ground, not the prop
         for y in range(16):
@@ -110,25 +123,67 @@ def build_props(root, ts, metatile, image):
                     top[y][x] = (top[y][x][0], 0)
         rows = [y for y in range(16) if any(top[y][x][1] for x in range(16))]
         if not rows:
+            return None
+        key = tuple(top[y][x][0] if top[y][x][1] else None for y in range(16) for x in range(16))
+        if key not in seen:
+            sx, sy = next(slots)
+            seen[key] = (sx, sy)
+            for y in range(16):
+                for x in range(16):
+                    rgb, idx = top[y][x]
+                    if idx:
+                        image[(sx + x, sy + y)] = rgb
+        sx, sy = seen[key]
+        out.append((set_index, mid, sx, sy, rows[0], rows[-1] + 1, plain.get(e[:4], mid)))
+        return e
+
+    plain = {}
+    for i, e in enumerate(general):
+        if not any(e[4:]):
+            plain.setdefault(e[:4], i)
+    allowed = set(MAILBOX_TILES)
+    for mid in prop_ids(root):
+        e = place(ts, 0, mid, general[mid], plain)
+        # towns draw fences, signs and mailboxes from General's tiles; not
+        # bushes or rocks, whose tiles are the trees' and the mountains'
+        if e and (mid in FENCES or mid in SIGNS):
+            allowed |= {v & 0x3FF for v in e[4:] if v & 0x3FF}
+    allowed -= {0}
+    sets = []
+    for name in outdoor_secondaries(root):
+        path = os.path.join(fr_art.tileset_dir(name), "metatiles.bin")
+        sec = [struct.unpack_from("<8H", open(path, "rb").read(), i * 16)
+               for i in range(os.path.getsize(path) // 16)]
+        local = dict(plain)
+        for i, e in enumerate(sec):
+            if not any(e[4:]):
+                local.setdefault(e[:4], 0x280 + i)
+        found = [i for i, e in enumerate(sec)
+                 if any(v & 0x3FF for v in e[4:])
+                 and all((v & 0x3FF) in allowed for v in e[4:] if v & 0x3FF)]
+        if not found:
             continue
-        sx, sy = next(slots)
-        for y in range(16):
-            for x in range(16):
-                rgb, idx = top[y][x]
-                if idx:
-                    image[(sx + x, sy + y)] = rgb
-        out.append((mid, sx, sy, rows[0], rows[-1] + 1, plain.get(e[:4], mid)))
-    return out
+        sets.append(name)
+        tiles = fr_art.Tilesets("gTileset_General", name)
+        for i in found:
+            place(tiles, len(sets), 0x280 + i, sec[i], local)
+    return out, sets
 
 
-def write_table(props, path):
+def write_table(props, sets, path):
     lines = ["/* Generated by scripts/fr_gen_trees.py --table: where each prop's",
              " * upper layer is in the tree texture, the rows it fills, and the",
-             " * metatile drawn under it. Regenerate with the texture. */",
+             " * metatile drawn under it; `set` 0 is General, others index",
+             " * sPropTilesets. Regenerate with the texture. */",
              "#ifndef CTR_VOXEL_PROPS_TABLE_H", "#define CTR_VOXEL_PROPS_TABLE_H", "",
-             "static const struct { unsigned short id, x, y, r0, r1, ground; } sProps[] = {"]
+             "struct Tileset;"]
+    lines += ["extern const struct Tileset %s;" % n for n in sets]
+    lines += ["", "static const struct Tileset *const sPropTilesets[] = {", "    NULL,"]
+    lines += ["    &%s," % n for n in sets]
+    lines += ["};", "",
+              "static const struct { unsigned char set; unsigned short id, x, y, r0, r1, ground; } sProps[] = {"]
     for p in props:
-        lines.append("    { 0x%03X, %3d, %3d, %2d, %2d, 0x%03X }," % p)
+        lines.append("    { %2d, 0x%03X, %3d, %3d, %2d, %2d, 0x%03X }," % p)
     lines += ["};", "", "#endif", ""]
     path.write_text("\n".join(lines), encoding="utf-8", newline="\n")
 
@@ -185,7 +240,7 @@ def main():
     root = Path(os.environ.get("POKEFIRERED", port.parent))
     image, props = build(root)
     if args.table:
-        write_table(props, args.table)
+        write_table(props[0], props[1], args.table)
     pixels = pack(image)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_bytes(pixels)

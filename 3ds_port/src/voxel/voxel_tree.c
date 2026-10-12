@@ -28,7 +28,7 @@
  * exactly the pixels the prop is drawn on; from anywhere else it stands up.
  * The ground under it is the same metatile without the prop.
  */
-static int PropIndex(int metatileId)
+static int PropIndex(const void *secondaryTileset, int metatileId)
 {
     static int16_t index[0x280];
     static bool built;
@@ -38,27 +38,43 @@ static int PropIndex(int metatileId)
         for (unsigned i = 0; i < sizeof(index) / sizeof(index[0]); ++i)
             index[i] = -1;
         for (unsigned i = 0; i < sizeof(sProps) / sizeof(sProps[0]); ++i)
-            index[sProps[i].id] = (int16_t)i;
+            if (sProps[i].set == 0)
+                index[sProps[i].id] = (int16_t)i;
         built = true;
     }
-    if (metatileId < 0 || metatileId >= (int)(sizeof(index) / sizeof(index[0])))
+    if (metatileId < 0)
         return -1;
-    return index[metatileId];
+    if (metatileId < (int)(sizeof(index) / sizeof(index[0])))
+        return index[metatileId];
+    /* a town's own: a few dozen entries, the tileset's first */
+    for (unsigned i = 0; i < sizeof(sProps) / sizeof(sProps[0]); ++i)
+        if (sProps[i].id == metatileId && sPropTilesets[sProps[i].set] == secondaryTileset)
+            return (int)i;
+    return -1;
 }
 
-static void EmitProp(VoxelBuilder *builder, int x, int y, int prop)
+/* `below` is the prop of the cell south of this one, or -1: a prop drawn
+ * down to its cell's bottom over one drawn from its top - the mailbox's
+ * head over its post - stands on that one's card, in its plane. */
+static void EmitProp(VoxelBuilder *builder, int x, int y, int prop, int below)
 {
     float wx = (float)x;
     float zc = (float)y + sProps[prop].r1 / 16.0f;
+    float base = 0.0f;
     float h = (sProps[prop].r1 - sProps[prop].r0) / 16.0f;
     float u0 = TEX_U(sProps[prop].x), u1 = TEX_U(sProps[prop].x + 16);
     float v0 = TEX_V(sProps[prop].y + sProps[prop].r0), v1 = TEX_V(sProps[prop].y + sProps[prop].r1);
 
+    if (below >= 0 && sProps[prop].r1 == 16 && sProps[prop].r0 > 0 && sProps[below].r0 == 0)
+    {
+        zc = (float)(y + 1) + sProps[below].r1 / 16.0f;
+        base = sProps[below].r1 / 16.0f;
+    }
     VoxelBuilder_Quad(builder,
-        &(VoxelVertex){wx,        h,    zc, u0, v0, 1.0f},
-        &(VoxelVertex){wx + 1.0f, h,    zc, u1, v0, 1.0f},
-        &(VoxelVertex){wx + 1.0f, 0.0f, zc, u1, v1, 1.0f},
-        &(VoxelVertex){wx,        0.0f, zc, u0, v1, 1.0f});
+        &(VoxelVertex){wx,        base + h, zc, u0, v0, 1.0f},
+        &(VoxelVertex){wx + 1.0f, base + h, zc, u1, v0, 1.0f},
+        &(VoxelVertex){wx + 1.0f, base,     zc, u1, v1, 1.0f},
+        &(VoxelVertex){wx,        base,     zc, u0, v1, 1.0f});
 }
 
 int VoxelTree_Part(const void *secondaryTileset, int metatileId)
@@ -85,9 +101,8 @@ int VoxelTree_Crown(const void *secondaryTileset, int metatileId)
 
 int VoxelTree_GroundMetatile(const void *secondaryTileset, int metatileId)
 {
-    int prop = PropIndex(metatileId);
+    int prop = PropIndex(secondaryTileset, metatileId);
 
-    (void)secondaryTileset;
     if (prop >= 0)
         return sProps[prop].ground;
     switch (metatileId)
@@ -153,13 +168,15 @@ void VoxelTree_EmitInstance(VoxelBuilder *builder, const VoxelMapInstance *inst,
             int metatileId = VoxelWorld_GetMetatileId(x, y);
             int part = VoxelTree_Part(inst->secondaryTileset, metatileId);
             int crown = VoxelTree_Crown(inst->secondaryTileset, metatileId);
-            int prop = PropIndex(metatileId);
+            int prop = PropIndex(inst->secondaryTileset, metatileId);
             /* a building's own cells are its model's */
             if (prop >= 0 && !VoxelBuildings_CellAt(inst, x, y, NULL, NULL))
             {
+                int below = VoxelWorld_GetInstanceAt(x, y + 1) == inst
+                          ? PropIndex(inst->secondaryTileset, VoxelWorld_GetMetatileId(x, y + 1)) : -1;
                 builder->lift = VoxelRelief_CellLift(inst, x, y);
                 builder->shift = VoxelRelief_CellShift(inst, x, y);
-                EmitProp(builder, x, y, prop);
+                EmitProp(builder, x, y, prop, below);
                 builder->lift = 0.0f;
                 builder->shift = 0.0f;
             }
@@ -189,8 +206,8 @@ void VoxelTree_EmitBorder(VoxelBuilder *builder, int x0, int y0, int x1, int y1)
             metatileId = VoxelWorld_BorderMetatile(x, y);
             part = VoxelTree_Part(current->secondaryTileset, metatileId);
             crown = VoxelTree_Crown(current->secondaryTileset, metatileId);
-            if (PropIndex(metatileId) >= 0)
-                EmitProp(builder, x, y, PropIndex(metatileId));
+            if (PropIndex(current->secondaryTileset, metatileId) >= 0)
+                EmitProp(builder, x, y, PropIndex(current->secondaryTileset, metatileId), -1);
             if (part >= 0 || crown >= 0)
                 EmitCell(builder, x, y, part, crown);
         }
