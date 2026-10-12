@@ -674,6 +674,136 @@ CERULEAN_GROUND = [GRASS, 0x008, 0x009, 0x010, 0x001, 0x004, 0x0D3, 0x0D4, 0x0D5
 CERULEAN_HOUSES = [(8, 8, 7), (15, 8, 6), (28, 8, 7), (38, 7, 6), (13, 14, 7), (21, 25, 6),
                    (31, 25, 5)]
 
+
+# ── Lavender Town ──────────────────────────────────────────────────────────
+
+def flat_roof(name, x0, x1, front_z, back_z, y0, parapet, top, side):
+    """A flat roof slab: its front face is art rows `parapet` (a, b) as the
+    GBA sees them, its top the Strip `top` laid back from the front edge."""
+    y1 = y0 + parapet[1] - parapet[0]
+    return Prism(
+        name, x0, x1, [(front_z, y0), (front_z, y1), (back_z, y1), (back_z, y0)],
+        edges={0: Proj(*parapet), 1: top, 2: side}, skip=(3,),
+        caps=[Band(y0, y1 + 1, side, front_z)])
+
+
+def lavender_house(art):
+    """Lavender's purple houses (cells 8..12 x 8..11), 80 x 64:
+
+        rows  8-9    the roof's back rim
+        rows 10-38   the flat roof: a border (10-13, 35-38) round a panel
+        rows 39-41   the parapet's face, rows 42-43 the eave line
+        rows 44-63   facade: yellow corner posts, windows, the door
+    """
+    front_z, back_z = 64, 16
+    wall_top = 22
+    plaster = Tile(10, 56, 26, 61, top=wall_top)
+    walls = Prism(
+        "walls", 0, 80,
+        [(front_z, 0), (front_z, wall_top), (back_z, wall_top), (back_z, 0)],
+        edges={0: Proj(42, 64), 2: plaster}, skip=(1, 3),
+        caps=[Band(0, wall_top + 1, plaster, front_z)])
+    roof = flat_roof("roof", 0, 80, front_z, back_z, wall_top, (39, 42),
+                     Strip((14, 39), repeat=(20, 24), tail=(9, 14)), Tile(10, 40, 26, 42))
+    return [walls, roof], art
+
+
+def pokemon_tower(art):
+    """The Pokemon Tower (cells 15..21 x 0..6), 112 x 112:
+
+        rows 81-110  the podium's front: the ground floor, its door
+        rows 55-80   the podium's top, in front of the tower (and, at the
+                     sides, x 0-5 / 106-111, on up behind it)
+        rows  0-54   the tower's face, floor after floor of windows, running
+                     off the top of the map
+
+    So a podium the whole footprint deep, and on it a tower 55 px taller.
+    """
+    front_z, back_z = 112, 24
+    podium_y = 31
+    stone = Tile(3, 30, 6, 40, top=podium_y)
+    podium = Prism(
+        "podium", 0, 112,
+        [(front_z, 0), (front_z, podium_y), (back_z, podium_y), (back_z, 0)],
+        edges={0: Proj(81, 112), 1: Proj(0, 81), 2: stone}, skip=(3,),
+        caps=[Band(0, podium_y + 1, stone, front_z)])
+    tower_z, tower_y = 86, 86
+    windows = Tile(22, 16, 38, 32, top=tower_y)
+    tower = Prism(
+        "tower", 6, 106,
+        [(tower_z, podium_y), (tower_z, tower_y), (back_z + 8, tower_y), (back_z + 8, podium_y)],
+        edges={0: Proj(0, 56), 1: stone, 2: windows}, skip=(3,),
+        caps=[Band(podium_y, tower_y + 1, windows, tower_z)])
+    return [podium, tower], art
+
+
+POKEMON_TOWER_EXACT = [(6, 0, 106, 55), (0, 55, 112, 112)]
+
+
+LAVENDER_HOUSE_EXACT = [(0, 42, 80, 64), (0, 39, 80, 42), (0, 14, 80, 39)]
+
+
+# ── Vermilion City ─────────────────────────────────────────────────────────
+
+def shed_house(cells, ribs=(10, 38), eave=(38, 42), facade_top=42, rise=12):
+    """A house under one corrugated slope falling to the front, its ribs
+    running front to back (Vermilion's orange houses, the Fan Club):
+
+        rows  8-9    the sheets' back ends
+        rows 10-37   the ribs, the same on every row
+        rows 38-41   the sheets' front ends over the eave
+        rows 42-63   facade
+    """
+    width = cells * 16
+
+    def parts(art):
+        front_z, back_z = 64, 16
+        wall_top = front_z - facade_top
+        plaster = Tile(4, 44, 12, 56, top=wall_top)
+        walls = Prism(
+            "walls", 0, width,
+            [(front_z, 0), (front_z, wall_top), (back_z, wall_top), (back_z, 0)],
+            edges={0: Proj(facade_top, 64), 2: plaster}, skip=(1, 3),
+            caps=[Band(0, wall_top + 1, plaster, front_z)])
+        y1 = wall_top + eave[1] - eave[0]
+        a, b = ribs
+        rib_end = Tile(0, eave[0], 8, eave[1], top=y1)
+        roof = Prism(
+            "roof", 0, width,
+            [(front_z, wall_top), (front_z, y1), (back_z, y1 + rise), (back_z, wall_top)],
+            edges={0: Proj(*eave), 1: Strip((a, b), repeat=(a + 8, a + 12), tail=(a - 2, a)),
+                   2: rib_end},
+            skip=(3,), caps=[Band(wall_top, y1 + rise + 1, rib_end, front_z)])
+        return [walls, roof], art
+    return parts
+
+
+def shed_exact(cells, ribs=(10, 38), facade_top=42):
+    width = cells * 16
+    return [(0, facade_top, width, 64), (0, ribs[1], width, facade_top), (0, ribs[0] + 4, width, ribs[1])]
+
+
+def canopy(art):
+    """Vermilion's harbour canopies (3 x 4 cells): a roof on four posts over
+    the path. Top rows 28..41, its edge 42..47, the front posts (x 1-4 and
+    44-47) 48..61; the back posts stand hidden behind."""
+    z, y0, y1 = 62, 14, 20
+    roof = flat_roof("roof", 0, 48, z, 28, y0, (42, 48),
+                     Strip((29, 42), repeat=(30, 34), tail=(28, 29)), Tile(0, 42, 8, 48))
+    post = Tile(1, 53, 5, 61, top=y0)
+    posts = [Prism("post_%d_%d" % (x0, zf), x0, x0 + 4,
+                   [(zf, 0), (zf, y0), (zf - 4, y0), (zf - 4, 0)],
+                   edges={0: Proj(48, 62), 2: post}, skip=(1, 3), caps=[Band(0, y0 + 1, post, zf)])
+             for x0 in (1, 44) for zf in (z, 34)]
+    return [roof] + posts, art
+
+
+CANOPY_EXACT = [(0, 29, 48, 48), (1, 48, 5, 62), (44, 48, 48, 62)]
+
+
+VERMILION_GROUND = [GRASS, 0x008, 0x009, 0x010, 0x001, 0x004, 0x115, 0x12B, 0x12C, 0x1DF]
+VERMILION_HOUSES = [(8, 3, 5), (18, 3, 4), (25, 3, 5), (18, 14, 4), (27, 21, 4), (11, 14, 5)]
+
 SPECS = [
     {
         "name": "pallet_house",
@@ -799,3 +929,45 @@ SPECS.append({
     "parts": cerulean_bike_shop,
     "exact": BIKE_SHOP_EXACT,
 })
+
+SPECS.append({
+    "name": "lavender_house",
+    "layout": "LAYOUT_LAVENDER_TOWN",
+    "rect": (8, 8, 5, 4),
+    "match_rows": (1, 4),
+    "ground": [GRASS, 0x008, 0x009, 0x010, 0x001, 0x004],
+    "parts": lavender_house,
+    "exact": LAVENDER_HOUSE_EXACT,
+})
+SPECS.append({
+    "name": "pokemon_tower",
+    "layout": "LAYOUT_LAVENDER_TOWN",
+    "rect": (15, 0, 7, 7),
+    "ground": [GRASS, 0x008, 0x009, 0x010, 0x001, 0x004],
+    "parts": pokemon_tower,
+    "exact": POKEMON_TOWER_EXACT,
+})
+SPECS += [
+    {
+        "name": "vermilion_house_%d_%d" % (x, y),
+        "layout": "LAYOUT_VERMILION_CITY",
+        "rect": (x, y, cells, 4),
+        "ground": VERMILION_GROUND,
+        "owned": {(i, j) for i in range(cells) for j in range(1, 4)},
+        "parts": shed_house(cells),
+        "exact": shed_exact(cells),
+    }
+    for (x, y, cells) in VERMILION_HOUSES
+]
+SPECS += [
+    {
+        "name": "vermilion_canopy_%d_%d" % (x, y),
+        "layout": "LAYOUT_VERMILION_CITY",
+        "rect": (x, y, 3, 4),
+        "ground": VERMILION_GROUND + [0x1B8, 0x1B9, 0x1BA, 0x1C0, 0x1C1, 0x1C2, 0x302, 0x303],
+        "at": [("LAYOUT_VERMILION_CITY", x, y)],
+        "parts": canopy,
+        "exact": CANOPY_EXACT,
+    }
+    for (x, y) in ((35, 20), (22, 33))
+]
