@@ -125,7 +125,7 @@ ROMFS_SOUND_OUTS := romfs/sound/songs.bin romfs/sound/songs.rel
 ROMFS_GAMEDATA_OUTS := romfs/gamedata/gamedata.bin romfs/gamedata/gamedata.rel
 ROMFS_SHADER_OUTS :=
 ifeq ($(VOXEL),1)
-ROMFS_SHADER_OUTS += romfs/shaders/voxel.shbin
+ROMFS_SHADER_OUTS += romfs/shaders/voxel.shbin romfs/voxel/buildings.bin
 endif
 
 $(FULL_OBJECTS): build/config
@@ -214,6 +214,12 @@ build/voxel/%.o: src/voxel/%.c Makefile full.mk
 build/ctr_voxel.o: src/voxel/ctr_voxel.c Makefile full.mk
 	@mkdir -p $(dir $@)
 	"$(CC)" $(CPPFLAGS) $(CFLAGS) -Isrc/voxel -MMD -MP -c $< -o $@
+
+# FireRed's building models (scripts/fr_building_specs.py), placed wherever
+# their drawing appears on the maps, in the voxel renderer's VXB7 format.
+romfs/voxel/buildings.bin: scripts/fr_export_buildings.py scripts/fr_gen_buildings.py 		scripts/fr_building_specs.py scripts/voxel_building.py scripts/gen_voxel_buildings.py 		scripts/fr_art.py
+	@mkdir -p $(dir $@)
+	POKEFIRERED=$(abspath $(ROOT)) "$(PYTHON)" scripts/fr_export_buildings.py --output $@
 
 romfs/shaders/voxel.shbin: src/voxel/voxel.v.pica
 	@mkdir -p $(dir $@)
