@@ -37,14 +37,28 @@ Professor Oak's lab (cells 13..19 x 9..13), 112 x 80:
     rows 48-79    facade: brick, four portholes, two windows, the door
     x 80..103, rows 10..38: the rooftop machine - a box (top rows 10..24,
     front rows 25..35) with fins either side and its drawn shadow
+
+The Pokemon Center (5 x 5 cells, Pewter's 15..19 x 21..25) and the Poke Mart
+(4 x 4, Viridian's 34..37 x 16..19) are one building in two sizes and two
+paint jobs, Emerald's shape: an octagonal plan (8-px chamfers), a roof band
+rising 6 at 45 degrees, a flat top of 4 x 4 panels. Mart / Center rows:
+
+    rows  2-7 / 10-15   the top's back rim
+    rows  8-31 / 16-39  the panels (lines every 4 rows from 8 / 16)
+    rows 32-43 / 40-51  the band, the emblem plate drawn over its middle
+    rows 44-63 / 52-79  walls: fascia, glass, sign, door, plinth
+    x 1-6 and the last 7 columns: the band's sides, drawn as stripes
+
+The Center's top row of cells is each town's own tileset (the roof's back
+over that town's ground), so only the rows below it must match.
 """
 
 import math
 
 from PIL import Image
 
-from voxel_building import (Band, HipRoof, Prism, Proj, Strip, Tile, SHADE_ART, SHADE_BACK,
-                            SHADE_EAST, SHADE_WEST, strip_face, _unit)
+from voxel_building import (Band, Frustum, HipRoof, Prism, Proj, Strip, Tile, SHADE_ART,
+                            SHADE_BACK, SHADE_EAST, SHADE_WEST, strip_face, _unit)
 
 GRASS = 0x011            # gTileset_General's plain grass, under every house
 PATH = 0x296             # Pallet Town's light path
@@ -272,6 +286,44 @@ def oaks_lab(art):
 LAB_EXACT = [(0, 41, 112, 80), (4, 21, 80, 41), (104, 21, 112, 41), (84, 10, 98, 36)]
 
 
+
+# ── the Pokemon Center and the Poke Mart ──────────────────────────────────
+
+def center_or_mart(width, height, top_rows, tail, wall_side, band_side):
+    """`width` x `height` px of art; `top_rows` the drawn panels (a, b), b the
+    top's front edge; the band below it rises 6 to there. The sides take
+    `wall_side` and `band_side`, read where the facade and the band are plain
+    (no sign, no emblem plate)."""
+    front, back, c = height, 16, 8
+    rise = 6
+    wall_top = height - (top_rows[1] + 2 * rise)
+    plan = [(c, front), (width - c, front), (width, front - c), (width, back + c),
+            (width - c, back), (c, back), (0, back + c), (0, front - c)]
+    a, b = top_rows
+    return [Frustum(
+        "body", plan, wall_top=wall_top, wall_side=wall_side,
+        band_rise=rise,
+        band_side=band_side,
+        top=Strip((a, b), repeat=(a, a + 4), tail=tail, wrap=(8, width - 8)))]
+
+
+def poke_mart(art):
+    return center_or_mart(64, 64, (8, 32), (3, 8), Strip((48, 64), wrap=(26, 31)),
+                          Strip((38, 44), wrap=(9, 15))), art
+
+
+def pokemon_center(art):
+    return center_or_mart(80, 80, (16, 40), (11, 16), Strip((64, 80), wrap=(25, 31)),
+                          Strip((45, 52), wrap=(12, 20))), art
+
+
+MART_EXACT = [(8, 32, 56, 64), (12, 8, 52, 32)]
+CENTER_EXACT = [(8, 40, 72, 80), (12, 16, 68, 40)]
+TOWN_GROUND = [GRASS, 0x008, 0x009, 0x010, 0x001, 0x004, 0x00E, 0x00F, 0x01E, 0x01F,
+               0x016, 0x017, 0x026, 0x027, 0x0E6, 0x0E7, 0x165, 0x167, 0x16D, 0x16F,
+               0x1B8, 0x1B9]
+
+
 SPECS = [
     {
         "name": "pallet_house",
@@ -288,5 +340,22 @@ SPECS = [
         "ground": PALLET_GROUND,
         "parts": oaks_lab,
         "exact": LAB_EXACT,
+    },
+    {
+        "name": "pokemon_center",
+        "layout": "LAYOUT_PEWTER_CITY",
+        "rect": (15, 21, 5, 5),
+        "match_rows": (1, 5),
+        "ground": TOWN_GROUND,
+        "parts": pokemon_center,
+        "exact": CENTER_EXACT,
+    },
+    {
+        "name": "poke_mart",
+        "layout": "LAYOUT_VIRIDIAN_CITY",
+        "rect": (34, 16, 4, 4),
+        "ground": TOWN_GROUND,
+        "parts": poke_mart,
+        "exact": MART_EXACT,
     },
 ]
