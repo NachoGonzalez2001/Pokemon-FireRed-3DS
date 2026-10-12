@@ -2,6 +2,8 @@
 #include "voxel_tree.h"
 #include "voxel_relief.h"
 #include "voxel_props_table.h"
+
+extern const struct Tileset gTileset_LavenderTown;
 #include "voxel_atlas.h"
 #include "voxel_building.h"
 
@@ -154,9 +156,10 @@ static void EmitBlock(VoxelBuilder *builder, int x, int y, int prop)
         &(VoxelVertex){x1, 0.0f, z1, u1 - 1.0f / VOXEL_TREE_TEXTURE_DIM, vb, 0.8f});
 }
 
-static void EmitProp(VoxelBuilder *builder, int x, int y, int prop, int below)
+static void EmitProp(VoxelBuilder *builder, int x, int y, int prop, int below, int north)
 {
     float wx = (float)x;
+    float s0 = 0.0f, s1 = 1.0f;   /* the card's span across its cell */
     float zc = (float)y + sProps[prop].r1 / 16.0f;
     float base = 0.0f;
     float h = (sProps[prop].r1 - sProps[prop].r0) / 16.0f;
@@ -174,16 +177,33 @@ static void EmitProp(VoxelBuilder *builder, int x, int y, int prop, int below)
             &(VoxelVertex){wx,        0.0f,  zc,        u0, v1, 1.0f});
         return;
     }
+    /* A fence drawn front on that turns a corner into a north-south one:
+     * it ends at that fence's post, not at its cell's edge, or its end
+     * stands across the turning fence. */
+    {
+        int post = below >= 0 && sProps[below].kind == 1 ? below
+                 : north >= 0 && sProps[north].kind == 1 ? north : -1;
+
+        if (post >= 0 && sProps[prop].kind == 0)
+        {
+            float c = sProps[post].centre / 16.0f;
+
+            if (c >= 0.5f)
+                s1 = c + 2.0f / 16.0f;
+            else
+                s0 = c - 2.0f / 16.0f;
+        }
+    }
     if (below >= 0 && sProps[prop].r1 == 16 && sProps[prop].r0 > 0 && sProps[below].r0 == 0)
     {
         zc = (float)(y + 1) + sProps[below].r1 / 16.0f;
         base = sProps[below].r1 / 16.0f;
     }
     VoxelBuilder_Quad(builder,
-        &(VoxelVertex){wx,        base + h, zc, u0, v0, 1.0f},
-        &(VoxelVertex){wx + 1.0f, base + h, zc, u1, v0, 1.0f},
-        &(VoxelVertex){wx + 1.0f, base,     zc, u1, v1, 1.0f},
-        &(VoxelVertex){wx,        base,     zc, u0, v1, 1.0f});
+        &(VoxelVertex){wx + s0, base + h, zc, u0 + (u1 - u0) * s0, v0, 1.0f},
+        &(VoxelVertex){wx + s1, base + h, zc, u0 + (u1 - u0) * s1, v0, 1.0f},
+        &(VoxelVertex){wx + s1, base,     zc, u0 + (u1 - u0) * s1, v1, 1.0f},
+        &(VoxelVertex){wx + s0, base,     zc, u0 + (u1 - u0) * s0, v1, 1.0f});
 }
 
 int VoxelTree_Part(const void *secondaryTileset, int metatileId)
@@ -219,6 +239,11 @@ int VoxelTree_GroundMetatile(const void *secondaryTileset, int metatileId)
     if (prop >= 0)
         return sProps[prop].ground != metatileId ? sProps[prop].ground
                                                  : (int)VOXEL_BARE_FIRST + metatileId;
+    /* The Pokemon Tower's roof drawn over the grass of Route 10, where the
+     * player walks behind it: the roof is modelled on the tower, the cells
+     * keep only their grass. */
+    if (secondaryTileset == &gTileset_LavenderTown && metatileId >= 0x2A5 && metatileId <= 0x2AF)
+        return (int)VOXEL_BARE_FIRST + metatileId;
     switch (metatileId)
     {
     /* The crown's own ground: the card stands over it. */
@@ -292,18 +317,16 @@ void VoxelTree_EmitInstance(VoxelBuilder *builder, const VoxelMapInstance *inst,
                           ? PropIndex(inst->secondaryTileset, VoxelWorld_GetMetatileId(x, y + 1)) : -1;
                 builder->lift = VoxelRelief_CellLift(inst, x, y);
                 builder->shift = VoxelRelief_CellShift(inst, x, y);
+                int north = VoxelWorld_GetInstanceAt(x, y - 1) == inst
+                          ? PropIndex(inst->secondaryTileset, VoxelWorld_GetMetatileId(x, y - 1)) : -1;
                 if (sProps[prop].kind == 1)
-                {
-                    int north = VoxelWorld_GetInstanceAt(x, y - 1) == inst
-                              ? PropIndex(inst->secondaryTileset, VoxelWorld_GetMetatileId(x, y - 1)) : -1;
                     EmitPost(builder, x, y, prop, north, below);
-                }
                 else if (sProps[prop].kind == 3)
                     EmitLedge(builder, x, y, prop);
                 else if (sProps[prop].kind == 4)
                     EmitBlock(builder, x, y, prop);
                 else
-                    EmitProp(builder, x, y, prop, below);
+                    EmitProp(builder, x, y, prop, below, north);
                 builder->lift = 0.0f;
                 builder->shift = 0.0f;
             }
@@ -341,7 +364,7 @@ void VoxelTree_EmitBorder(VoxelBuilder *builder, int x0, int y0, int x1, int y1)
             else if (prop >= 0 && sProps[prop].kind == 4)
                 EmitBlock(builder, x, y, prop);
             else if (prop >= 0)
-                EmitProp(builder, x, y, prop, -1);
+                EmitProp(builder, x, y, prop, -1, -1);
             if (part >= 0 || crown >= 0)
                 EmitCell(builder, x, y, part, crown);
         }

@@ -1471,6 +1471,15 @@ def sea_cottage(art):
     return [walls], art
 
 
+def blocked_cells(layout_id, x, y, w, h):
+    """The cells of a rect the player cannot walk on: a model that owns only
+    those leaves the walkable edge of its rect drawn as the map draws it."""
+    from voxel_building import LayoutArt
+    layout = LayoutArt(layout_id)
+    return {(i, j) for j in range(h) for i in range(w)
+            if layout.blocks[(y + j) * layout.w + x + i] & 0xC00}
+
+
 def pokemon_tower_top(art):
     """The Pokemon Tower's roof (Route 10, cells 15..21 x 72..79): the tower
     runs off Lavender's top into the route's last rows, eight more floors
@@ -1987,6 +1996,7 @@ SPECS += [
         "ground": [GRASS, 0x001, 0x004, 0x008, 0x009, 0x010, 0x070, 0x071, 0x072, 0x073],
         "parts": pokemon_tower_top,
         "force_ground": 0x071,     # the mountain the route's cells are
+        "owned": blocked_cells("LAYOUT_ROUTE10", 15, 72, 7, 8),
         "exact": [],
     },
     {
