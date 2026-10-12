@@ -725,7 +725,9 @@ def pokemon_tower(art):
     podium = Prism(
         "podium", 0, 112,
         [(front_z, 0), (front_z, podium_y), (back_z, podium_y), (back_z, 0)],
-        edges={0: Proj(81, 112), 1: Proj(0, 81), 2: stone}, skip=(3,),
+        # the drawn top in front of the tower (rows 55..80), then plain
+        # paving behind it: the drawing's rows above are the tower's face
+        edges={0: Proj(81, 112), 1: Strip((55, 81), repeat=(72, 74)), 2: stone}, skip=(3,),
         caps=[Band(0, podium_y + 1, stone, front_z)])
     tower_z, tower_y = 86, 86
     windows = Tile(22, 16, 38, 32, top=tower_y)
@@ -1069,7 +1071,8 @@ def saffron_house(cells, front_z):
             teeth=(8, 9), cap=(8, 9), pitch=HOUSE_PITCH, run=12,
             ridge_u=(12, width - 12), end_tile=Tile(12, 8, 13, 9),
             hip_w=Strip(hip_w, wrap=(0, 40)), hip_e=Strip(hip_e, wrap=(0, 40)))
-        plaster = Tile(24, 57, 40, 60, top=wall_top)
+        # the facade's yellow siding, which every variant draws on rows 48..56
+        plaster = Tile(24, 48, 40, 56, top=wall_top)
         corner = Tile(1, 43, 3, front_z, top=wall_top)
         walls = Prism(
             "walls", 1, width - 1,
@@ -1851,4 +1854,18 @@ SPECS.append({
     "ground": SAFFRON_GROUND,
     "parts": poke_mart,
     "exact": MART_EXACT,
+})
+
+# Silph Co. stands on the front of its rect; behind it, where nine floors of
+# tower stood in the drawing, the cells are walls with nothing on them. Four
+# of Saffron's own two-floor houses fill them, set down on that paving.
+SPECS.append({
+    "name": "saffron_filler_houses",
+    "layout": "LAYOUT_SAFFRON_CITY",
+    "rect": (17, 10, 4, 5),
+    "ground": SAFFRON_GROUND,
+    "at": [("LAYOUT_SAFFRON_CITY", x, y) for x in (29, 33) for y in (16, 21)],
+    "quads": {},
+    "parts": saffron_house(4, 80),
+    "exact": [(3, 43, 61, 80), (12, 9, 52, 40)],
 })
