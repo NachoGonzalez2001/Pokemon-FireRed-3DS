@@ -303,6 +303,20 @@ void CtrGame_VBlank(void)
 
             snprintf(name, sizeof(name), "sdmc:/3ds/emerald3ds/bottom_%04lu.raw", (unsigned long)sFrames);
             CtrBottom_Dump(name);
+#if CTR_VOXEL_ENABLED
+            if (gPortUiPixels != NULL)
+            {
+                snprintf(name, sizeof(name), "sdmc:/3ds/emerald3ds/ui_%04lu.raw", (unsigned long)sFrames);
+                file = fopen(name, "wb");
+                if (file)
+                {
+                    fwrite(sUi, sizeof(sUi), 1, file);
+                    fclose(file);
+                }
+                CtrLog_Write(CTR_LOG_VIDEO, "ui dump %lu: DISPCNT=%04x BG0..3CNT=%04x %04x %04x %04x WININ=%04x WINOUT=%04x",
+                             (unsigned long)sFrames, regs[0], regs[4], regs[5], regs[6], regs[7], regs[0x48 / 2], regs[0x4A / 2]);
+            }
+#endif
         }
         {
             extern u16 gPlttBufferUnfaded[], gPlttBufferFaded[];
@@ -406,8 +420,31 @@ void CtrGame_Init(void)
  * exit chord ends the process from here, which is the only place where the
  * game is at a consistent point.
  */
+#ifdef CTR_DEBUG_WARP
+#include "field_fadetransition.h"
+#include "script.h"
+/* Diagnostic: once the field takes input, warp to CTR_DEBUG_WARP
+ * (group,num,x,y), to look at any map without walking there. */
+static void DebugWarp(void)
+{
+    static const int target[4] = { CTR_DEBUG_WARP };
+    static bool8 done;
+
+    if (done || gMain.callback1 != CB1_Overworld || ArePlayerFieldControlsLocked() || gPaletteFade.active
+     || ScriptContext_IsEnabled())
+        return;
+    done = TRUE;
+    CtrLog_Write(CTR_LOG_GAME, "debug warp to %d:%d (%d,%d)", target[0], target[1], target[2], target[3]);
+    SetWarpDestination(target[0], target[1], -1, target[2], target[3]);
+    DoWarp();
+}
+#endif
+
 void CtrGame_WaitFrame(void)
 {
+#ifdef CTR_DEBUG_WARP
+    DebugWarp();
+#endif
     static MainCallback lastCallback;
     static u32 nextReport;
 

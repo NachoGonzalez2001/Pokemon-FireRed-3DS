@@ -229,11 +229,22 @@ static void GpuPresent(void)
 
         C2D_TargetClear(sLogical, C2D_Color32(0, 0, 0, 255));
         CtrVoxel_Draw(sLogical, 0.0f);
-        /* The world leaves its own shader and state bound. */
+        /* The world leaves its own shader and state bound, and indoors a
+         * blend and fragment mode under which the UI's see-through pixels
+         * came out black: back to plain alpha blending. */
         C2D_Prepare();
+        C3D_FragOpMode(GPU_FRAGOPMODE_GL);
+        C3D_StencilTest(false, GPU_ALWAYS, 0, 0, 0);
+        C3D_AlphaTest(true, GPU_GREATER, 0);
+        C3D_AlphaBlend(GPU_BLEND_ADD, GPU_BLEND_ADD, GPU_SRC_ALPHA, GPU_ONE_MINUS_SRC_ALPHA,
+                       GPU_SRC_ALPHA, GPU_ONE_MINUS_SRC_ALPHA);
         C2D_SceneBegin(sTop);
         C2D_DrawImageAt(world, 0.0f, 0.0f, 0.4f, NULL, 1.0f, 1.0f);
+#ifndef CTR_NO_UI_OVERLAY
         C2D_DrawImageAt(ui, (float)OUT_X, 0.0f, 0.5f, NULL, 1.5f, 1.5f);
+#else
+        (void)ui;
+#endif
     }
     else
 #endif

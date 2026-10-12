@@ -1699,7 +1699,7 @@ index be80475445506a268aff221e6a006a4092279c30..d22580208a0d999798d5f52e0e266790
  {
      if (!num)
 diff --git a/src/platform/gba_fast_draw.c b/src/platform/gba_fast_draw.c
-index 952b4169db3e26d1353ac98c7fdf68086b14ae5e..76fd5298b25e5295ec04bce0fe7296cb99170f74 100644
+index 952b4169db3e26d1353ac98c7fdf68086b14ae5e..ad85d7e7899d50a61dfa1f693a76ef091b5e2ba1 100644
 --- a/src/platform/gba_fast_draw.c
 +++ b/src/platform/gba_fast_draw.c
 @@ -30,7 +30,8 @@
@@ -1858,16 +1858,25 @@ index 952b4169db3e26d1353ac98c7fdf68086b14ae5e..76fd5298b25e5295ec04bce0fe7296cb
  void DrawFrame(uint16_t *pixels)
  {
      int i;
-@@ -2703,6 +2803,17 @@ void DrawFrame(uint16_t *pixels)
+@@ -2703,6 +2803,26 @@ void DrawFrame(uint16_t *pixels)
          
          memsetu16(&pixels[i*DISPLAY_WIDTH], backdropColor, DISPLAY_WIDTH);
          DrawScanline(&pixels[i*DISPLAY_WIDTH], i);
 +#ifdef PORT_BRIDGE
 +        if (gPortUiPixels != NULL)
 +        {
-+            uint16_t display = REG_DISPCNT;
++            uint16_t display = REG_DISPCNT, layers = gPortUiLayers;
++            unsigned mapPriority = 3;
 +
-+            REG_DISPCNT = (display & ~(DISPCNT_BG_ALL_ON | DISPCNT_OBJ_ON)) | (display & gPortUiLayers);
++            // A UI background goes over the world only where it is over the
++            // map on the GBA too: interiors keep a black BG0 behind the map.
++            for (int bg = 1; bg < 4; bg++)
++                if ((display & (DISPCNT_BG0_ON << bg)) && (*(vu16 *)(REG_ADDR_BG0CNT + bg * 2) & 3) < mapPriority)
++                    mapPriority = *(vu16 *)(REG_ADDR_BG0CNT + bg * 2) & 3;
++            for (int bg = 0; bg < 4; bg++)
++                if ((layers & (DISPCNT_BG0_ON << bg)) && (*(vu16 *)(REG_ADDR_BG0CNT + bg * 2) & 3) > mapPriority)
++                    layers &= ~(DISPCNT_BG0_ON << bg);
++            REG_DISPCNT = (display & ~(DISPCNT_BG_ALL_ON | DISPCNT_OBJ_ON)) | (display & layers);
 +            memsetu16(&gPortUiPixels[i * DISPLAY_WIDTH], 0, DISPLAY_WIDTH);
 +            DrawScanline(&gPortUiPixels[i * DISPLAY_WIDTH], i);
 +            REG_DISPCNT = display;
