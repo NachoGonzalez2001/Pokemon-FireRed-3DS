@@ -583,6 +583,97 @@ PEWTER_MUSEUM_OWNED = ({(i, j) for i in range(11) for j in range(6)}
 PEWTER_GROUND = [GRASS, 0x008, 0x009, 0x010, 0x001, 0x004, 0x1B8, 0x1B9, 0x1BB, 0x1C0,
                  0x1C1, 0x1C9, 0x1CA, 0x0E6]
 
+
+# ── Cerulean City ──────────────────────────────────────────────────────────
+
+def cerulean_house(cells):
+    """Cerulean's blue houses, built from a kit: an end, as many middles
+    as the width takes, the other end; doors and windows swapped into the
+    facade row. 16 * cells x 64, the rows of every width:
+
+        row   8      the ridge line
+        rows  9-39   the front slope: courses of 4 rows (lines at 11 .. 39)
+        x 0-10 / the last 12 columns: the hips, drawn as stripes, lit to the
+                     west and shaded to the east, the eave running diagonally
+        rows 40-42   fascia, rows 43-47 the wall's top in the eave's shade
+        rows 48-63   facade: siding, windows, the sliding door, green posts
+
+    The top row of cells is mostly the map's - fences, flowers, trees behind
+    the roof - so only the three rows below it are the model's.
+    """
+    width = cells * 16
+
+    def parts(art):
+        art, band0 = extend(art, 96)
+        hip_w = hip_band(art, band0, list(range(0, 11)), 30, 48)
+        hip_e = hip_band(art, band0 + 48, list(range(width - 1, width - 13, -1)), 30, 48)
+        front_z, back_z = 64, 16
+        overhang = 2
+        courses = (12, width - 12)     # clear of both hips, whole 4-px tiles
+        wall_top = 23              # the fascia is rows 40..42
+        roof = FrHipRoof(
+            "roof", 0, width, zf=front_z + overhang, zb=back_z - overhang, y0=wall_top,
+            fascia=Strip((40, 43), wrap=courses),
+            slope=KeepStrip((9, 40), repeat=(12, 16), start=12, wrap=courses,
+                            keep=(11, width - 12)),
+            back=Strip((9, 40), repeat=(12, 16), start=12, wrap=courses),
+            teeth=(8, 9), cap=(8, 9), pitch=HOUSE_PITCH, run=11,
+            ridge_u=(12, width - 12), end_tile=Tile(12, 8, 13, 9),
+            hip_w=Strip(hip_w, wrap=(0, 40)), hip_e=Strip(hip_e, wrap=(0, 40)))
+        plaster = Tile(9, 43, 17, 64, top=wall_top)
+        corner = Tile(1, 43, 4, 64, top=wall_top)
+        walls = Prism(
+            "walls", 1, width - 1,
+            [(front_z, 0), (front_z, wall_top), (back_z, wall_top), (back_z, 0)],
+            edges={0: Proj(43, 64), 2: plaster}, skip=(1, 3),
+            caps=[Band(0, wall_top + 1, plaster, front_z, front=corner, back=corner, z1=back_z)])
+        return [walls, roof], art
+    return parts
+
+
+def cerulean_exact(cells):
+    width = cells * 16
+    return [(4, 43, width - 4, 64), (12, 9, width - 12, 40)]
+
+
+def cerulean_bike_shop(art):
+    """The bike shop (cells 12..15 x 23..28), 64 x 96:
+
+        rows  8-12   the glass roof's back frame
+        rows 13-50   glass panels, a pattern 8 rows tall; frame x 0-4, 59-63
+        row  51      the front frame; rows 52-55 the parapet's face
+        rows 56-95   facade: windows, the striped awning (72-86), its posts
+                     and the shop in its shade (87-95), all drawn flat
+
+    The awning is drawn on the facade and stays there: as a box it would
+    stand outside the shop's cells.
+    """
+    front_z, back_z = 96, 16
+    wall_top = 40
+    grey = Tile(5, 56, 9, 64, top=wall_top)
+    walls = Prism(
+        "walls", 1, 63,
+        [(front_z, 0), (front_z, wall_top), (back_z, wall_top), (back_z, 0)],
+        edges={0: Proj(56, 96), 2: grey}, skip=(1, 3),
+        caps=[Band(0, wall_top + 1, grey, front_z)])
+    frame = Tile(0, 52, 4, 56, top=wall_top + 4)
+    roof = Prism(
+        "roof", 0, 64,
+        [(front_z, wall_top), (front_z, wall_top + 4), (back_z, wall_top + 4), (back_z, wall_top)],
+        edges={0: Proj(52, 56), 1: Strip((13, 52), repeat=(13, 21), start=20, tail=(8, 13)),
+               2: frame},
+        skip=(3,), caps=[Band(wall_top, wall_top + 5, frame, front_z)])
+    return [walls, roof], art
+
+
+BIKE_SHOP_EXACT = [(1, 56, 63, 96), (0, 52, 64, 56), (0, 13, 64, 52)]
+
+
+CERULEAN_GROUND = [GRASS, 0x008, 0x009, 0x010, 0x001, 0x004, 0x0D3, 0x0D4, 0x0D5, 0x005,
+                   0x0F5, 0x0E4, 0x0DB, 0x0DC, 0x0DD]
+CERULEAN_HOUSES = [(8, 8, 7), (15, 8, 6), (28, 8, 7), (38, 7, 6), (13, 14, 7), (21, 25, 6),
+                   (31, 25, 5)]
+
 SPECS = [
     {
         "name": "pallet_house",
@@ -686,3 +777,25 @@ SPECS = [
         "exact": PEWTER_MUSEUM_EXACT,
     },
 ]
+
+SPECS += [
+    {
+        "name": "cerulean_house_%d_%d" % (x, y),
+        "layout": "LAYOUT_CERULEAN_CITY",
+        "rect": (x, y, cells, 4),
+        "ground": CERULEAN_GROUND,
+        "owned": {(i, j) for i in range(cells) for j in range(1, 4)},
+        "parts": cerulean_house(cells),
+        "exact": cerulean_exact(cells),
+    }
+    for (x, y, cells) in CERULEAN_HOUSES
+]
+
+SPECS.append({
+    "name": "cerulean_bike_shop",
+    "layout": "LAYOUT_CERULEAN_CITY",
+    "rect": (12, 23, 4, 6),
+    "ground": CERULEAN_GROUND,
+    "parts": cerulean_bike_shop,
+    "exact": BIKE_SHOP_EXACT,
+})
