@@ -1238,6 +1238,97 @@ GATEHOUSES = [("gate_passage_6", "LAYOUT_SAFFRON_CITY", (32, 0), 6, 6),
               ("gate_passage_5", "LAYOUT_ROUTE12", (12, 16), 5, 6),
               ("underground_hut", "LAYOUT_ROUTE5", (30, 28), 4, 4)]
 
+
+# ── Cinnabar Island ────────────────────────────────────────────────────────
+
+def pokemon_mansion(art):
+    """The Pokemon Mansion (cells 5..11 x 0..3, its roof running off the
+    map), 112 x 64:
+
+        rows  0-23   the roof, three chimneys on it (x 18-29, 50-61, 82-93:
+                     tops on rows 2..11, faces on 12..22)
+        rows 24-31   the eave; rows 32-62 the facade, two floors
+        x 40..71:    the porch - its top on rows 34..49, its face (the
+                     door) on 50..69
+    """
+    front_z, back_z = 63, 0
+    wall_top = 31
+    roof_y = wall_top + 8
+    stone = Tile(8, 46, 40, 48, top=wall_top)
+    walls = Prism(
+        "walls", 0, 112,
+        [(front_z, 0), (front_z, wall_top), (back_z, wall_top), (back_z, 0)],
+        edges={0: Proj(32, 63), 2: stone}, skip=(1, 3),
+        caps=[Band(0, wall_top + 1, stone, front_z)])
+    roof = flat_roof("roof", 0, 112, front_z, back_z, wall_top, (24, 32),
+                     Strip((1, 24), repeat=(1, 2)), Tile(8, 24, 16, 32))
+    zc = 22 + roof_y
+    yc = zc - 12
+    brick = Tile(20, 4, 28, 10, top=yc)
+    chimneys = [Prism("chimney_%d" % x0, x0, x0 + 12,
+                      [(zc, roof_y), (zc, yc), (zc - 10, yc), (zc - 10, roof_y)],
+                      edges={0: Proj(12, 23), 1: Strip((2, 12)), 2: brick}, skip=(3,),
+                      caps=[Band(roof_y, yc + 1, brick, zc)])
+                for x0 in (18, 50, 82)]
+    porch = Prism("porch", 40, 72, [(70, 0), (70, 20), (54, 20), (54, 0)],
+                  edges={0: Proj(50, 70), 1: Proj(34, 50)}, skip=(2, 3),
+                  caps=[Band(0, 21, Tile(41, 52, 47, 62, top=20), 70)])
+    return [walls, roof, porch] + chimneys, art
+
+
+MANSION_EXACT = [(2, 32, 40, 63), (72, 32, 110, 63), (0, 24, 112, 32), (40, 34, 72, 70),
+                 (18, 12, 30, 23), (50, 12, 62, 23), (82, 12, 94, 23)]
+
+
+def cinnabar_lab(art):
+    """The Pokemon Lab (cells 5..11 x 6..9), 112 x 64: a capsule - walls
+    on rows 39..63 whose ends turn round (drawn as 16-px chamfers), a band
+    of roof rising 6 (rows 27..38) and the rounded top (3..26)."""
+    front, back, c = 64, 16, 16
+    plan = [(c, front), (112 - c, front), (112, front - c), (112, back + c),
+            (112 - c, back), (c, back), (0, back + c), (0, front - c)]
+    return [Frustum(
+        "body", plan, wall_top=25, wall_side=Strip((40, 62), wrap=(24, 40)),
+        band_rise=7, band_side=Strip((25, 39), wrap=(24, 40)),
+        top=Strip((3, 25), repeat=(9, 17), wrap=(16, 96)))], art
+
+
+CINNABAR_LAB_EXACT = [(16, 39, 96, 64), (16, 25, 96, 39)]
+CINNABAR_GROUND = [GRASS, 0x008, 0x009, 0x010, 0x001, 0x004, 0x0D9, 0x0DA, 0x0D3, 0x0D4, 0x0D5,
+                   0x0DB, 0x0DC, 0x0DD, 0x12C]
+
+
+# ── Indigo Plateau ─────────────────────────────────────────────────────────
+
+def pokemon_league(art):
+    """The Pokemon League (cells 6..16 x 0..6, its roof running off the
+    map), 176 x 112:
+
+        rows  0-57   the roof's ribs, the same on every row
+        rows 58-64   the eave
+        rows 65-103  facade: windows, the pines planted along it
+        x 66..109:   the entrance, two cells forward - its gabled top drawn
+                     on rows 64..95, its doors on 96..111
+    """
+    front_z, back_z = 104, 0
+    wall_top = front_z - 65
+    stone = Tile(20, 66, 40, 70, top=wall_top)
+    walls = Prism(
+        "walls", 0, 176,
+        [(front_z, 0), (front_z, wall_top), (back_z, wall_top), (back_z, 0)],
+        edges={0: Proj(65, 104), 2: stone}, skip=(1, 3),
+        caps=[Band(0, wall_top + 1, stone, front_z)])
+    roof = flat_roof("roof", 0, 176, front_z, back_z, wall_top, (58, 65),
+                     Strip((1, 58), repeat=(10, 14)), Tile(8, 58, 16, 65))
+    porch = Prism("entrance", 66, 110, [(112, 0), (112, 16), (80, 16), (80, 0)],
+                  edges={0: Proj(96, 112), 1: Proj(64, 96)}, skip=(2, 3),
+                  caps=[Band(0, 17, Tile(70, 100, 76, 110, top=16), 112)])
+    return [walls, roof, porch], art
+
+
+LEAGUE_EXACT = [(2, 65, 66, 104), (110, 65, 174, 104), (0, 58, 176, 65), (66, 64, 110, 112),
+                (0, 4, 176, 56)]
+
 SPECS = [
     {
         "name": "pallet_house",
@@ -1538,4 +1629,31 @@ SPECS.append({
     "ground": SAFFRON_GROUND,
     "parts": fighting_dojo,
     "exact": DOJO_EXACT,
+})
+SPECS += [
+    {
+        "name": "pokemon_mansion",
+        "layout": "LAYOUT_CINNABAR_ISLAND",
+        "rect": (5, 0, 7, 5),
+        "ground": CINNABAR_GROUND,
+        "owned": {(i, j) for i in range(7) for j in range(4)} | {(2, 4), (3, 4), (4, 4)},
+        "parts": pokemon_mansion,
+        "exact": MANSION_EXACT,
+    },
+    {
+        "name": "cinnabar_lab",
+        "layout": "LAYOUT_CINNABAR_ISLAND",
+        "rect": (5, 6, 7, 4),
+        "ground": CINNABAR_GROUND,
+        "parts": cinnabar_lab,
+        "exact": CINNABAR_LAB_EXACT,
+    },
+]
+SPECS.append({
+    "name": "pokemon_league",
+    "layout": "LAYOUT_INDIGO_PLATEAU_EXTERIOR",
+    "rect": (6, 0, 11, 7),
+    "ground": [GRASS, 0x008, 0x009, 0x010, 0x001, 0x004],
+    "parts": pokemon_league,
+    "exact": LEAGUE_EXACT,
 })
