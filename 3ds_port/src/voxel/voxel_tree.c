@@ -64,18 +64,26 @@ static int PropIndex(const void *secondaryTileset, int metatileId)
  * one running east-west, so it is that: the fence of its material drawn
  * front on (sx, sy), as a card turned to run north-south through the post.
  */
-static void EmitPost(VoxelBuilder *builder, int x, int y, int prop)
+static void EmitPost(VoxelBuilder *builder, int x, int y, int prop, int north, int south)
 {
     float cx = (float)x + sProps[prop].centre / 16.0f;
     float h = (16 - sProps[prop].sr) / 16.0f;
     float u0 = TEX_U(sProps[prop].sx), u1 = TEX_U(sProps[prop].sx + 16);
     float v0 = TEX_V(sProps[prop].sy + sProps[prop].sr), v1 = TEX_V(sProps[prop].sy + 16);
+    /* From the fence it meets to the next: another post runs on through the
+     * cell, a fence drawn front on is met where it stands, and a free end
+     * stops at the post in the middle of the cell. */
+    float z0 = north >= 0 ? (float)y : (float)y + 0.5f;
+    float z1 = south < 0 ? (float)y + 0.5f
+             : sProps[south].kind == 1 ? (float)y + 1.0f
+             : (float)(y + 1) + sProps[south].r1 / 16.0f;
+    float span = z1 - z0;
 
     VoxelBuilder_Quad(builder,
-        &(VoxelVertex){cx, h,    (float)y,        u0, v0, 0.9f},
-        &(VoxelVertex){cx, h,    (float)y + 1.0f, u1, v0, 0.9f},
-        &(VoxelVertex){cx, 0.0f, (float)y + 1.0f, u1, v1, 0.9f},
-        &(VoxelVertex){cx, 0.0f, (float)y,        u0, v1, 0.9f});
+        &(VoxelVertex){cx, h,    z0, u0, v0, 0.9f},
+        &(VoxelVertex){cx, h,    z1, u0 + (u1 - u0) * span, v0, 0.9f},
+        &(VoxelVertex){cx, 0.0f, z1, u0 + (u1 - u0) * span, v1, 0.9f},
+        &(VoxelVertex){cx, 0.0f, z0, u0, v1, 0.9f});
 }
 
 /*
@@ -177,6 +185,8 @@ int VoxelTree_GroundMetatile(const void *secondaryTileset, int metatileId)
     case 0x00F: return 0x011;
     case 0x00A: case 0x00B: case 0x00C: return 0x00D;
     case 0x0B4: case 0x0B5: return 0x07C;
+    case 0x10A: case 0x10B: return 0x12B;
+    case 0x255: case 0x25D: return 0x273;
     default: return metatileId;
     }
 }
@@ -239,7 +249,11 @@ void VoxelTree_EmitInstance(VoxelBuilder *builder, const VoxelMapInstance *inst,
                 builder->lift = VoxelRelief_CellLift(inst, x, y);
                 builder->shift = VoxelRelief_CellShift(inst, x, y);
                 if (sProps[prop].kind == 1)
-                    EmitPost(builder, x, y, prop);
+                {
+                    int north = VoxelWorld_GetInstanceAt(x, y - 1) == inst
+                              ? PropIndex(inst->secondaryTileset, VoxelWorld_GetMetatileId(x, y - 1)) : -1;
+                    EmitPost(builder, x, y, prop, north, below);
+                }
                 else if (sProps[prop].kind == 3)
                     EmitLedge(builder, x, y, prop);
                 else
@@ -275,7 +289,7 @@ void VoxelTree_EmitBorder(VoxelBuilder *builder, int x0, int y0, int x1, int y1)
             crown = VoxelTree_Crown(current->secondaryTileset, metatileId);
             prop = PropIndex(current->secondaryTileset, metatileId);
             if (prop >= 0 && sProps[prop].kind == 1)
-                EmitPost(builder, x, y, prop);
+                EmitPost(builder, x, y, prop, prop, prop);
             else if (prop >= 0 && sProps[prop].kind == 3)
                 EmitLedge(builder, x, y, prop);
             else if (prop >= 0)

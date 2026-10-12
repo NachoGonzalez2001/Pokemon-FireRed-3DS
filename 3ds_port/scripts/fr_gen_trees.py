@@ -65,6 +65,7 @@ FLOWERS = [0x004]
 FENCES = [0x0DE, 0x0DF] + list(range(0x0E6, 0x0F4)) + [0x0F6, 0x0F7, 0x0F8, 0x0F9, 0x0FC, 0x0FD,
                                                          0x135, 0x136]
 MB_JUMP_SOUTH = 0x3B
+TIP_FENCES = {0x0D6: 0x010, 0x0D7: 0x011}
 
 
 def south_ledges(root):
@@ -202,6 +203,25 @@ def build_props(root, ts, metatile, image):
         tiles = fr_art.Tilesets("gTileset_General", name)
         for i in found:
             place(tiles, len(sets), 0x280 + i, sec[i], local)
+    # A tree's tip over a fence (0D6/0D7): the fence is on the lower layer,
+    # drawn over the grass. It stands up on its own, keyed off the grass;
+    # the tree's card carries the tip, and the cell's ground is plain grass.
+    grass = set()
+    for g in (0x010, 0x011):
+        for line in layer(ts, general[g], 0):
+            grass |= {rgb for rgb, idx in line}
+    for mid, ground in TIP_FENCES.items():
+        base = layer(ts, general[mid], 0)
+        art = [[(rgb, 0 if rgb in grass else 1) for rgb, idx in line] for line in base]
+        rows = [y for y in range(16) if any(art[y][x][1] for x in range(16))]
+        cols = [x for x in range(16) if any(art[y][x][1] for y in range(16))]
+        sx, sy = next(slots)
+        for y in range(16):
+            for x in range(16):
+                if art[y][x][1]:
+                    image[(sx + x, sy + y)] = art[y][x][0]
+        out.append([0, mid, sx, sy, rows[0], rows[-1] + 1, ground, 0,
+                    (cols[0] + cols[-1] + 1) // 2, 0x0E6])
     slot_of = {p[1]: (p[2], p[3], p[4]) for p in out if p[0] == 0}
     for p in out:
         sx, sy, sr = slot_of[p[9]]
