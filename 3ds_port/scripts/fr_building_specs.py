@@ -1483,6 +1483,18 @@ def pokemon_tower_top(art):
     are left to the mountain round them."""
     capped = art.copy()
     capped.paste(art.crop((0, 8, art.size[0], 56)), (0, 80))
+    # round the octagon the drawing is the grass beyond the roof, keyed
+    # out: each row's gaps take the roof's own edge beside them
+    px = capped.load()
+    for y in range(80, 128):
+        row = [px[x, y] for x in range(capped.size[0])]
+        solid = [x for x in range(6, 106) if row[x][3] >= 128]
+        if not solid:
+            continue
+        for x in range(6, 106):
+            if row[x][3] < 128:
+                near = min(solid, key=lambda s: abs(s - x))
+                px[x, y] = row[near]
     art = capped
     z = 128 + 86
     y0, y1 = 86, 90
@@ -1972,8 +1984,9 @@ SPECS += [
         "name": "pokemon_tower_top",
         "layout": "LAYOUT_ROUTE10",
         "rect": (15, 72, 7, 8),
-        "ground": [GRASS, 0x070, 0x071, 0x072, 0x073],
+        "ground": [GRASS, 0x001, 0x004, 0x008, 0x009, 0x010, 0x070, 0x071, 0x072, 0x073],
         "parts": pokemon_tower_top,
+        "force_ground": 0x071,     # the mountain the route's cells are
         "exact": [],
     },
     {

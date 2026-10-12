@@ -73,19 +73,33 @@ static void EmitPost(VoxelBuilder *builder, int x, int y, int prop, int north, i
     /* From the fence it meets to the next: another post runs on through the
      * cell, a fence drawn front on is met where it stands, and a free end
      * stops at the post in the middle of the cell. */
-    /* a fence drawn front on to the north already has its end post there */
-    float z0 = north < 0 ? (float)y + 0.5f
-             : sProps[north].kind == 1 ? (float)y : (float)y + 2.0f / 16.0f;
+    float z0 = north < 0 ? (float)y + 0.5f : (float)y;
     float z1 = south < 0 ? (float)y + 0.5f
              : sProps[south].kind == 1 ? (float)y + 1.0f
              : (float)(y + 1) + sProps[south].r1 / 16.0f;
-    float span = z1 - z0;
+    /* the pattern is one cell long and repeats; reaching past the slot's
+     * edge would sample the next slot, so the run is laid in pieces */
+    /* half a cell out of step with the cells, the same along a whole run:
+     * where it meets a fence drawn front on, whose end post is there, the
+     * pattern is in the gap between two posts */
+    float along = z0 - (float)(int)z0 + 0.5f;
 
-    VoxelBuilder_Quad(builder,
-        &(VoxelVertex){cx, h,    z0, u0, v0, 0.9f},
-        &(VoxelVertex){cx, h,    z1, u0 + (u1 - u0) * span, v0, 0.9f},
-        &(VoxelVertex){cx, 0.0f, z1, u0 + (u1 - u0) * span, v1, 0.9f},
-        &(VoxelVertex){cx, 0.0f, z0, u0, v1, 0.9f});
+    if (along >= 1.0f)
+        along -= 1.0f;
+
+    while (z1 - z0 > 1e-4f)
+    {
+        float piece = 1.0f - along < z1 - z0 ? 1.0f - along : z1 - z0;
+        float a = u0 + (u1 - u0) * along, b = a + (u1 - u0) * piece;
+
+        VoxelBuilder_Quad(builder,
+            &(VoxelVertex){cx, h,    z0,         a, v0, 0.9f},
+            &(VoxelVertex){cx, h,    z0 + piece, b, v0, 0.9f},
+            &(VoxelVertex){cx, 0.0f, z0 + piece, b, v1, 0.9f},
+            &(VoxelVertex){cx, 0.0f, z0,         a, v1, 0.9f});
+        z0 += piece;
+        along = 0.0f;
+    }
 }
 
 /*

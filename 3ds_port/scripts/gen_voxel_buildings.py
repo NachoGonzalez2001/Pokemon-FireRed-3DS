@@ -1196,6 +1196,9 @@ def find_placements(model, layouts_json):
                             continue
                         ring[cell & 0x3FF] = ring.get(cell & 0x3FF, 0) + 1
                 ground = max(ring, key=ring.get) if ring else model.ground_metatile
+                # a spec may name the ground outright: the commonest walkable
+                # cell round a tower's top is grass, where it stands on rock
+                ground = model.spec.get("force_ground", ground)
                 odd = [(i, j) for j in range(h) for i in range(w) if (i, j) in model.owned
                        and (blocks[(py + j) * lw + px + i] & 0x3FF) != template[j * w + i]]
                 if model.spec.get("relief", {}).get("upper"):
