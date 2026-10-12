@@ -392,47 +392,196 @@ VIRIDIAN_PLANTERS_EXACT = [(3, 46, 77, 56), (16, 56, 32, 64), (4, 21, 44, 42),
 
 
 VIRIDIAN_HOUSE_EXACT = [(3, 46, 77, 64), (4, 21, 44, 42), (48, 11, 66, 40)]
-def viridian_gym(art):
-    """Viridian's Gym (cells 33..38 x 6..10), 96 x 80:
+def gym(cells):
+    """The Gym, General's own (metatiles 139..15E): the same building 6, 7
+    or 8 cells wide, the extra bays added before its east end. Viridian's
+    (cells 33..38 x 6..10), 96 x 80:
 
-        rows  1-3    the roof's back rim
+        rows  1-3    the roof's back rim (each town's own tileset)
         rows  4-41   flat roof, gold stripes every 2 rows, a rim drawn
-                     round it (x 0-5 and 90-95)
+                     round it (x 0-5 and the last 6 columns)
         rows 42-46   the cornice
         rows 47-71   facade: windows, the GYM plate over the entrance
         x 40..72, rows 64..79: the entrance, standing half a cell forward
         of the facade, its double door; its top is the plate's lower rows
     """
-    front_z, back_z = 72, 16
-    wall_top = 25                  # the facade's top outline is row 47
-    roof_y = wall_top + 5          # the cornice, rows 42..46
-    plaster = Tile(26, 56, 38, 60, top=wall_top)
-    corner = Tile(1, 47, 7, 72, top=wall_top)
-    walls = Prism(
-        "walls", 1, 95,
-        [(front_z, 0), (front_z, wall_top), (back_z, wall_top), (back_z, 0)],
-        edges={0: Proj(47, 72), 2: plaster}, skip=(1, 3),
-        caps=[Band(0, wall_top + 1, plaster, front_z, front=corner, back=corner, z1=back_z)])
-    cornice = Tile(10, 42, 18, 47, top=roof_y)
-    roof = Prism(
-        "roof", 0, 96,
-        [(front_z, wall_top), (front_z, roof_y), (back_z, roof_y), (back_z, wall_top)],
-        edges={0: Proj(42, 47), 1: Strip((4, 42), repeat=(22, 24), tail=(1, 4)),
-               2: cornice},
-        skip=(3,), caps=[Band(wall_top, roof_y + 1, cornice, front_z)])
-    pillar = Tile(42, 66, 46, 74, top=16)
-    entrance = Prism(
-        "entrance", 40, 72, [(80, 0), (80, 16), (72, 16), (72, 0)],
-        edges={0: Proj(64, 80)}, skip=(2, 3), caps=[Band(0, 17, pillar, 80)])
-    return [walls, roof, entrance], art
+    width = cells * 16
+
+    def parts(art):
+        front_z, back_z = 72, 16
+        wall_top = 25              # the facade's top outline is row 47
+        roof_y = wall_top + 5      # the cornice, rows 42..46
+        plaster = Tile(26, 56, 38, 60, top=wall_top)
+        corner = Tile(1, 47, 7, 72, top=wall_top)
+        walls = Prism(
+            "walls", 1, width - 1,
+            [(front_z, 0), (front_z, wall_top), (back_z, wall_top), (back_z, 0)],
+            edges={0: Proj(47, 72), 2: plaster}, skip=(1, 3),
+            caps=[Band(0, wall_top + 1, plaster, front_z, front=corner, back=corner, z1=back_z)])
+        cornice = Tile(10, 42, 18, 47, top=roof_y)
+        roof = Prism(
+            "roof", 0, width,
+            [(front_z, wall_top), (front_z, roof_y), (back_z, roof_y), (back_z, wall_top)],
+            edges={0: Proj(42, 47), 1: Strip((4, 42), repeat=(22, 24), tail=(1, 4)),
+                   2: cornice},
+            skip=(3,), caps=[Band(wall_top, roof_y + 1, cornice, front_z)])
+        pillar = Tile(42, 66, 46, 74, top=16)
+        entrance = Prism(
+            "entrance", 40, 72, [(80, 0), (80, 16), (72, 16), (72, 0)],
+            edges={0: Proj(64, 80)}, skip=(2, 3), caps=[Band(0, 17, pillar, 80)])
+        return [walls, roof, entrance], art
+    return parts
 
 
-VIRIDIAN_GYM_EXACT = [(2, 47, 94, 72), (40, 64, 72, 80), (0, 42, 96, 47), (0, 22, 96, 42)]
+def gym_exact(cells):
+    width = cells * 16
+    return [(2, 47, width - 2, 72), (40, 64, 72, 80), (0, 42, width, 47), (0, 22, width, 42)]
 
 
 VIRIDIAN_GROUND = [GRASS, 0x008, 0x009, 0x010, 0x001, 0x004, 0x165, 0x166, 0x167, 0x16D,
                    0x16E, 0x16F, 0x175, 0x176, 0x177, 0x195, 0x196, 0x19D, 0x19E]
 
+
+
+# ── Pewter City ────────────────────────────────────────────────────────────
+
+def pewter_house(art):
+    """Pewter's slate houses (cells 32..36 x 8..11), 80 x 64:
+
+        rows  9-15   the back slope, light (snow-white courses)
+        rows 16-20   the ridge: its top line, its front, the slope's first line
+        rows 21-43   the front slope, slate courses of 4 rows (lines at 23,
+                     27 .. 43), verge trims x 0-3 and 76-79
+        rows 44-46   the eave
+        rows 47-63   facade: windows, the door, siding
+    """
+    front_z, back_z = 64, 16
+    overhang = 2
+    wall_top = 19                  # under the eave, rows 44..46
+    slate = (8, 72)
+    roof = HipRoof(
+        "roof", 0, 80, zf=front_z + overhang, zb=back_z - overhang, y0=wall_top,
+        fascia=Strip((44, 47), wrap=slate),
+        slope=Strip((21, 44), repeat=(24, 28), start=24, tail=(20, 21), wrap=slate),
+        teeth=(17, 20), cap=(16, 17), pitch=25.0, run=4,
+        ridge_u=(8, 72), end_tile=Tile(8, 17, 12, 20))
+    plaster = Tile(33, 47, 41, 64, top=wall_top)
+    corner = Tile(1, 47, 3, 64, top=wall_top)
+    walls = Prism(
+        "walls", 1, 79,
+        [(front_z, 0), (front_z, wall_top), (back_z, wall_top), (back_z, 0)],
+        edges={0: Proj(47, 64), 2: plaster}, skip=(1, 3),
+        caps=[Band(0, wall_top + 1, plaster, front_z, front=corner, back=corner, z1=back_z)])
+    return [walls, roof], art
+
+
+PEWTER_HOUSE_EXACT = [(3, 47, 77, 64), (4, 21, 76, 44)]
+def pewter_annex(art):
+    """The museum's annex (cells 23..27 x 1..4), 80 x 64:
+
+        row   1      the ridge line
+        rows  2-15   the back slope, light pink sheets
+        rows 16-42   the front slope, darker, the sheets' ribs every 4 px
+        rows 43-45   fascia, rows 46-47 the eave's shade
+        rows 48-63   facade: posts, windows, the door
+        x 72..79     the east end's white pillar, drawn over the roof's end
+    """
+    front_z, back_z = 64, 16
+    overhang = 2
+    wall_top = 20
+    sheets = (0, 72)
+    roof = FrHipRoof(
+        "roof", 0, 80, zf=front_z + overhang, zb=back_z - overhang, y0=wall_top,
+        fascia=Strip((43, 46), wrap=sheets),
+        slope=Strip((16, 43), repeat=(16, 20), wrap=sheets),
+        back=Strip((2, 16), repeat=(2, 6), wrap=sheets),
+        teeth=(1, 2), cap=(1, 2), pitch=25.0, run=4,
+        ridge_u=(0, 72), end_tile=Tile(0, 1, 4, 2))
+    plaster = Tile(23, 46, 32, 64, top=wall_top)
+    corner = Tile(0, 46, 2, 64, top=wall_top)
+    walls = Prism(
+        "walls", 0, 79,
+        [(front_z, 0), (front_z, wall_top), (back_z, wall_top), (back_z, 0)],
+        edges={0: Proj(46, 64), 2: plaster}, skip=(1, 3),
+        caps=[Band(0, wall_top + 1, plaster, front_z, front=corner, back=corner, z1=back_z)])
+    return [walls, roof], art
+
+
+PEWTER_ANNEX_EXACT = [(0, 46, 79, 64), (4, 16, 72, 43)]
+
+
+def pewter_museum(art):
+    """The Museum of Science (cells 12..22 x 0..6), 176 x 128:
+
+        rows 10-23   the upper roof's back slope, light pink sheets
+        rows 24-47   its front slope, darker; rows 48-50 its eave
+        rows 51-55   a clerestory of small windows
+        rows 56-65   the lower roof, rows 66-71 its eave and the cornice
+        rows 72-95   facade: arched windows between columns
+        x 0..7 / 168..175, rows 8..69: white end walls standing above it
+        all; x 8..15 / 160..167, rows 13..55: a second pair, on the lower
+        roof, framing the upper one
+        x 64..111: the porch - its top drawn on rows 72..95 over the
+        facade, its front (columns, the door) on 96..119; the steps below
+        are the map's own
+    """
+    front_z, back_z = 96, 16
+    wall_top = 24
+    plaster = Tile(1, 72, 3, 96, top=wall_top)
+    walls = Prism(
+        "walls", 1, 175,
+        [(front_z, 0), (front_z, wall_top), (back_z, wall_top), (back_z, 0)],
+        edges={0: Proj(72, 96), 2: plaster}, skip=(1, 3),
+        caps=[Band(0, wall_top + 1, plaster, front_z)])
+    # the lower roof: its eave (rows 66..71) and its slope (56..65) up to the
+    # clerestory, drawn as the GBA sees them
+    lower = Prism(
+        "lower_roof", 8, 168,
+        [(front_z, wall_top), (front_z, 30), (92, 36), (back_z, 36), (back_z, wall_top)],
+        edges={0: Proj(66, 72), 1: Proj(56, 66), 3: Tile(16, 60, 24, 64, top=36)},
+        skip=(2, 4), caps=[Band(wall_top, 37, Tile(16, 60, 24, 64, top=36), front_z)])
+    clerestory = Prism(
+        "clerestory", 16, 160, [(92, 36), (92, 42), (20, 42), (20, 36)],
+        edges={0: Proj(51, 56)}, skip=(1, 2, 3), caps=None)
+    sheets = (16, 160)
+    roof = FrHipRoof(
+        "roof", 16, 160, zf=93, zb=19, y0=42,
+        fascia=Strip((48, 51), wrap=sheets),
+        slope=Strip((24, 48), repeat=(24, 28), wrap=sheets),
+        back=Strip((15, 24), repeat=(15, 19), wrap=sheets),
+        teeth=(23, 24), cap=(23, 24), pitch=25.0, run=4,
+        ridge_u=(16, 160), end_tile=Tile(16, 23, 20, 24))
+    # the end walls follow the roof up to the ridge and down behind it, a
+    # little above the sheets: gables, read as the drawing's white strips
+    white = Tile(2, 30, 6, 44, top=roof.yt)
+    column = Strip((30, 44), wrap=(1, 7))
+    ends = []
+    for name, x0, x1, z, y0, rows, lift in (("end_w", 0, 8, front_z, wall_top, (9, 70), 4),
+                                            ("end_e", 168, 176, front_z, wall_top, (9, 70), 4),
+                                            ("frame_w", 8, 16, 92, 36, (13, 56), 2),
+                                            ("frame_e", 160, 168, 92, 36, (13, 56), 2)):
+        eave, ridge = roof.ye + lift, roof.yt + lift
+        poly = [(z, y0), (z, eave), (roof.z_rf, ridge), (roof.z_rb, ridge),
+                (back_z, eave), (back_z, y0)]
+        ends.append(Prism(
+            name, x0, x1, poly,
+            edges={0: Proj(*rows), 1: Proj(*rows), 2: Proj(*rows), 3: column, 4: column},
+            skip=(5,), caps=[Band(y0, ridge + 1, white, z)]))
+    porch = Prism(
+        "porch", 64, 112, [(120, 0), (120, 24), (front_z, 24), (front_z, 0)],
+        edges={0: Proj(96, 120), 1: Proj(72, 96)}, skip=(2, 3),
+        caps=[Band(0, 25, Tile(66, 98, 69, 118, top=24), 120)])
+    return [walls, lower, clerestory, roof, porch] + ends, art
+
+
+PEWTER_MUSEUM_EXACT = [(1, 72, 175, 96), (64, 96, 112, 120), (16, 56, 160, 72),
+                       (16, 51, 160, 56), (20, 24, 156, 51)]
+PEWTER_MUSEUM_OWNED = ({(i, j) for i in range(11) for j in range(6)}
+                       | {(i, 6) for i in (4, 5, 6)})
+
+
+PEWTER_GROUND = [GRASS, 0x008, 0x009, 0x010, 0x001, 0x004, 0x1B8, 0x1B9, 0x1BB, 0x1C0,
+                 0x1C1, 0x1C9, 0x1CA, 0x0E6]
 
 SPECS = [
     {
@@ -485,11 +634,55 @@ SPECS = [
         "exact": VIRIDIAN_PLANTERS_EXACT,
     },
     {
-        "name": "viridian_gym",
+        "name": "gym_6",
         "layout": "LAYOUT_VIRIDIAN_CITY",
         "rect": (33, 6, 6, 5),
+        "match_rows": (1, 5),
         "ground": VIRIDIAN_GROUND,
-        "parts": viridian_gym,
-        "exact": VIRIDIAN_GYM_EXACT,
+        "parts": gym(6),
+        "exact": gym_exact(6),
+    },
+    {
+        "name": "pewter_house",
+        "layout": "LAYOUT_PEWTER_CITY",
+        "rect": (32, 8, 5, 4),
+        "ground": PEWTER_GROUND,
+        "parts": pewter_house,
+        "exact": PEWTER_HOUSE_EXACT,
+    },
+    {
+        "name": "gym_7",
+        "layout": "LAYOUT_PEWTER_CITY",
+        "rect": (12, 12, 7, 5),
+        "match_rows": (1, 5),
+        "ground": PEWTER_GROUND,
+        "parts": gym(7),
+        "exact": gym_exact(7),
+    },
+    {
+        "name": "gym_8",
+        "layout": "LAYOUT_CELADON_CITY",
+        "rect": (8, 26, 8, 5),
+        "match_rows": (1, 5),
+        "ground": TOWN_GROUND,
+        "parts": gym(8),
+        "exact": gym_exact(8),
+    },
+    {
+        "name": "pewter_annex",
+        "layout": "LAYOUT_PEWTER_CITY",
+        "rect": (23, 1, 5, 4),
+        "ground": PEWTER_GROUND,
+        "parts": pewter_annex,
+        "exact": PEWTER_ANNEX_EXACT,
+    },
+    {
+        "name": "pewter_museum",
+        "layout": "LAYOUT_PEWTER_CITY",
+        "rect": (12, 0, 11, 8),
+        "ground": PEWTER_GROUND,
+        "owned": PEWTER_MUSEUM_OWNED,
+        "parts": pewter_museum,
+        "exact": PEWTER_MUSEUM_EXACT,
     },
 ]
