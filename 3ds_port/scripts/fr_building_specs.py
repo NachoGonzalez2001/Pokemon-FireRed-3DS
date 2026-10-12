@@ -324,6 +324,116 @@ TOWN_GROUND = [GRASS, 0x008, 0x009, 0x010, 0x001, 0x004, 0x00E, 0x00F, 0x01E, 0x
                0x1B8, 0x1B9]
 
 
+
+# ── Viridian City ──────────────────────────────────────────────────────────
+
+def viridian_house(art):
+    """Viridian's green houses (cells 24..28 x 8..11), 80 x 64:
+
+        rows  8-15   the back slope's corrugated sheets, lit
+        rows 16-19   the ridge: a light line, then its front
+        rows 20-41   the front slope, its ribs running front to back
+        rows 42-45   the sheets' drip edge and the fascia's outline
+        rows 46-63   facade: eave shade, windows, the shutter, the door
+        x 48..65, rows 8..39: a chimney stack with a window, its front
+        standing on the front slope where its row 39 meets the sheets
+
+    The sheets' ribs repeat every 4 columns and are the same on every row,
+    so the slopes grow to the real depth with more of the same rows.
+    """
+    front_z, back_z = 64, 16       # collision rows 1..3
+    overhang = 2
+    wall_top = 20                  # the fascia (rows 42..45) hides 44..45
+    ribs = (4, 44)                 # a whole number of 4-px ribs, no chimney
+    roof = HipRoof(
+        "roof", 0, 80, zf=front_z + overhang, zb=back_z - overhang, y0=wall_top,
+        fascia=Strip((42, 46), wrap=ribs),
+        slope=Strip((21, 42), repeat=(21, 25), tail=(20, 21), wrap=ribs),
+        teeth=(18, 20), cap=(16, 18), pitch=25.0, run=4,
+        ridge_u=(4, 44), end_tile=Tile(4, 16, 8, 20))
+
+    plaster = Tile(33, 46, 41, 64, top=wall_top)
+    corner = Tile(1, 46, 3, 64, top=wall_top)
+    walls = Prism(
+        "walls", 1, 79,
+        [(front_z, 0), (front_z, wall_top), (back_z, wall_top), (back_z, 0)],
+        edges={0: Proj(46, 64), 2: plaster}, skip=(1, 3),
+        caps=[Band(0, wall_top + 1, plaster, front_z, front=corner, back=corner, z1=back_z)])
+
+    # The chimney: its front's bottom row (39) is 3 rows above the drip
+    # edge; standing 2 up the slope keeps that row clear of the sheets. Its
+    # top is drawn on rows 8..10 and grows backwards.
+    zc, yc = roof.slope_point(2)
+    yt = zc - 11
+    depth = 14
+    brick = Tile(51, 24, 61, 31, top=yt)
+    chimney = Prism(
+        "chimney", 48, 66,
+        [(zc, yc - 6), (zc, yt), (zc - depth, yt), (zc - depth, yc - 6)],
+        edges={0: Proj(11, 40), 1: Strip((9, 11), repeat=(9, 10), tail=(8, 9)), 2: brick},
+        skip=(3,), caps=[Band(-64, 200, brick, zc)])
+    return [walls, roof, chimney], art
+
+
+def viridian_house_planters(art):
+    """The same house (cells 24..28 x 15..19) with planters along its front,
+    a cell deep, either side of the door: boxes on rows 64..71, their
+    flowers on 56..63 as their top."""
+    parts, art = viridian_house(art)
+    box = Tile(3, 64, 13, 72, top=8)
+    planters = [Prism(name, x0, x1, [(72, 0), (72, 8), (64, 8), (64, 0)],
+                      edges={0: Proj(64, 72)}, skip=(3,), caps=[Band(0, 9, box, 72)])
+                for name, x0, x1 in (("planter_w", 1, 16), ("planter_e", 32, 79))]
+    return parts + planters, art
+
+
+VIRIDIAN_PLANTERS_EXACT = [(3, 46, 77, 56), (16, 56, 32, 64), (4, 21, 44, 42),
+                           (48, 11, 66, 40), (1, 56, 16, 72), (32, 56, 79, 72)]
+
+
+VIRIDIAN_HOUSE_EXACT = [(3, 46, 77, 64), (4, 21, 44, 42), (48, 11, 66, 40)]
+def viridian_gym(art):
+    """Viridian's Gym (cells 33..38 x 6..10), 96 x 80:
+
+        rows  1-3    the roof's back rim
+        rows  4-41   flat roof, gold stripes every 2 rows, a rim drawn
+                     round it (x 0-5 and 90-95)
+        rows 42-46   the cornice
+        rows 47-71   facade: windows, the GYM plate over the entrance
+        x 40..72, rows 64..79: the entrance, standing half a cell forward
+        of the facade, its double door; its top is the plate's lower rows
+    """
+    front_z, back_z = 72, 16
+    wall_top = 25                  # the facade's top outline is row 47
+    roof_y = wall_top + 5          # the cornice, rows 42..46
+    plaster = Tile(26, 56, 38, 60, top=wall_top)
+    corner = Tile(1, 47, 7, 72, top=wall_top)
+    walls = Prism(
+        "walls", 1, 95,
+        [(front_z, 0), (front_z, wall_top), (back_z, wall_top), (back_z, 0)],
+        edges={0: Proj(47, 72), 2: plaster}, skip=(1, 3),
+        caps=[Band(0, wall_top + 1, plaster, front_z, front=corner, back=corner, z1=back_z)])
+    cornice = Tile(10, 42, 18, 47, top=roof_y)
+    roof = Prism(
+        "roof", 0, 96,
+        [(front_z, wall_top), (front_z, roof_y), (back_z, roof_y), (back_z, wall_top)],
+        edges={0: Proj(42, 47), 1: Strip((4, 42), repeat=(22, 24), tail=(1, 4)),
+               2: cornice},
+        skip=(3,), caps=[Band(wall_top, roof_y + 1, cornice, front_z)])
+    pillar = Tile(42, 66, 46, 74, top=16)
+    entrance = Prism(
+        "entrance", 40, 72, [(80, 0), (80, 16), (72, 16), (72, 0)],
+        edges={0: Proj(64, 80)}, skip=(2, 3), caps=[Band(0, 17, pillar, 80)])
+    return [walls, roof, entrance], art
+
+
+VIRIDIAN_GYM_EXACT = [(2, 47, 94, 72), (40, 64, 72, 80), (0, 42, 96, 47), (0, 22, 96, 42)]
+
+
+VIRIDIAN_GROUND = [GRASS, 0x008, 0x009, 0x010, 0x001, 0x004, 0x165, 0x166, 0x167, 0x16D,
+                   0x16E, 0x16F, 0x175, 0x176, 0x177, 0x195, 0x196, 0x19D, 0x19E]
+
+
 SPECS = [
     {
         "name": "pallet_house",
@@ -357,5 +467,29 @@ SPECS = [
         "ground": TOWN_GROUND,
         "parts": poke_mart,
         "exact": MART_EXACT,
+    },
+    {
+        "name": "viridian_house",
+        "layout": "LAYOUT_VIRIDIAN_CITY",
+        "rect": (24, 8, 5, 4),
+        "ground": VIRIDIAN_GROUND,
+        "parts": viridian_house,
+        "exact": VIRIDIAN_HOUSE_EXACT,
+    },
+    {
+        "name": "viridian_house_planters",
+        "layout": "LAYOUT_VIRIDIAN_CITY",
+        "rect": (24, 15, 5, 5),
+        "ground": VIRIDIAN_GROUND,
+        "parts": viridian_house_planters,
+        "exact": VIRIDIAN_PLANTERS_EXACT,
+    },
+    {
+        "name": "viridian_gym",
+        "layout": "LAYOUT_VIRIDIAN_CITY",
+        "rect": (33, 6, 6, 5),
+        "ground": VIRIDIAN_GROUND,
+        "parts": viridian_gym,
+        "exact": VIRIDIAN_GYM_EXACT,
     },
 ]
