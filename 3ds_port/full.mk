@@ -125,7 +125,7 @@ ROMFS_SOUND_OUTS := romfs/sound/songs.bin romfs/sound/songs.rel
 ROMFS_GAMEDATA_OUTS := romfs/gamedata/gamedata.bin romfs/gamedata/gamedata.rel
 ROMFS_SHADER_OUTS :=
 ifeq ($(VOXEL),1)
-ROMFS_SHADER_OUTS += romfs/shaders/voxel.shbin romfs/voxel/buildings.bin
+ROMFS_SHADER_OUTS += romfs/shaders/voxel.shbin romfs/voxel/buildings.bin romfs/voxel/trees.rgba5551
 endif
 
 $(FULL_OBJECTS): build/config
@@ -217,9 +217,16 @@ build/ctr_voxel.o: src/voxel/ctr_voxel.c Makefile full.mk
 
 # FireRed's building models (scripts/fr_building_specs.py), placed wherever
 # their drawing appears on the maps, in the voxel renderer's VXB7 format.
-romfs/voxel/buildings.bin: scripts/fr_export_buildings.py scripts/fr_gen_buildings.py 		scripts/fr_building_specs.py scripts/voxel_building.py scripts/gen_voxel_buildings.py 		scripts/fr_art.py
+romfs/voxel/buildings.bin: scripts/fr_export_buildings.py scripts/fr_gen_buildings.py \
+		scripts/fr_building_specs.py scripts/voxel_building.py scripts/gen_voxel_buildings.py \
+		scripts/fr_art.py
 	@mkdir -p $(dir $@)
 	POKEFIRERED=$(abspath $(ROOT)) "$(PYTHON)" scripts/fr_export_buildings.py --output $@
+
+# The General tree as a standing card, taken off the tileset (fr_gen_trees.py).
+romfs/voxel/trees.rgba5551: scripts/fr_gen_trees.py scripts/fr_art.py
+	@mkdir -p $(dir $@)
+	POKEFIRERED=$(abspath $(ROOT)) "$(PYTHON)" scripts/fr_gen_trees.py --output $@
 
 romfs/shaders/voxel.shbin: src/voxel/voxel.v.pica
 	@mkdir -p $(dir $@)

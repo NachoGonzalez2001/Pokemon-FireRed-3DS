@@ -1,4 +1,4 @@
-/* General tileset trees: ground trunk and a north-leaning cutout crown. */
+/* General tileset trees: the shadow flat on the ground, the tree a north-leaning card. */
 #ifndef CTR_VOXEL_TREE_H
 #define CTR_VOXEL_TREE_H
 
@@ -7,13 +7,17 @@
 #define VOXEL_TREE_TEXTURE_DIM 128u
 #define VOXEL_TREE_TEXTURE_PATH "romfs:/voxel/trees.rgba5551"
 
-/* A small tree is one cell: its trunk, with the whole crown standing on it. */
+/* Emerald's one-cell small tree; FireRed's General has none in use. */
 #define VOXEL_TREE_SMALL 4
+#define VOXEL_TREE_BASE_LEFT 2
+#define VOXEL_TREE_BASE_RIGHT 3
 
-/* General IDs, plus the secondary tileset's own trees (Dewford's small one):
- * -1 for other art, the 2x2 quadrant (row*2+col) of a large tree, or
- * VOXEL_TREE_SMALL. secondaryTileset is the map's, as in VoxelMapInstance. */
+/* A tree's base, whose cell the tree pass draws (its shadow): the half
+ * VOXEL_TREE_BASE_LEFT/RIGHT, or -1. secondaryTileset is the map's. */
 int VoxelTree_Part(const void *secondaryTileset, int metatileId);
+/* A tree's crown row, where its card stands: the half 0/1, or -1. Its ground
+ * is VoxelTree_GroundMetatile's, drawn by the ground pass. */
+int VoxelTree_Crown(const void *secondaryTileset, int metatileId);
 /* Remove the old canopy from the cell above a tree, leaving its ground. */
 int VoxelTree_GroundMetatile(const void *secondaryTileset, int metatileId);
 

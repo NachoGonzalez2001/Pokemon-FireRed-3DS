@@ -1563,8 +1563,8 @@ static VoxelGpuVertex *ChunkVram(unsigned bytes, bool forView)
 
 /*
  * Tree crowns a little lighter than the art: dense woods read as dark masses
- * in 3D. Only the crowns - where gen_voxel_trees.py packs them - and not the
- * trunks, whose ground is the tileset's own and must match the grass around.
+ * in 3D. Only the card - where fr_gen_trees.py packs it - and not the shadow,
+ * whose grass is the tileset's own and must match the grass around.
  * Once, on the texture as it loads: nothing per frame.
  */
 static void BrightenCrowns(uint16_t *texels)
@@ -1572,7 +1572,7 @@ static void BrightenCrowns(uint16_t *texels)
     static const struct
     {
         unsigned x, y, w, h;
-    } crowns[] = {{0, 0, 32, 36}, {32, 32, 16, 32}, {64, 0, 16, 32}};
+    } crowns[] = {{0, 0, 32, 48}};
 
     for (unsigned c = 0; c < sizeof(crowns) / sizeof(crowns[0]); ++c)
         for (unsigned y = crowns[c].y; y < crowns[c].y + crowns[c].h; ++y)

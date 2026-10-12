@@ -422,6 +422,7 @@ void CtrGame_Init(void)
  */
 #ifdef CTR_DEBUG_WARP
 #include "field_fadetransition.h"
+#include "quest_log.h"
 #include "script.h"
 /* Diagnostic: once the field takes input, warp to CTR_DEBUG_WARP
  * (group,num,x,y), to look at any map without walking there. */
@@ -431,7 +432,7 @@ static void DebugWarp(void)
     static bool8 done;
 
     if (done || gMain.callback1 != CB1_Overworld || ArePlayerFieldControlsLocked() || gPaletteFade.active
-     || ScriptContext_IsEnabled())
+     || ScriptContext_IsEnabled() || gQuestLogState != 0)
         return;
     done = TRUE;
     CtrLog_Write(CTR_LOG_GAME, "debug warp to %d:%d (%d,%d)", target[0], target[1], target[2], target[3]);

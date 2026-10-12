@@ -1362,6 +1362,17 @@ void VoxelMesh_EmitBorder(VoxelBuilder *builder, int x0, int y0, int x1, int y1)
              && VoxelTree_Part(VoxelWorld_Instance(0)->secondaryTileset,
                                VoxelWorld_BorderMetatile(x, y)) >= 0)
                 continue; /* flat trunks and tilted crowns are appended later */
+            if (VoxelWorld_UsesTreeSprites(VoxelWorld_Instance(0))
+             && VoxelTree_Crown(VoxelWorld_Instance(0)->secondaryTileset,
+                                VoxelWorld_BorderMetatile(x, y)) >= 0)
+            {
+                /* The crown's card is appended later; its ground is flat. */
+                if (MetatileUV(builder, VoxelTree_GroundMetatile(VoxelWorld_Instance(0)->secondaryTileset,
+                                                                 VoxelWorld_BorderMetatile(x, y)),
+                               &u0, &v0, &u1, &v1))
+                    VoxelMesh_Top(builder, wx, wz, 0.0f, 0.0f, u0, v0, u1, v1, SHADE_TOP);
+                continue;
+            }
             south = !BorderAt(x, y + 1);
             east = !BorderAt(x + 1, y);
             west = !BorderAt(x - 1, y);
