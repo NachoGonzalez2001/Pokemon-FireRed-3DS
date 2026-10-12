@@ -87,31 +87,22 @@ static void EmitPost(VoxelBuilder *builder, int x, int y, int prop, int north, i
 }
 
 /*
- * A ledge stood up as a card is exact - and so looks flat from a camera
- * near the GBA's angle. It is a step instead: its face where the drawing
- * meets the ground, the ground drawn above it (packed over the face's empty
- * rows) laid on top at the face's height, and a short back down to the
- * ground north of it.
+ * A ledge: only its face stands, where the drawing meets the ground. Lifting
+ * the ground above it too - a step - stretched that ground over the back of
+ * the step; the face alone keeps the ground as it is drawn.
  */
 static void EmitLedge(VoxelBuilder *builder, int x, int y, int prop)
 {
-    float wx = (float)x, wz = (float)y;
-    float r0 = sProps[prop].r0;
-    float h = (sProps[prop].r1 - r0) / 16.0f;
+    float wx = (float)x;
+    float h = (sProps[prop].r1 - sProps[prop].r0) / 16.0f;
     float u0 = TEX_U(sProps[prop].x), u1 = TEX_U(sProps[prop].x + 16);
-    float vt = TEX_V(sProps[prop].y), vm = TEX_V(sProps[prop].y + r0);
+    float vm = TEX_V(sProps[prop].y + sProps[prop].r0);
     float vb = TEX_V(sProps[prop].y + sProps[prop].r1);
-    float zf = wz + sProps[prop].r1 / 16.0f, zb = wz + 0.2f;
+    float zf = (float)y + sProps[prop].r1 / 16.0f;
 
-    VoxelBuilder_Quad(builder, /* face */
+    VoxelBuilder_Quad(builder,
         &(VoxelVertex){wx,        h,    zf, u0, vm, 1.0f}, &(VoxelVertex){wx + 1.0f, h,    zf, u1, vm, 1.0f},
         &(VoxelVertex){wx + 1.0f, 0.0f, zf, u1, vb, 1.0f}, &(VoxelVertex){wx,        0.0f, zf, u0, vb, 1.0f});
-    VoxelBuilder_Quad(builder, /* top */
-        &(VoxelVertex){wx,        h, zb, u0, vt, 1.0f}, &(VoxelVertex){wx + 1.0f, h, zb, u1, vt, 1.0f},
-        &(VoxelVertex){wx + 1.0f, h, zf, u1, vm, 1.0f}, &(VoxelVertex){wx,        h, zf, u0, vm, 1.0f});
-    VoxelBuilder_Quad(builder, /* back, down to the ground behind */
-        &(VoxelVertex){wx + 1.0f, h, zb,        u1, vt, 0.8f}, &(VoxelVertex){wx,        h, zb,        u0, vt, 0.8f},
-        &(VoxelVertex){wx,        0.0f, wz,     u0, vt, 0.8f}, &(VoxelVertex){wx + 1.0f, 0.0f, wz,     u1, vt, 0.8f});
 }
 
 static void EmitProp(VoxelBuilder *builder, int x, int y, int prop, int below)

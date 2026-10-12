@@ -131,13 +131,9 @@ def build_props(root, ts, metatile, image):
         rows = [y for y in range(16) if any(top[y][x][1] for x in range(16))]
         if not rows:
             return None
-        # a ledge stands as a step: its face, and on top the ground drawn
-        # above it, packed in the rows the face leaves empty
+        # a ledge stands as its face alone
         ledge = set_index == 0 and mid in ledges
-        key = (ledge,) + tuple(top[y][x][0] if top[y][x][1] else None
-                               for y in range(16) for x in range(16))
-        if ledge:
-            key += (mid,)
+        key = tuple(top[y][x][0] if top[y][x][1] else None for y in range(16) for x in range(16))
         if key not in seen:
             sx, sy = next(slots)
             seen[key] = (sx, sy)
@@ -146,8 +142,6 @@ def build_props(root, ts, metatile, image):
                     rgb, idx = top[y][x]
                     if idx:
                         image[(sx + x, sy + y)] = rgb
-                    elif ledge and y < rows[0]:
-                        image[(sx + x, sy + y)] = base[y][x][0]
         sx, sy = seen[key]
         cols = [x for x in range(16) if any(top[y][x][1] for y in range(16))]
         # a fence running north-south is drawn as a line of posts, one a
@@ -247,7 +241,7 @@ def write_table(props, sets, path):
               "    unsigned short id, x, y, r0, r1, ground;",
               "    /* 1: a north-south fence post (its column `centre`), built as the",
               "     * fence drawn front on at sx, sy from row sr, turned along it;",
-              "     * 2: leans back, low; 3: a ledge, a step with its ground on top */",
+              "     * 2: leans back, low; 3: a ledge, its face alone */",
               "    unsigned char kind, centre;",
               "    unsigned short sx, sy, sr;",
               "} sProps[] = {"]
