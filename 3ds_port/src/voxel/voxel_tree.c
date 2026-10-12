@@ -57,47 +57,53 @@ static int PropIndex(const void *secondaryTileset, int metatileId)
 /* `below` is the prop of the cell south of this one, or -1: a prop drawn
  * down to its cell's bottom over one drawn from its top - the mailbox's
  * head over its post - stands on that one's card, in its plane. */
-/* One box of a fence: x0..x1 across, z0..z1 deep, y0..y1 high, every face
- * the post's drawn column (u0..u1) from its top (v0) to its foot (v1). */
-static void EmitBox(VoxelBuilder *builder, float x0, float x1, float z0, float z1,
-                    float y0, float y1, float u0, float u1, float v0, float v1)
+/*
+ * A fence running north-south is drawn as a post a cell, seen from above:
+ * stood up as a card it is a row of sticks, and built as posts it no longer
+ * matches the fences beside it. Seen from its side it is the same fence as
+ * one running east-west, so it is that: the fence of its material drawn
+ * front on (sx, sy), as a card turned to run north-south through the post.
+ */
+static void EmitPost(VoxelBuilder *builder, int x, int y, int prop)
 {
-    VoxelBuilder_Quad(builder, /* south */
-        &(VoxelVertex){x0, y1, z1, u0, v0, 1.0f}, &(VoxelVertex){x1, y1, z1, u1, v0, 1.0f},
-        &(VoxelVertex){x1, y0, z1, u1, v1, 1.0f}, &(VoxelVertex){x0, y0, z1, u0, v1, 1.0f});
-    VoxelBuilder_Quad(builder, /* north */
-        &(VoxelVertex){x1, y1, z0, u0, v0, 0.7f}, &(VoxelVertex){x0, y1, z0, u1, v0, 0.7f},
-        &(VoxelVertex){x0, y0, z0, u1, v1, 0.7f}, &(VoxelVertex){x1, y0, z0, u0, v1, 0.7f});
-    VoxelBuilder_Quad(builder, /* west */
-        &(VoxelVertex){x0, y1, z0, u0, v0, 0.85f}, &(VoxelVertex){x0, y1, z1, u1, v0, 0.85f},
-        &(VoxelVertex){x0, y0, z1, u1, v1, 0.85f}, &(VoxelVertex){x0, y0, z0, u0, v1, 0.85f});
-    VoxelBuilder_Quad(builder, /* east */
-        &(VoxelVertex){x1, y1, z1, u0, v0, 0.85f}, &(VoxelVertex){x1, y1, z0, u1, v0, 0.85f},
-        &(VoxelVertex){x1, y0, z0, u1, v1, 0.85f}, &(VoxelVertex){x1, y0, z1, u0, v1, 0.85f});
-    VoxelBuilder_Quad(builder, /* top */
-        &(VoxelVertex){x0, y1, z0, u0, v0, 1.0f}, &(VoxelVertex){x1, y1, z0, u1, v0, 1.0f},
-        &(VoxelVertex){x1, y1, z1, u1, v0, 1.0f}, &(VoxelVertex){x0, y1, z1, u0, v0, 1.0f});
+    float cx = (float)x + sProps[prop].centre / 16.0f;
+    float h = (16 - sProps[prop].sr) / 16.0f;
+    float u0 = TEX_U(sProps[prop].sx), u1 = TEX_U(sProps[prop].sx + 16);
+    float v0 = TEX_V(sProps[prop].sy + sProps[prop].sr), v1 = TEX_V(sProps[prop].sy + 16);
+
+    VoxelBuilder_Quad(builder,
+        &(VoxelVertex){cx, h,    (float)y,        u0, v0, 0.9f},
+        &(VoxelVertex){cx, h,    (float)y + 1.0f, u1, v0, 0.9f},
+        &(VoxelVertex){cx, 0.0f, (float)y + 1.0f, u1, v1, 0.9f},
+        &(VoxelVertex){cx, 0.0f, (float)y,        u0, v1, 0.9f});
 }
 
 /*
- * A fence running north-south is drawn as a post a cell, seen from above:
- * stood up as a card it is a row of sticks. So it is built - a post in the
- * middle of the cell where the drawing has it, as tall as the fences drawn
- * side on, and a rail to the next post north when that cell is one too.
+ * A ledge stood up as a card is exact - and so looks flat from a camera
+ * near the GBA's angle. It is a step instead: its face where the drawing
+ * meets the ground, the ground drawn above it (packed over the face's empty
+ * rows) laid on top at the face's height, and a short back down to the
+ * ground north of it.
  */
-static void EmitPost(VoxelBuilder *builder, int x, int y, int prop, bool railNorth)
+static void EmitLedge(VoxelBuilder *builder, int x, int y, int prop)
 {
-    float cx = (float)x + sProps[prop].centre / 16.0f;
-    float cz = (float)y + 0.5f;
-    float u0 = TEX_U(sProps[prop].x + sProps[prop].centre - 2);
-    float u1 = TEX_U(sProps[prop].x + sProps[prop].centre + 1);
-    float v0 = TEX_V(sProps[prop].y), v1 = TEX_V(sProps[prop].y + 16);
-    const float half = 1.5f / 16.0f, height = 14.0f / 16.0f;
+    float wx = (float)x, wz = (float)y;
+    float r0 = sProps[prop].r0;
+    float h = (sProps[prop].r1 - r0) / 16.0f;
+    float u0 = TEX_U(sProps[prop].x), u1 = TEX_U(sProps[prop].x + 16);
+    float vt = TEX_V(sProps[prop].y), vm = TEX_V(sProps[prop].y + r0);
+    float vb = TEX_V(sProps[prop].y + sProps[prop].r1);
+    float zf = wz + sProps[prop].r1 / 16.0f, zb = wz + 0.2f;
 
-    EmitBox(builder, cx - half, cx + half, cz - half, cz + half, 0.0f, height, u0, u1, v0, v1);
-    if (railNorth)
-        EmitBox(builder, cx - 0.5f / 16.0f, cx + 0.5f / 16.0f, cz - 1.0f, cz, 9.0f / 16.0f,
-                11.0f / 16.0f, u0, u1, v0, TEX_V(sProps[prop].y + 4));
+    VoxelBuilder_Quad(builder, /* face */
+        &(VoxelVertex){wx,        h,    zf, u0, vm, 1.0f}, &(VoxelVertex){wx + 1.0f, h,    zf, u1, vm, 1.0f},
+        &(VoxelVertex){wx + 1.0f, 0.0f, zf, u1, vb, 1.0f}, &(VoxelVertex){wx,        0.0f, zf, u0, vb, 1.0f});
+    VoxelBuilder_Quad(builder, /* top */
+        &(VoxelVertex){wx,        h, zb, u0, vt, 1.0f}, &(VoxelVertex){wx + 1.0f, h, zb, u1, vt, 1.0f},
+        &(VoxelVertex){wx + 1.0f, h, zf, u1, vm, 1.0f}, &(VoxelVertex){wx,        h, zf, u0, vm, 1.0f});
+    VoxelBuilder_Quad(builder, /* back, down to the ground behind */
+        &(VoxelVertex){wx + 1.0f, h, zb,        u1, vt, 0.8f}, &(VoxelVertex){wx,        h, zb,        u0, vt, 0.8f},
+        &(VoxelVertex){wx,        0.0f, wz,     u0, vt, 0.8f}, &(VoxelVertex){wx + 1.0f, 0.0f, wz,     u1, vt, 0.8f});
 }
 
 static void EmitProp(VoxelBuilder *builder, int x, int y, int prop, int below)
@@ -233,11 +239,9 @@ void VoxelTree_EmitInstance(VoxelBuilder *builder, const VoxelMapInstance *inst,
                 builder->lift = VoxelRelief_CellLift(inst, x, y);
                 builder->shift = VoxelRelief_CellShift(inst, x, y);
                 if (sProps[prop].kind == 1)
-                {
-                    int north = VoxelWorld_GetInstanceAt(x, y - 1) == inst
-                              ? PropIndex(inst->secondaryTileset, VoxelWorld_GetMetatileId(x, y - 1)) : -1;
-                    EmitPost(builder, x, y, prop, north >= 0 && sProps[north].kind == 1);
-                }
+                    EmitPost(builder, x, y, prop);
+                else if (sProps[prop].kind == 3)
+                    EmitLedge(builder, x, y, prop);
                 else
                     EmitProp(builder, x, y, prop, below);
                 builder->lift = 0.0f;
@@ -271,7 +275,9 @@ void VoxelTree_EmitBorder(VoxelBuilder *builder, int x0, int y0, int x1, int y1)
             crown = VoxelTree_Crown(current->secondaryTileset, metatileId);
             prop = PropIndex(current->secondaryTileset, metatileId);
             if (prop >= 0 && sProps[prop].kind == 1)
-                EmitPost(builder, x, y, prop, false);
+                EmitPost(builder, x, y, prop);
+            else if (prop >= 0 && sProps[prop].kind == 3)
+                EmitLedge(builder, x, y, prop);
             else if (prop >= 0)
                 EmitProp(builder, x, y, prop, -1);
             if (part >= 0 || crown >= 0)

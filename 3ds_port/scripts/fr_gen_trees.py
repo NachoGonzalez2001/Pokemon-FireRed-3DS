@@ -58,7 +58,7 @@ def layer(ts, entries, which):
 
 # The upper layer of each stands up as a card (voxel_tree.c); the ground
 # drawn under it is the same metatile without that layer.
-SIGNS = [0x002, 0x003]
+SIGNS = [0x002, 0x003, 0x160, 0x168]   # 160 over 168: the Gym's sign
 ROCKS = [0x0A7, 0x0AF, 0x0B7]
 BUSHES = [0x005, 0x0FA, 0x0FB]
 FLOWERS = [0x004]
@@ -67,14 +67,18 @@ FENCES = [0x0DE, 0x0DF] + list(range(0x0E6, 0x0F4)) + [0x0F6, 0x0F7, 0x0F8, 0x0F
 MB_JUMP_SOUTH = 0x3B
 
 
-def prop_ids(root):
-    """The props, and every south-facing ledge (a jump behaviour)."""
+def south_ledges(root):
+    """Every south-facing ledge (a jump behaviour) drawn on the upper layer."""
     blob = (root / "data/tilesets/primary/general/metatiles.bin").read_bytes()
     attrs = (root / "data/tilesets/primary/general/metatile_attributes.bin").read_bytes()
-    ledges = [i for i in range(len(blob) // 16)
-              if struct.unpack_from("<I", attrs, i * 4)[0] & 0x1FF == MB_JUMP_SOUTH
-              and any(struct.unpack_from("<8H", blob, i * 16)[4:])]
-    ids = SIGNS + ROCKS + BUSHES + FLOWERS + FENCES + ledges
+    return [i for i in range(len(blob) // 16)
+            if struct.unpack_from("<I", attrs, i * 4)[0] & 0x1FF == MB_JUMP_SOUTH
+            and any(struct.unpack_from("<8H", blob, i * 16)[4:])]
+
+
+def prop_ids(root):
+    """The props, and every south-facing ledge."""
+    ids = SIGNS + ROCKS + BUSHES + FLOWERS + FENCES + south_ledges(root)
     return sorted(set(ids), key=ids.index)
 
 
@@ -112,6 +116,8 @@ def build_props(root, ts, metatile, image):
     seen = {}
     out = []
 
+    ledges = set(south_ledges(root))
+
     def place(tiles, set_index, mid, e, plain):
         top = layer(tiles, e, 1)
         base = layer(tiles, e, 0)
@@ -124,7 +130,13 @@ def build_props(root, ts, metatile, image):
         rows = [y for y in range(16) if any(top[y][x][1] for x in range(16))]
         if not rows:
             return None
-        key = tuple(top[y][x][0] if top[y][x][1] else None for y in range(16) for x in range(16))
+        # a ledge stands as a step: its face, and on top the ground drawn
+        # above it, packed in the rows the face leaves empty
+        ledge = set_index == 0 and mid in ledges
+        key = (ledge,) + tuple(top[y][x][0] if top[y][x][1] else None
+                               for y in range(16) for x in range(16))
+        if ledge:
+            key += (mid,)
         if key not in seen:
             sx, sy = next(slots)
             seen[key] = (sx, sy)
@@ -133,6 +145,8 @@ def build_props(root, ts, metatile, image):
                     rgb, idx = top[y][x]
                     if idx:
                         image[(sx + x, sy + y)] = rgb
+                    elif ledge and y < rows[0]:
+                        image[(sx + x, sy + y)] = base[y][x][0]
         sx, sy = seen[key]
         cols = [x for x in range(16) if any(top[y][x][1] for y in range(16))]
         # a fence running north-south is drawn as a line of posts, one a
@@ -143,8 +157,13 @@ def build_props(root, ts, metatile, image):
         # as tall as the fences, so they lean back, low, instead
         if mid in FLOWERS and set_index == 0:
             post = 2
+        if ledge:
+            post = 3
         centre = (cols[0] + cols[-1] + 1) // 2
-        out.append((set_index, mid, sx, sy, rows[0], rows[-1] + 1, plain.get(e[:4], mid), post, centre))
+        # a post's fence seen side on: the fence of its material drawn front on
+        metal = any((v >> 12) == 2 for v in e[4:] if v & 0x3FF)
+        out.append([set_index, mid, sx, sy, rows[0], rows[-1] + 1, plain.get(e[:4], mid), post,
+                    centre, 0x0E7 if metal else 0x0E6])
         return e
 
     plain = {}
@@ -156,9 +175,15 @@ def build_props(root, ts, metatile, image):
         e = place(ts, 0, mid, general[mid], plain)
         # towns draw fences, signs and mailboxes from General's tiles; not
         # bushes or rocks, whose tiles are the trees' and the mountains'
-        if e and (mid in FENCES or mid in SIGNS):
+        if e and (mid in FENCES or mid in SIGNS or mid == 0x005):
             allowed |= {v & 0x3FF for v in e[4:] if v & 0x3FF}
     allowed -= {0}
+    # General's own pieces drawn from the same tiles: corners, ends, a bush
+    # against something
+    listed = {p[1] for p in out}
+    for i, e in enumerate(general):
+        if i not in listed and any(v & 0x3FF for v in e[4:])            and all((v & 0x3FF) in allowed for v in e[4:] if v & 0x3FF):
+            place(ts, 0, i, e, plain)
     sets = []
     for name in outdoor_secondaries(root):
         path = os.path.join(fr_art.tileset_dir(name), "metatiles.bin")
@@ -177,7 +202,11 @@ def build_props(root, ts, metatile, image):
         tiles = fr_art.Tilesets("gTileset_General", name)
         for i in found:
             place(tiles, len(sets), 0x280 + i, sec[i], local)
-    return out, sets
+    slot_of = {p[1]: (p[2], p[3], p[4]) for p in out if p[0] == 0}
+    for p in out:
+        sx, sy, sr = slot_of[p[9]]
+        p[9:] = [sx, sy, sr]
+    return [tuple(p) for p in out], sets
 
 
 def write_table(props, sets, path):
@@ -196,11 +225,14 @@ def write_table(props, sets, path):
               "{",
               "    unsigned char set;",
               "    unsigned short id, x, y, r0, r1, ground;",
-              "    /* 1: a north-south fence post (its column `centre`); 2: leans back, low */",
+              "    /* 1: a north-south fence post (its column `centre`), built as the",
+              "     * fence drawn front on at sx, sy from row sr, turned along it;",
+              "     * 2: leans back, low; 3: a ledge, a step with its ground on top */",
               "    unsigned char kind, centre;",
+              "    unsigned short sx, sy, sr;",
               "} sProps[] = {"]
     for p in props:
-        lines.append("    { %2d, 0x%03X, %3d, %3d, %2d, %2d, 0x%03X, %d, %2d }," % p)
+        lines.append("    { %2d, 0x%03X, %3d, %3d, %2d, %2d, 0x%03X, %d, %2d, %3d, %3d, %2d }," % p)
     lines += ["};", "", "#endif", ""]
     path.write_text("\n".join(lines), encoding="utf-8", newline="\n")
 

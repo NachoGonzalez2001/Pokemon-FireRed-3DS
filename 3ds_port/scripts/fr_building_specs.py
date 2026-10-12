@@ -1231,29 +1231,31 @@ def paint_door(art, x, y, w=16, h=28):
     return Tile(x, y, x + w, y + h, top=h)
 
 
-def gatehouse(cells, rows, side_doors=False):
+def gatehouse(cells, rows, side_doors=False, extra=0):
     """The route gates and the Underground Path's huts, General's own tiles:
     a grey corrugated roof falling to the front (rows 0..42, its ribs the
     same on every row), its eave (43..46), and the facade from row 47 down
     to the rect's bottom - glass, brick, the passage or a door, the pillars
     at either end drawn on it."""
     width, front_z = cells * 16, rows * 16
+    s = 16 * extra                 # Route 2's gates have a row more of roof
 
     def parts(art):
         back_z = 16
-        wall_top = front_z - 47
-        brick = Tile(8, 61, 24, 65, top=wall_top)
+        wall_top = front_z - 47 - s
+        brick = Tile(8, 61 + s, 24, 65 + s, top=wall_top)
         walls = Prism(
             "walls", 0, width,
             [(front_z, 0), (front_z, wall_top), (back_z, wall_top), (back_z, 0)],
-            edges={0: Proj(47, front_z), 2: brick}, skip=(1, 3),
+            edges={0: Proj(47 + s, front_z), 2: brick}, skip=(1, 3),
             caps=[Band(0, wall_top + 1, brick, front_z)])
         y1 = wall_top + 4
-        rib_end = Tile(8, 43, 24, 47, top=y1)
+        rib_end = Tile(8, 43 + s, 24, 47 + s, top=y1)
         roof = Prism(
             "roof", 0, width,
             [(front_z, wall_top), (front_z, y1), (back_z, y1 + 12), (back_z, wall_top)],
-            edges={0: Proj(43, 47), 1: Strip((2, 43), repeat=(10, 14), tail=(0, 2)), 2: rib_end},
+            edges={0: Proj(43 + s, 47 + s), 1: Strip((2, 43 + s), repeat=(10, 14), tail=(0, 2)),
+                   2: rib_end},
             skip=(3,), caps=[Band(wall_top, y1 + 13, rib_end, front_z)])
         parts = [walls, roof]
         if side_doors:
@@ -1268,9 +1270,9 @@ def gatehouse(cells, rows, side_doors=False):
     return parts
 
 
-def gatehouse_exact(cells, rows):
-    width, front_z = cells * 16, rows * 16
-    return [(8, 47, width - 8, front_z), (0, 43, width, 47), (0, 4, width, 40)]
+def gatehouse_exact(cells, rows, extra=0):
+    width, front_z, s = cells * 16, rows * 16, 16 * extra
+    return [(8, 47 + s, width - 8, front_z), (0, 43 + s, width, 47 + s), (0, 4, width, 40 + s)]
 
 
 GATE_GROUND = [GRASS, 0x008, 0x009, 0x010, 0x001, 0x004, 0x0E7, 0x0E6, 0x00E, 0x00F, 0x01E,
@@ -1911,3 +1913,15 @@ SPECS.append({
     "parts": saffron_house(3, 80),
     "exact": [(3, 43, 45, 80), (12, 9, 36, 40)],
 })
+# Route 2's two gates, eight cells wide and a row of roof taller
+SPECS += [
+    {
+        "name": name,
+        "layout": "LAYOUT_ROUTE2",
+        "rect": (2, y, 8, rows),
+        "ground": GATE_GROUND,
+        "parts": gatehouse(8, rows, extra=1),
+        "exact": gatehouse_exact(8, rows, extra=1),
+    }
+    for (name, y, rows) in (("gate_route2_north", 14, 6), ("gate_route2_south", 45, 7))
+]
