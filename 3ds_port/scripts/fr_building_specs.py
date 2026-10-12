@@ -1833,3 +1833,12 @@ SPECS += [
         "exact": [(0, 45, 80, 64), (0, 8, 80, 45)],
     },
 ]
+# Saffron paints the Mart's top row and corners with its own paving
+SPECS.append({
+    "name": "poke_mart_saffron",
+    "layout": "LAYOUT_SAFFRON_CITY",
+    "rect": (38, 18, 4, 4),
+    "ground": SAFFRON_GROUND,
+    "parts": poke_mart,
+    "exact": MART_EXACT,
+})
