@@ -1205,11 +1205,33 @@ SAFFRON_GROUND = [GRASS, 0x2E9, 0x2E3, 0x2E5, 0x2EC, 0x2F3, 0x2F4, 0x2F5, 0x2EB,
 SAFFRON_HOUSES = ([(x, y, 5, 80) for (x, y) in ((17, 10), (21, 10), (46, 17), (41, 34))]
                   + [(x, y, 4, 64) for (x, y) in ((22, 18), (50, 8))]
                   + [(19, 41, 4, 56)])
+# the house beside Silph Co.: its east column is the tower's, so it is the
+# same house three cells wide (cells 26..28 x 17..21), its door kept
+SAFFRON_NARROW_HOUSE = (26, 17, 3, 5, 80)
 
 
 # ── General's gatehouses ───────────────────────────────────────────────────
 
-def gatehouse(cells, rows):
+def paint_door(art, x, y, w=16, h=28):
+    """A glass door, drawn into the art where nothing else reads: the gates'
+    side doors face east and west, and the GBA never draws them. Colours
+    from the facade: its dark outline, grey frame and two glass blues."""
+    px = art.load()
+    dark, frame = px[1, 79], px[2, 51]
+    glass, shade = px[14, 53], px[12, 53]
+    for j in range(h):
+        for i in range(w):
+            if i in (0, w - 1) or j == 0:
+                c = dark
+            elif i in (1, w - 2) or j == 1 or j == h // 2:
+                c = frame
+            else:
+                c = glass if j < h // 2 else shade
+            px[x + i, y + j] = c
+    return Tile(x, y, x + w, y + h, top=h)
+
+
+def gatehouse(cells, rows, side_doors=False):
     """The route gates and the Underground Path's huts, General's own tiles:
     a grey corrugated roof falling to the front (rows 0..42, its ribs the
     same on every row), its eave (43..46), and the facade from row 47 down
@@ -1233,7 +1255,16 @@ def gatehouse(cells, rows):
             [(front_z, wall_top), (front_z, y1), (back_z, y1 + 12), (back_z, wall_top)],
             edges={0: Proj(43, 47), 1: Strip((2, 43), repeat=(10, 14), tail=(0, 2)), 2: rib_end},
             skip=(3,), caps=[Band(wall_top, y1 + 13, rib_end, front_z)])
-        return [walls, roof], art
+        parts = [walls, roof]
+        if side_doors:
+            # The east-west gates are entered at either end, on their fourth
+            # row of cells: a door on each end wall there.
+            art, band0 = extend(art, 32)
+            door = paint_door(art, 0, band0)
+            for name, x0, x1 in (("door_w", -1, 0), ("door_e", width, width + 1)):
+                parts.append(Prism(name, x0, x1, [(64, 0), (64, 28), (48, 28), (48, 0)],
+                                   skip=(0, 1, 2, 3), caps=[Band(0, 29, door, 64)]))
+        return parts, art
     return parts
 
 
@@ -1245,10 +1276,10 @@ def gatehouse_exact(cells, rows):
 GATE_GROUND = [GRASS, 0x008, 0x009, 0x010, 0x001, 0x004, 0x0E7, 0x0E6, 0x00E, 0x00F, 0x01E,
                0x01F, 0x016, 0x017, 0x00D, 0x0EE, 0x0EF, 0x0EC, 0x0ED, 0x18D, 0x18E, 0x138,
                0x13C, 0x140, 0x144, 0x0F4, 0x0F7, 0x0D4, 0x0D5, 0x0E4, 0x002]
-GATEHOUSES = [("gate_passage_6", "LAYOUT_SAFFRON_CITY", (32, 0), 6, 6),
-              ("gate_side_6", "LAYOUT_SAFFRON_CITY", (2, 24), 6, 5),
-              ("gate_passage_5", "LAYOUT_ROUTE12", (12, 16), 5, 6),
-              ("underground_hut", "LAYOUT_ROUTE5", (30, 28), 4, 4)]
+GATEHOUSES = [("gate_passage_6", "LAYOUT_SAFFRON_CITY", (32, 0), 6, 6, False),
+              ("gate_side_6", "LAYOUT_SAFFRON_CITY", (2, 24), 6, 5, True),
+              ("gate_passage_5", "LAYOUT_ROUTE12", (12, 16), 5, 6, False),
+              ("underground_hut", "LAYOUT_ROUTE5", (30, 28), 4, 4, False)]
 
 
 # ── Cinnabar Island ────────────────────────────────────────────────────────
@@ -1717,10 +1748,10 @@ SPECS += [
         "layout": layout,
         "rect": (x, y, cells, rows),
         "ground": GATE_GROUND,
-        "parts": gatehouse(cells, rows),
+        "parts": gatehouse(cells, rows, doors),
         "exact": gatehouse_exact(cells, rows),
     }
-    for (name, layout, (x, y), cells, rows) in GATEHOUSES
+    for (name, layout, (x, y), cells, rows, doors) in GATEHOUSES
 ]
 SPECS.append({
     "name": "silph_co",
@@ -1744,7 +1775,9 @@ SPECS += [
         "layout": "LAYOUT_CINNABAR_ISLAND",
         "rect": (5, 0, 7, 5),
         "ground": CINNABAR_GROUND,
-        "owned": {(i, j) for i in range(7) for j in range(4)} | {(2, 4), (3, 4), (4, 4)},
+        # the porch stands on the steps, which stay the map's: owned, they
+        # took the ground round the Mansion, which is the shore
+        "owned": {(i, j) for i in range(7) for j in range(4)},
         "parts": pokemon_mansion,
         "exact": MANSION_EXACT,
     },
@@ -1868,4 +1901,13 @@ SPECS.append({
     "quads": {},
     "parts": saffron_house(4, 80),
     "exact": [(3, 43, 61, 80), (12, 9, 52, 40)],
+})
+SPECS.append({
+    "name": "saffron_house_narrow",
+    "layout": "LAYOUT_SAFFRON_CITY",
+    "rect": SAFFRON_NARROW_HOUSE[:4],
+    "ground": SAFFRON_GROUND,
+    "owned": {(i, j) for i in range(3) for j in range(5)},
+    "parts": saffron_house(3, 80),
+    "exact": [(3, 43, 45, 80), (12, 9, 36, 40)],
 })
