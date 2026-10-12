@@ -1470,6 +1470,36 @@ def sea_cottage(art):
         caps=[Band(0, wall_top + 1, plaster, front_z)])
     return [walls], art
 
+
+def pokemon_tower_top(art):
+    """The Pokemon Tower's upper floors (Route 10, cells 15..21 x 72..79):
+    the tower runs off Lavender's top into the route's last rows, so its
+    drawing goes on here, 128 rows more of it. Its face, in Route 10's
+    coordinates, stands where Lavender's does (86 px into Lavender, which
+    begins 128 px below these cells), from the lower tower's top (86) up to
+    the floors' last row (56); above that the drawing is the roof seen from
+    above - the octagon and its dome, rows 8..55 - laid as the top. The
+    route's cells behind are left to the mountain round them."""
+    z = 128 + 86
+    y0, y1 = 86, z - 56
+    windows = Tile(22, 60, 38, 76, top=y1)
+    tower = Prism(
+        "tower_top", 6, 106, [(z, y0), (z, y1), (z - 48, y1), (z - 48, y0)],
+        edges={0: Proj(56, 128), 1: Proj(8, 56), 2: windows}, skip=(3,),
+        caps=[Band(y0, y1 + 1, windows, z)])
+    return [tower], art
+
+
+def forest_gate_roof(art):
+    """The gate at Viridian Forest's south edge, of which the forest's map
+    holds only the roof (cells 24..34 x 63..68): the gate's corrugated
+    sheets, falling to the front, off the map's end."""
+    roof = Prism(
+        "roof", 0, 176, [(96, 0), (96, 53), (0, 65), (0, 0)],
+        edges={1: Strip((10, 14), repeat=(10, 14)), 0: Tile(8, 10, 24, 14)}, skip=(2, 3),
+        caps=[Band(0, 66, Tile(8, 10, 24, 14), 96)])
+    return [roof], art
+
 SPECS = [
     {
         "name": "pallet_house",
@@ -1924,4 +1954,30 @@ SPECS += [
         "exact": gatehouse_exact(8, rows, extra=1),
     }
     for (name, y, rows) in (("gate_route2_north", 14, 6), ("gate_route2_south", 45, 7))
+]
+SPECS += [
+    {
+        "name": "gate_route2_east",
+        "layout": "LAYOUT_ROUTE2",
+        "rect": (16, 42, 6, 5),
+        "ground": GATE_GROUND,
+        "parts": gatehouse(6, 5),
+        "exact": gatehouse_exact(6, 5),
+    },
+    {
+        "name": "pokemon_tower_top",
+        "layout": "LAYOUT_ROUTE10",
+        "rect": (15, 72, 7, 8),
+        "ground": [GRASS, 0x070, 0x071, 0x072, 0x073],
+        "parts": pokemon_tower_top,
+        "exact": [(8, 56, 104, 128)],
+    },
+    {
+        "name": "forest_gate_roof",
+        "layout": "LAYOUT_VIRIDIAN_FOREST",
+        "rect": (24, 63, 11, 6),
+        "ground": [GRASS],
+        "parts": forest_gate_roof,
+        "exact": [],
+    },
 ]

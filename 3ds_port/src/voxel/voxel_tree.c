@@ -73,7 +73,9 @@ static void EmitPost(VoxelBuilder *builder, int x, int y, int prop, int north, i
     /* From the fence it meets to the next: another post runs on through the
      * cell, a fence drawn front on is met where it stands, and a free end
      * stops at the post in the middle of the cell. */
-    float z0 = north >= 0 ? (float)y : (float)y + 0.5f;
+    /* a fence drawn front on to the north already has its end post there */
+    float z0 = north < 0 ? (float)y + 0.5f
+             : sProps[north].kind == 1 ? (float)y : (float)y + 2.0f / 16.0f;
     float z1 = south < 0 ? (float)y + 0.5f
              : sProps[south].kind == 1 ? (float)y + 1.0f
              : (float)(y + 1) + sProps[south].r1 / 16.0f;
@@ -103,6 +105,39 @@ static void EmitLedge(VoxelBuilder *builder, int x, int y, int prop)
     VoxelBuilder_Quad(builder,
         &(VoxelVertex){wx,        h,    zf, u0, vm, 1.0f}, &(VoxelVertex){wx + 1.0f, h,    zf, u1, vm, 1.0f},
         &(VoxelVertex){wx + 1.0f, 0.0f, zf, u1, vb, 1.0f}, &(VoxelVertex){wx,        0.0f, zf, u0, vb, 1.0f});
+}
+
+/*
+ * A wall drawn from above - a pen's hedge - raised as a low block over the
+ * rows its drawing fills: the drawing on top, its sides the colour of its
+ * edge rows.
+ */
+static void EmitBlock(VoxelBuilder *builder, int x, int y, int prop)
+{
+    float x0 = (float)x, x1 = x0 + 1.0f;
+    float z0 = (float)y + sProps[prop].r0 / 16.0f, z1 = (float)y + sProps[prop].r1 / 16.0f;
+    const float h = 0.5f;
+    float u0 = TEX_U(sProps[prop].x), u1 = TEX_U(sProps[prop].x + 16);
+    float vt = TEX_V(sProps[prop].y + sProps[prop].r0), vb = TEX_V(sProps[prop].y + sProps[prop].r1);
+    float ve = TEX_V(sProps[prop].y + sProps[prop].r1 - 1);
+
+    VoxelBuilder_Quad(builder, /* top */
+        &(VoxelVertex){x0, h, z0, u0, vt, 1.0f}, &(VoxelVertex){x1, h, z0, u1, vt, 1.0f},
+        &(VoxelVertex){x1, h, z1, u1, vb, 1.0f}, &(VoxelVertex){x0, h, z1, u0, vb, 1.0f});
+    VoxelBuilder_Quad(builder, /* south */
+        &(VoxelVertex){x0, h, z1, u0, ve, 0.85f}, &(VoxelVertex){x1, h, z1, u1, ve, 0.85f},
+        &(VoxelVertex){x1, 0.0f, z1, u1, vb, 0.85f}, &(VoxelVertex){x0, 0.0f, z1, u0, vb, 0.85f});
+    VoxelBuilder_Quad(builder, /* north */
+        &(VoxelVertex){x1, h, z0, u1, vt, 0.7f}, &(VoxelVertex){x0, h, z0, u0, vt, 0.7f},
+        &(VoxelVertex){x0, 0.0f, z0, u0, ve, 0.7f}, &(VoxelVertex){x1, 0.0f, z0, u1, ve, 0.7f});
+    VoxelBuilder_Quad(builder, /* west */
+        &(VoxelVertex){x0, h, z0, u0, vt, 0.8f}, &(VoxelVertex){x0, h, z1, u0, vb, 0.8f},
+        &(VoxelVertex){x0, 0.0f, z1, u0 + 1.0f / VOXEL_TREE_TEXTURE_DIM, vb, 0.8f},
+        &(VoxelVertex){x0, 0.0f, z0, u0 + 1.0f / VOXEL_TREE_TEXTURE_DIM, vt, 0.8f});
+    VoxelBuilder_Quad(builder, /* east */
+        &(VoxelVertex){x1, h, z1, u1, vb, 0.8f}, &(VoxelVertex){x1, h, z0, u1, vt, 0.8f},
+        &(VoxelVertex){x1, 0.0f, z0, u1 - 1.0f / VOXEL_TREE_TEXTURE_DIM, vt, 0.8f},
+        &(VoxelVertex){x1, 0.0f, z1, u1 - 1.0f / VOXEL_TREE_TEXTURE_DIM, vb, 0.8f});
 }
 
 static void EmitProp(VoxelBuilder *builder, int x, int y, int prop, int below)
@@ -163,6 +198,10 @@ int VoxelTree_GroundMetatile(const void *secondaryTileset, int metatileId)
 {
     int prop = PropIndex(secondaryTileset, metatileId);
 
+    /* a ledge keeps its drawing on the ground under its face: the face
+     * standing alone left a seam between it and the ground behind */
+    if (prop >= 0 && sProps[prop].kind == 3)
+        return metatileId;
     if (prop >= 0)
         return sProps[prop].ground != metatileId ? sProps[prop].ground
                                                  : (int)VOXEL_BARE_FIRST + metatileId;
@@ -247,6 +286,8 @@ void VoxelTree_EmitInstance(VoxelBuilder *builder, const VoxelMapInstance *inst,
                 }
                 else if (sProps[prop].kind == 3)
                     EmitLedge(builder, x, y, prop);
+                else if (sProps[prop].kind == 4)
+                    EmitBlock(builder, x, y, prop);
                 else
                     EmitProp(builder, x, y, prop, below);
                 builder->lift = 0.0f;
@@ -283,6 +324,8 @@ void VoxelTree_EmitBorder(VoxelBuilder *builder, int x0, int y0, int x1, int y1)
                 EmitPost(builder, x, y, prop, prop, prop);
             else if (prop >= 0 && sProps[prop].kind == 3)
                 EmitLedge(builder, x, y, prop);
+            else if (prop >= 0 && sProps[prop].kind == 4)
+                EmitBlock(builder, x, y, prop);
             else if (prop >= 0)
                 EmitProp(builder, x, y, prop, -1);
             if (part >= 0 || crown >= 0)

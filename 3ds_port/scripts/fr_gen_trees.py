@@ -66,6 +66,11 @@ FENCES = [0x0DE, 0x0DF] + list(range(0x0E6, 0x0F4)) + [0x0F6, 0x0F7, 0x0F8, 0x0F
                                                          0x135, 0x136]
 MB_JUMP_SOUTH = 0x3B
 TIP_FENCES = {0x0D6: 0x010, 0x0D7: 0x011}
+# A town's own props that use none of General's tiles
+EXTRA_PROPS = {"gTileset_FuchsiaCity": [0x28E, 0x28F]}     # the stone fence
+# Drawn from above, raised as a low block rather than stood up: the hedge
+# walls of Fuchsia's Pokemon pens
+BLOCKS = {"gTileset_FuchsiaCity": [0x290, 0x291, 0x292, 0x293, 0x294, 0x295, 0x29B, 0x29C]}
 
 
 def south_ledges(root):
@@ -119,7 +124,7 @@ def build_props(root, ts, metatile, image):
 
     ledges = set(south_ledges(root))
 
-    def place(tiles, set_index, mid, e, plain):
+    def place(tiles, set_index, mid, e, plain, block=False):
         top = layer(tiles, e, 1)
         base = layer(tiles, e, 0)
         # the flowers' upper layer repeats the grass round them: what draws
@@ -133,7 +138,8 @@ def build_props(root, ts, metatile, image):
             return None
         # a ledge stands as its face alone
         ledge = set_index == 0 and mid in ledges
-        key = tuple(top[y][x][0] if top[y][x][1] else None for y in range(16) for x in range(16))
+        key = (block,) + tuple(top[y][x][0] if top[y][x][1] else None
+                               for y in range(16) for x in range(16))
         if key not in seen:
             sx, sy = next(slots)
             seen[key] = (sx, sy)
@@ -142,6 +148,9 @@ def build_props(root, ts, metatile, image):
                     rgb, idx = top[y][x]
                     if idx:
                         image[(sx + x, sy + y)] = rgb
+                    elif block:
+                        # a block's top is the whole drawing, ground and all
+                        image[(sx + x, sy + y)] = base[y][x][0]
         sx, sy = seen[key]
         cols = [x for x in range(16) if any(top[y][x][1] for y in range(16))]
         # a fence running north-south is drawn as a line of posts, one a
@@ -154,6 +163,8 @@ def build_props(root, ts, metatile, image):
             post = 2
         if ledge:
             post = 3
+        if block:
+            post = 4
         centre = (cols[0] + cols[-1] + 1) // 2
         # a post's fence seen side on: the fence of its material drawn front on
         metal = any((v >> 12) == 2 for v in e[4:] if v & 0x3FF)
@@ -191,12 +202,16 @@ def build_props(root, ts, metatile, image):
         found = [i for i, e in enumerate(sec)
                  if any(v & 0x3FF for v in e[4:])
                  and all((v & 0x3FF) in allowed for v in e[4:] if v & 0x3FF)]
-        if not found:
+        found += [m - 0x280 for m in EXTRA_PROPS.get(name, [])]
+        blocks = [m - 0x280 for m in BLOCKS.get(name, [])]
+        if not found and not blocks:
             continue
         sets.append(name)
         tiles = fr_art.Tilesets("gTileset_General", name)
         for i in found:
             place(tiles, len(sets), 0x280 + i, sec[i], local)
+        for i in blocks:
+            place(tiles, len(sets), 0x280 + i, sec[i], local, block=True)
     # A tree's tip over a fence (0D6/0D7): the fence is on the lower layer,
     # drawn over the grass. It stands up on its own, keyed off the grass;
     # the tree's card carries the tip, and the cell's ground is plain grass.
@@ -241,7 +256,8 @@ def write_table(props, sets, path):
               "    unsigned short id, x, y, r0, r1, ground;",
               "    /* 1: a north-south fence post (its column `centre`), built as the",
               "     * fence drawn front on at sx, sy from row sr, turned along it;",
-              "     * 2: leans back, low; 3: a ledge, its face alone */",
+              "     * 2: leans back, low; 3: a ledge, its face alone (its drawing kept",
+              "     * flat too); 4: a low block over rows r0..r1, the drawing on top */",
               "    unsigned char kind, centre;",
               "    unsigned short sx, sy, sr;",
               "} sProps[] = {"]
