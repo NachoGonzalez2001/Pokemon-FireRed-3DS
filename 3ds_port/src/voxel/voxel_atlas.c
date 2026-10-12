@@ -199,6 +199,12 @@ static bool AtlasSourceOf(const struct Tileset *primary, const struct Tileset *s
     unsigned layoutId, quarters, i = id - VOXEL_METATILE_REAL;
 
     *cut = NULL;
+    if (id >= VOXEL_BARE_FIRST)
+    {
+        *metatile = id - VOXEL_BARE_FIRST;
+        *hidden = 0xFu;
+        return true;
+    }
     if (id < VOXEL_METATILE_REAL)
     {
         *metatile = id;
@@ -432,7 +438,7 @@ bool VoxelAtlas_JobBegin(VoxelAtlasJob *job, const VoxelMapInstance *inst, uint1
     VoxelWorld_MarkUsedMetatiles(job->primary, job->secondary, job->used);
     /* and the pair's ground variants, a few slots: composed whether or not
      * a model on screen stands on them yet */
-    for (unsigned id = VOXEL_METATILE_REAL; id < VOXEL_METATILE_IDS; ++id)
+    for (unsigned id = VOXEL_METATILE_REAL; id < VOXEL_BARE_FIRST; ++id)
     {
         unsigned m, hidden;
         const uint8_t *cut;

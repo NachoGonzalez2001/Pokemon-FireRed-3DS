@@ -997,7 +997,7 @@ int VoxelMesh_DraftSlot(const VoxelMapInstance *inst, const struct VoxelAtlasMap
     /* The trunk's ground, not the card of the crown drawn over it. */
     if (VoxelWorld_UsesTreeSprites(inst))
         metatile = VoxelTree_GroundMetatile(inst->secondaryTileset, metatile);
-    if (metatile < 0 || metatile >= (int)VOXEL_METATILE_REAL)
+    if (metatile < 0 || metatile >= (int)VOXEL_METATILE_IDS)
         return -1;
     slot = atlas->slotOf[metatile];
     if (slot == 0 || slot == VOXEL_SLOT_PENDING)
