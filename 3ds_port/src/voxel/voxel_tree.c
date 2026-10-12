@@ -156,7 +156,8 @@ static void EmitBlock(VoxelBuilder *builder, int x, int y, int prop)
         &(VoxelVertex){x1, 0.0f, z1, u1 - 1.0f / VOXEL_TREE_TEXTURE_DIM, vb, 0.8f});
 }
 
-static void EmitProp(VoxelBuilder *builder, int x, int y, int prop, int below, int north)
+static void EmitProp(VoxelBuilder *builder, int x, int y, int prop, int below, int north,
+                     bool westFence, bool eastFence)
 {
     float wx = (float)x;
     float s0 = 0.0f, s1 = 1.0f;   /* the card's span across its cell */
@@ -184,11 +185,12 @@ static void EmitProp(VoxelBuilder *builder, int x, int y, int prop, int below, i
         int post = below >= 0 && sProps[below].kind == 1 ? below
                  : north >= 0 && sProps[north].kind == 1 ? north : -1;
 
-        if (post >= 0 && sProps[prop].kind == 0)
+        /* kept on the side the fence comes from */
+        if (post >= 0 && sProps[prop].kind == 0 && westFence != eastFence)
         {
             float c = sProps[post].centre / 16.0f;
 
-            if (c >= 0.5f)
+            if (westFence)
                 s1 = c + 2.0f / 16.0f;
             else
                 s0 = c - 2.0f / 16.0f;
@@ -326,7 +328,13 @@ void VoxelTree_EmitInstance(VoxelBuilder *builder, const VoxelMapInstance *inst,
                 else if (sProps[prop].kind == 4)
                     EmitBlock(builder, x, y, prop);
                 else
-                    EmitProp(builder, x, y, prop, below, north);
+                {
+                    bool west = VoxelWorld_GetInstanceAt(x - 1, y) == inst
+                             && PropIndex(inst->secondaryTileset, VoxelWorld_GetMetatileId(x - 1, y)) >= 0;
+                    bool east = VoxelWorld_GetInstanceAt(x + 1, y) == inst
+                             && PropIndex(inst->secondaryTileset, VoxelWorld_GetMetatileId(x + 1, y)) >= 0;
+                    EmitProp(builder, x, y, prop, below, north, west, east);
+                }
                 builder->lift = 0.0f;
                 builder->shift = 0.0f;
             }
@@ -364,7 +372,7 @@ void VoxelTree_EmitBorder(VoxelBuilder *builder, int x0, int y0, int x1, int y1)
             else if (prop >= 0 && sProps[prop].kind == 4)
                 EmitBlock(builder, x, y, prop);
             else if (prop >= 0)
-                EmitProp(builder, x, y, prop, -1, -1);
+                EmitProp(builder, x, y, prop, -1, -1, false, false);
             if (part >= 0 || crown >= 0)
                 EmitCell(builder, x, y, part, crown);
         }

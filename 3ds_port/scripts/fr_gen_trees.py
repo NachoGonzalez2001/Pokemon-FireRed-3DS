@@ -156,7 +156,9 @@ def build_props(root, ts, metatile, image):
         # a fence running north-south is drawn as a line of posts, one a
         # cell: thin and the cell's whole height. The console builds those
         # as posts and rails rather than standing the drawing up.
-        post = int(len(cols) <= 6 and rows[0] == 0 and rows[-1] == 15)
+        # (the wooden posts are 7 px wide; a fence's end piece drawn front on
+        # starts below the cell's top row, so it is never taken for one)
+        post = int(len(cols) <= 8 and rows[0] == 0 and rows[-1] == 15)
         # flowers are drawn from above: standing up they would be a hedge
         # as tall as the fences, so they lean back, low, instead
         if mid in FLOWERS and set_index == 0:
