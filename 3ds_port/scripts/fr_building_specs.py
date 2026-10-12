@@ -827,7 +827,7 @@ def celadon_block(cells, rows, roof_extra):
     def parts(art):
         front_z, back_z = height, 16
         wall_top = height - facade_top
-        plaster = Tile(1, 56 + shift, 9, 61 + shift, top=wall_top)
+        plaster = Tile(0, 56 + shift, 24, 60 + shift, top=wall_top)
         walls = Prism(
             "walls", 0, width,
             [(front_z, 0), (front_z, wall_top), (back_z, wall_top), (back_z, 0)],
@@ -983,6 +983,260 @@ def route_house(art):
 
 
 ROUTE_HOUSE_EXACT = [(4, 27, 92, 48), (12, 1, 84, 24)]
+
+
+# ── Fuchsia City ───────────────────────────────────────────────────────────
+
+def fuchsia_house(art):
+    """Fuchsia's grey houses (cells 13..17 x 28..31), 80 x 64: Lavender's
+    shape - a rim (8-9), a flat roof of panels (10-38, lines every 8 rows
+    from 20), the parapet (39-41) and the facade (42-63)."""
+    front_z, back_z = 64, 16
+    wall_top = 22
+    plaster = Tile(40, 58, 48, 61, top=wall_top)
+    walls = Prism(
+        "walls", 0, 80,
+        [(front_z, 0), (front_z, wall_top), (back_z, wall_top), (back_z, 0)],
+        edges={0: Proj(42, 64), 2: plaster}, skip=(1, 3),
+        caps=[Band(0, wall_top + 1, plaster, front_z)])
+    roof = flat_roof("roof", 0, 80, front_z, back_z, wall_top, (39, 42),
+                     Strip((14, 39), repeat=(21, 29), start=21, tail=(8, 14)), Tile(10, 40, 26, 42))
+    return [walls, roof], art
+
+
+def thatch_house(cells, rows):
+    """Fuchsia's thatched houses (the Warden's, the Safari Zone's gate):
+
+        rows  9-52   the thatch, flat, its tufts every 8 rows from 13;
+                     borders x 0-9 and the last 9 columns
+        rows 53-56   the thatch's front edge; rows 57-60 a grey fascia
+        rows 61-     facade
+    """
+    width, height = cells * 16, rows * 16
+
+    def parts(art):
+        front_z, back_z = height, 16
+        wall_top = height - 61
+        plaster = Tile(3, 72, 19, 77, top=wall_top)
+        walls = Prism(
+            "walls", 0, width,
+            [(front_z, 0), (front_z, wall_top), (back_z, wall_top), (back_z, 0)],
+            edges={0: Proj(61, height), 2: plaster}, skip=(1, 3),
+            caps=[Band(0, wall_top + 1, plaster, front_z)])
+        roof = flat_roof("roof", 0, width, front_z, back_z, wall_top, (53, 61),
+                         Strip((13, 53), repeat=(13, 21), start=20, tail=(9, 13)),
+                         Tile(12, 53, 20, 61))
+        return [walls, roof], art
+    return parts
+
+
+def thatch_exact(cells, rows):
+    width, height = cells * 16, rows * 16
+    return [(0, 61, width, height), (0, 53, width, 61), (0, 13, width, 53)]
+
+
+FUCHSIA_GROUND = [GRASS, 0x008, 0x009, 0x010, 0x001, 0x004, 0x0CE, 0x0BE, 0x0EE, 0x0F5,
+                  0x0D3, 0x0D4, 0x0D5, 0x071, 0x072, 0x0F4, 0x01C, 0x01D, 0x014, 0x015,
+                  0x024, 0x025, 0x28E, 0x0DC]
+
+
+# ── Saffron City ───────────────────────────────────────────────────────────
+
+def saffron_house(cells, front_z):
+    """Saffron's yellow houses under green hipped roofs, 16 * cells wide;
+    every variant draws the same roof:
+
+        row   8      the ridge line
+        rows  9-39   the front slope, courses ending in lines at 12/13,
+                     19/20 .. (8 rows); hips x 0-11 lit, the last 12 shaded
+        rows 40-42   fascia; rows 43-47 the wall's top in the eave's shade
+        rows 48-     facade, one or two floors down to `front_z`
+    """
+    width = cells * 16
+
+    def parts(art):
+        art, band0 = extend(art, 96)
+        hip_w = hip_band(art, band0, list(range(0, 12)), 25, 48)
+        hip_e = hip_band(art, band0 + 48, list(range(width - 1, width - 13, -1)), 25, 48)
+        back_z, overhang = 16, 2
+        wall_top = front_z + overhang - 43
+        courses = (12, width - 12)
+        roof = FrHipRoof(
+            "roof", 0, width, zf=front_z + overhang, zb=back_z - overhang, y0=wall_top,
+            fascia=Strip((40, 43), wrap=courses),
+            slope=KeepStrip((9, 40), repeat=(13, 21), start=16, wrap=courses,
+                            keep=(12, width - 12)),
+            teeth=(8, 9), cap=(8, 9), pitch=HOUSE_PITCH, run=12,
+            ridge_u=(12, width - 12), end_tile=Tile(12, 8, 13, 9),
+            hip_w=Strip(hip_w, wrap=(0, 40)), hip_e=Strip(hip_e, wrap=(0, 40)))
+        plaster = Tile(24, 57, 40, 60, top=wall_top)
+        corner = Tile(1, 43, 3, front_z, top=wall_top)
+        walls = Prism(
+            "walls", 1, width - 1,
+            [(front_z, 0), (front_z, wall_top), (back_z, wall_top), (back_z, 0)],
+            edges={0: Proj(43, front_z), 2: plaster}, skip=(1, 3),
+            caps=[Band(0, wall_top + 1, plaster, front_z, front=corner, back=corner, z1=back_z)])
+        return [walls, roof], art
+    return parts
+
+
+def saffron_apartments(art):
+    """Saffron's yellow apartment blocks (cells 19..23 x 25..30), 80 x 96:
+
+        rows  1-4    the roof's back border
+        rows  5-36   a roof garden inside a yellow border
+        x 49..71:    the stair hut on the roof - its top on rows 2..16,
+                     its face on 17..31
+        rows 37-40   the border's front; rows 41-44 the parapet
+        rows 45-95   facade, three floors
+    """
+    front_z, back_z = 96, 16
+    wall_top = front_z - 45
+    roof_y = wall_top + 4
+    yellow = Tile(8, 57, 72, 61, top=wall_top)
+    walls = Prism(
+        "walls", 0, 80,
+        [(front_z, 0), (front_z, wall_top), (back_z, wall_top), (back_z, 0)],
+        edges={0: Proj(45, 96), 2: yellow}, skip=(1, 3),
+        caps=[Band(0, wall_top + 1, yellow, front_z)])
+    roof = flat_roof("roof", 0, 80, front_z, back_z, wall_top, (41, 45),
+                     Strip((5, 41), repeat=(33, 35), tail=(1, 5)), Tile(8, 41, 16, 45))
+    zh = roof_y + 31
+    yh = zh - 17
+    hut_side = Tile(52, 20, 60, 26, top=yh)
+    hut = Prism(
+        "stair_hut", 49, 71, [(zh, roof_y), (zh, yh), (zh - 15, yh), (zh - 15, roof_y)],
+        edges={0: Proj(17, 32), 1: Strip((3, 17), repeat=(6, 8)), 2: hut_side}, skip=(3,),
+        caps=[Band(roof_y, yh + 1, hut_side, zh)])
+    return [walls, roof, hut], art
+
+
+SAFFRON_APARTMENTS_EXACT = [(2, 45, 78, 96), (0, 41, 80, 45), (0, 5, 49, 37), (49, 17, 71, 32)]
+
+
+def silph_co(art):
+    """Silph Co. (cells 29..37 x 16..30), 144 x 240:
+
+        rows  0-79   the roof: pink panels either side of a glass vault
+                     (x 48..95, its crown on rows 0..8)
+        rows 80-84   the roof's front edge
+        rows 85-229  the tower's face, nine floors of windows
+        x 50..93:    the entrance, standing forward, its door on rows
+                     205..238
+
+    A footprint the whole rect deep would make a block thirteen cells long:
+    the tower is as deep as its drawn roof, and the cells behind it are
+    paving.
+    """
+    front_z = 230
+    back_z = front_z - 80
+    wall_top = front_z - 85
+    glass = Tile(26, 90, 58, 96, top=wall_top)
+    walls = Prism(
+        "walls", 0, 144,
+        [(front_z, 0), (front_z, wall_top), (back_z, wall_top), (back_z, 0)],
+        edges={0: Proj(85, 230), 2: glass}, skip=(1, 3),
+        caps=[Band(0, wall_top + 1, glass, front_z)])
+    roof = flat_roof("roof", 0, 144, front_z, back_z, wall_top, (80, 85),
+                     Strip((9, 80), repeat=(40, 44), tail=(0, 9)), Tile(8, 80, 16, 85))
+    porch = Prism(
+        "entrance", 50, 94, [(239, 0), (239, 34), (front_z, 34), (front_z, 0)],
+        edges={0: Proj(205, 239)}, skip=(2, 3),
+        caps=[Band(0, 35, Tile(52, 214, 56, 222, top=34), 239)])
+    return [walls, roof, porch], art
+
+
+SILPH_EXACT = [(8, 85, 136, 205), (0, 80, 144, 85), (50, 205, 94, 230)]
+
+
+def fighting_dojo(art):
+    """The Fighting Dojo (cells 37..42 x 8..12), 96 x 80:
+
+        rows 10-17   the ridge's broad cap
+        rows 19-51   the front slope, gold tiles in courses
+        rows 52-53   fascia; rows 54-71 facade, windows and the sign
+        x 40..71:    the porch, a cell forward, its little roof on rows
+                     48..55 and its posts down to row 79
+    """
+    front_z, back_z = 72, 16
+    overhang = 2
+    wall_top = front_z + overhang - 54
+    tiles = (8, 40)
+    roof = HipRoof(
+        "roof", 0, 96, zf=front_z + overhang, zb=back_z - overhang, y0=wall_top,
+        fascia=Strip((52, 54), wrap=tiles),
+        slope=Strip((20, 52), repeat=(24, 32), tail=(18, 20), wrap=tiles),
+        teeth=(12, 18), cap=(10, 12), pitch=25.0, run=4,
+        ridge_u=(4, 92), end_tile=Tile(4, 12, 8, 18))
+    plaster = Tile(16, 64, 40, 69, top=wall_top)
+    walls = Prism(
+        "walls", 1, 95,
+        [(front_z, 0), (front_z, wall_top), (back_z, wall_top), (back_z, 0)],
+        edges={0: Proj(54, 72), 2: plaster}, skip=(1, 3),
+        caps=[Band(0, wall_top + 1, plaster, front_z)])
+    porch = Prism(
+        "porch", 40, 72, [(80, 0), (80, 32), (72, 32), (72, 0)],
+        edges={0: Proj(48, 80)}, skip=(2, 3),
+        caps=[Band(0, 33, Tile(42, 64, 46, 72, top=32), 80)])
+    return [walls, roof, porch], art
+
+
+DOJO_EXACT = [(2, 54, 40, 72), (72, 54, 94, 72), (8, 21, 40, 52), (72, 21, 88, 52), (40, 48, 72, 80)]
+
+
+SAFFRON_GROUND = [GRASS, 0x2E9, 0x2E3, 0x2E5, 0x2EC, 0x2F3, 0x2F4, 0x2F5, 0x2EB, 0x2ED,
+                  0x2E4, 0x20F, 0x20E, 0x2F1, 0x229, 0x228, 0x216, 0x2E8, 0x220]
+# (x, y, rows, front): the two-floor houses, the low ones, and the row along
+# the south edge, whose facade stops at row 56
+SAFFRON_HOUSES = ([(x, y, 5, 80) for (x, y) in ((17, 10), (21, 10), (25, 10), (18, 17), (46, 17),
+                                                (18, 34), (31, 34), (35, 34), (41, 34), (46, 34))]
+                  + [(x, y, 4, 64) for (x, y) in ((22, 18), (42, 18), (27, 35), (50, 8))]
+                  + [(x, y, 4, 56) for (x, y) in ((19, 41), (23, 41), (27, 41), (39, 41), (43, 41),
+                                                  (47, 41))])
+
+
+# ── General's gatehouses ───────────────────────────────────────────────────
+
+def gatehouse(cells, rows):
+    """The route gates and the Underground Path's huts, General's own tiles:
+    a grey corrugated roof falling to the front (rows 0..42, its ribs the
+    same on every row), its eave (43..46), and the facade from row 47 down
+    to the rect's bottom - glass, brick, the passage or a door, the pillars
+    at either end drawn on it."""
+    width, front_z = cells * 16, rows * 16
+
+    def parts(art):
+        back_z = 16
+        wall_top = front_z - 47
+        brick = Tile(8, 61, 24, 65, top=wall_top)
+        walls = Prism(
+            "walls", 0, width,
+            [(front_z, 0), (front_z, wall_top), (back_z, wall_top), (back_z, 0)],
+            edges={0: Proj(47, front_z), 2: brick}, skip=(1, 3),
+            caps=[Band(0, wall_top + 1, brick, front_z)])
+        y1 = wall_top + 4
+        rib_end = Tile(8, 43, 24, 47, top=y1)
+        roof = Prism(
+            "roof", 0, width,
+            [(front_z, wall_top), (front_z, y1), (back_z, y1 + 12), (back_z, wall_top)],
+            edges={0: Proj(43, 47), 1: Strip((2, 43), repeat=(10, 14), tail=(0, 2)), 2: rib_end},
+            skip=(3,), caps=[Band(wall_top, y1 + 13, rib_end, front_z)])
+        return [walls, roof], art
+    return parts
+
+
+def gatehouse_exact(cells, rows):
+    width, front_z = cells * 16, rows * 16
+    return [(8, 47, width - 8, front_z), (0, 43, width, 47), (0, 4, width, 40)]
+
+
+GATE_GROUND = [GRASS, 0x008, 0x009, 0x010, 0x001, 0x004, 0x0E7, 0x0E6, 0x00E, 0x00F, 0x01E,
+               0x01F, 0x016, 0x017, 0x00D, 0x0EE, 0x0EF, 0x0EC, 0x0ED, 0x18D, 0x18E, 0x138,
+               0x13C, 0x140, 0x144, 0x0F4, 0x0F7, 0x0D4, 0x0D5, 0x0E4, 0x002]
+GATEHOUSES = [("gate_passage_6", "LAYOUT_SAFFRON_CITY", (32, 0), 6, 6),
+              ("gate_side_6", "LAYOUT_SAFFRON_CITY", (2, 24), 6, 5),
+              ("gate_passage_5", "LAYOUT_ROUTE12", (12, 16), 5, 6),
+              ("underground_hut", "LAYOUT_ROUTE5", (30, 28), 4, 4)]
 
 SPECS = [
     {
@@ -1210,4 +1464,78 @@ SPECS.append({
     "ground": CELADON_GROUND,
     "parts": route_house,
     "exact": ROUTE_HOUSE_EXACT,
+})
+SPECS += [
+    {
+        "name": "fuchsia_house",
+        "layout": "LAYOUT_FUCHSIA_CITY",
+        "rect": (13, 28, 5, 4),
+        "match_rows": (1, 4),
+        "ground": FUCHSIA_GROUND,
+        "parts": fuchsia_house,
+        "exact": [(0, 42, 80, 64), (0, 39, 80, 42), (0, 14, 80, 39)],
+    },
+    {
+        "name": "fuchsia_wardens_house",
+        "layout": "LAYOUT_FUCHSIA_CITY",
+        "rect": (26, 12, 6, 5),
+        "ground": FUCHSIA_GROUND,
+        "parts": thatch_house(6, 5),
+        "exact": thatch_exact(6, 5),
+    },
+    {
+        "name": "fuchsia_safari_gate",
+        "layout": "LAYOUT_FUCHSIA_CITY",
+        "rect": (22, 0, 6, 6),
+        "ground": FUCHSIA_GROUND,
+        "parts": thatch_house(6, 6),
+        "exact": thatch_exact(6, 6),
+    },
+]
+SPECS += [
+    {
+        "name": "saffron_house_%d_%d" % (x, y),
+        "layout": "LAYOUT_SAFFRON_CITY",
+        "rect": (x, y, 4, rows),
+        "ground": SAFFRON_GROUND,
+        "owned": {(i, j) for i in range(4) for j in range(rows)},
+        "parts": saffron_house(4, front),
+        "exact": [(3, 43, 61, front), (12, 9, 52, 40)],
+    }
+    for (x, y, rows, front) in SAFFRON_HOUSES
+]
+SPECS.append({
+    "name": "saffron_apartments",
+    "layout": "LAYOUT_SAFFRON_CITY",
+    "rect": (19, 25, 5, 6),
+    "ground": SAFFRON_GROUND,
+    "parts": saffron_apartments,
+    "exact": SAFFRON_APARTMENTS_EXACT,
+})
+SPECS += [
+    {
+        "name": name,
+        "layout": layout,
+        "rect": (x, y, cells, rows),
+        "ground": GATE_GROUND,
+        "parts": gatehouse(cells, rows),
+        "exact": gatehouse_exact(cells, rows),
+    }
+    for (name, layout, (x, y), cells, rows) in GATEHOUSES
+]
+SPECS.append({
+    "name": "silph_co",
+    "layout": "LAYOUT_SAFFRON_CITY",
+    "rect": (29, 16, 9, 15),
+    "ground": SAFFRON_GROUND,
+    "parts": silph_co,
+    "exact": SILPH_EXACT,
+})
+SPECS.append({
+    "name": "fighting_dojo",
+    "layout": "LAYOUT_SAFFRON_CITY",
+    "rect": (37, 8, 6, 5),
+    "ground": SAFFRON_GROUND,
+    "parts": fighting_dojo,
+    "exact": DOJO_EXACT,
 })
