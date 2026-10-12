@@ -60,48 +60,46 @@ static int PropIndex(const void *secondaryTileset, int metatileId)
  * down to its cell's bottom over one drawn from its top - the mailbox's
  * head over its post - stands on that one's card, in its plane. */
 /*
- * A fence running north-south is drawn as a post a cell, seen from above:
- * stood up as a card it is a row of sticks, and built as posts it no longer
- * matches the fences beside it. Seen from its side it is the same fence as
- * one running east-west, so it is that: the fence of its material drawn
- * front on (sx, sy), as a card turned to run north-south through the post.
+ * A fence running north-south is drawn as a post a cell, seen from above.
+ * Stood up as a card it is a row of sticks; turned to run along the line,
+ * the camera - looking north - sees it edge on, its posts squeezed thin. So
+ * it is built of the fence drawn front on (sx, sy): every half cell one of
+ * its posts, facing the camera as the east-west fences' posts do, and its
+ * rail along the line between them.
  */
 static void EmitPost(VoxelBuilder *builder, int x, int y, int prop, int north, int south)
 {
     float cx = (float)x + sProps[prop].centre / 16.0f;
     float h = (16 - sProps[prop].sr) / 16.0f;
-    float u0 = TEX_U(sProps[prop].sx), u1 = TEX_U(sProps[prop].sx + 16);
     float v0 = TEX_V(sProps[prop].sy + sProps[prop].sr), v1 = TEX_V(sProps[prop].sy + 16);
+    /* a post of the front-on fence (columns 1..7) and a column of its rail
+     * between two posts (column 8) */
+    float pu0 = TEX_U(sProps[prop].sx + 1), pu1 = TEX_U(sProps[prop].sx + 8);
+    float ru0 = TEX_U(sProps[prop].sx + 8), ru1 = TEX_U(sProps[prop].sx + 9);
+    const float half = 3.5f / 16.0f;
     /* From the fence it meets to the next: another post runs on through the
      * cell, a fence drawn front on is met where it stands, and a free end
      * stops at the post in the middle of the cell. */
-    float z0 = north < 0 ? (float)y + 0.5f : (float)y;
-    float z1 = south < 0 ? (float)y + 0.5f
+    float z0 = north < 0 ? (float)y + 0.25f : (float)y;
+    float z1 = south < 0 ? (float)y + 0.75f
              : sProps[south].kind == 1 ? (float)y + 1.0f
              : (float)(y + 1) + sProps[south].r1 / 16.0f;
-    /* the pattern is one cell long and repeats; reaching past the slot's
-     * edge would sample the next slot, so the run is laid in pieces */
-    /* half a cell out of step with the cells, the same along a whole run:
-     * where it meets a fence drawn front on, whose end post is there, the
-     * pattern is in the gap between two posts */
-    float along = z0 - (float)(int)z0 + 0.5f;
 
-    if (along >= 1.0f)
-        along -= 1.0f;
+    /* posts every half cell from a cell's edge, as the fence drawn front on
+     * keeps them: this cell's are at y + 0.5 and y + 1 (the one at y is the
+     * cell north's, or the corner's own), and one more short of a corner
+     * fence to the south, which brings its own post */
+    float last = south >= 0 && sProps[south].kind == 1 ? (float)y + 1.0f : z1 - 0.01f;
 
-    while (z1 - z0 > 1e-4f)
-    {
-        float piece = 1.0f - along < z1 - z0 ? 1.0f - along : z1 - z0;
-        float a = u0 + (u1 - u0) * along, b = a + (u1 - u0) * piece;
-
+    for (float pz = (float)y + 0.5f; pz <= last + 1e-4f; pz += 0.5f)
         VoxelBuilder_Quad(builder,
-            &(VoxelVertex){cx, h,    z0,         a, v0, 0.9f},
-            &(VoxelVertex){cx, h,    z0 + piece, b, v0, 0.9f},
-            &(VoxelVertex){cx, 0.0f, z0 + piece, b, v1, 0.9f},
-            &(VoxelVertex){cx, 0.0f, z0,         a, v1, 0.9f});
-        z0 += piece;
-        along = 0.0f;
-    }
+            &(VoxelVertex){cx - half, h,    pz, pu0, v0, 1.0f},
+            &(VoxelVertex){cx + half, h,    pz, pu1, v0, 1.0f},
+            &(VoxelVertex){cx + half, 0.0f, pz, pu1, v1, 1.0f},
+            &(VoxelVertex){cx - half, 0.0f, pz, pu0, v1, 1.0f});
+    VoxelBuilder_Quad(builder,
+        &(VoxelVertex){cx, h,    z0, ru0, v0, 0.9f}, &(VoxelVertex){cx, h,    z1, ru1, v0, 0.9f},
+        &(VoxelVertex){cx, 0.0f, z1, ru1, v1, 0.9f}, &(VoxelVertex){cx, 0.0f, z0, ru0, v1, 0.9f});
 }
 
 /*
