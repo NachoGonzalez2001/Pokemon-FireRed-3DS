@@ -441,10 +441,54 @@ static void DebugWarp(void)
 }
 #endif
 
+#ifdef CTR_DEBUG_GRANT
+#include "event_data.h"
+#include "pokedex.h"
+#include "quest_log.h"
+#include "script.h"
+#include "constants/flags.h"
+#include "constants/moves.h"
+#include "constants/species.h"
+/* One-off gift for the player's own save, once the field takes input: a
+ * Pidgeot that knows Fly, the eight badges and every Kanto town to fly to.
+ * The eighth badge marks it done, so a save that has it is left alone. */
+static void DebugGrant(void)
+{
+    static bool8 checked;
+    struct Pokemon mon;
+    u16 flag;
+
+    if (checked || gMain.callback1 != CB1_Overworld || ArePlayerFieldControlsLocked()
+     || gPaletteFade.active || ScriptContext_IsEnabled() || gQuestLogState != 0)
+        return;
+    checked = TRUE;
+    if (FlagGet(FLAG_BADGE08_GET))
+    {
+        CtrLog_Write(CTR_LOG_GAME, "debug grant: already given");
+        return;
+    }
+    CreateMon(&mon, SPECIES_PIDGEOT, 40, USE_RANDOM_IVS, FALSE, 0, OT_ID_PLAYER_ID, 0);
+    SetMonMoveSlot(&mon, MOVE_FLY, 0);
+    GetSetPokedexFlag(SpeciesToNationalPokedexNum(SPECIES_PIDGEOT), FLAG_SET_SEEN);
+    GetSetPokedexFlag(SpeciesToNationalPokedexNum(SPECIES_PIDGEOT), FLAG_SET_CAUGHT);
+    for (flag = FLAG_BADGE01_GET; flag <= FLAG_BADGE08_GET; flag++)
+        FlagSet(flag);
+    for (flag = FLAG_WORLD_MAP_PALLET_TOWN; flag <= FLAG_WORLD_MAP_SAFFRON_CITY; flag++)
+        FlagSet(flag);
+    FlagSet(FLAG_WORLD_MAP_ROUTE4_POKEMON_CENTER_1F);
+    FlagSet(FLAG_WORLD_MAP_ROUTE10_POKEMON_CENTER_1F);
+    CtrLog_Write(CTR_LOG_GAME, "debug grant: Pidgeot %s, badges and fly map set",
+                 GiveMonToPlayer(&mon) == MON_GIVEN_TO_PARTY ? "to the party" : "to the PC");
+}
+#endif
+
 void CtrGame_WaitFrame(void)
 {
 #ifdef CTR_DEBUG_WARP
     DebugWarp();
+#endif
+#ifdef CTR_DEBUG_GRANT
+    DebugGrant();
 #endif
     static MainCallback lastCallback;
     static u32 nextReport;

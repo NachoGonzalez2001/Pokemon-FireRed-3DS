@@ -1124,21 +1124,31 @@ def silph_co(art):
         x 50..93:    the entrance, standing forward, its door on rows
                      205..238
 
-    A footprint the whole rect deep would make a block thirteen cells long:
-    the tower is as deep as its drawn roof, and the cells behind it are
-    paving.
+    Nine floors stand taller than the follow camera rides: from the path
+    behind it the tower would fill the screen. Four floors (rows 101..164)
+    are taken out of the drawing and everything above them moved down, so
+    the tower is five floors tall. A footprint the whole rect deep would
+    make a block thirteen cells long: the tower is as deep as its drawn
+    roof, and the cells behind it are paving.
     """
+    cut = 64
+    short = Image.new("RGBA", art.size, (0, 0, 0, 0))
+    short.paste(art.crop((0, 0, 144, 101)), (0, cut))
+    short.paste(art.crop((0, 101 + cut, 144, 240)), (0, 101 + cut))
+    art = short
     front_z = 230
     back_z = front_z - 80
-    wall_top = front_z - 85
-    glass = Tile(26, 90, 58, 96, top=wall_top)
+    face = 85 + cut
+    wall_top = front_z - face
+    glass = Tile(26, face + 5, 58, face + 11, top=wall_top)
     walls = Prism(
         "walls", 0, 144,
         [(front_z, 0), (front_z, wall_top), (back_z, wall_top), (back_z, 0)],
-        edges={0: Proj(85, 230), 2: glass}, skip=(1, 3),
+        edges={0: Proj(face, 230), 2: glass}, skip=(1, 3),
         caps=[Band(0, wall_top + 1, glass, front_z)])
-    roof = flat_roof("roof", 0, 144, front_z, back_z, wall_top, (80, 85),
-                     Strip((9, 80), repeat=(40, 44), tail=(0, 9)), Tile(8, 80, 16, 85))
+    roof = flat_roof("roof", 0, 144, front_z, back_z, wall_top, (80 + cut, face),
+                     Strip((9 + cut, 80 + cut), repeat=(40 + cut, 44 + cut), tail=(cut, 9 + cut)),
+                     Tile(8, 80 + cut, 16, face))
     porch = Prism(
         "entrance", 50, 94, [(239, 0), (239, 34), (front_z, 34), (front_z, 0)],
         edges={0: Proj(205, 239)}, skip=(2, 3),
@@ -1146,7 +1156,7 @@ def silph_co(art):
     return [walls, roof, porch], art
 
 
-SILPH_EXACT = [(8, 85, 136, 205), (0, 80, 144, 85), (50, 205, 94, 230)]
+SILPH_EXACT = [(8, 149, 136, 205), (0, 144, 144, 149), (50, 205, 94, 230)]
 
 
 def fighting_dojo(art):

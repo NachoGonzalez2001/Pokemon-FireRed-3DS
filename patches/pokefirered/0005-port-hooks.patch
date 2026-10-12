@@ -2122,7 +2122,7 @@ index 0a2f76f2c4019fa0938d5044da73fcea1b2b069c..57dac6dac43d6a413eda86334af6c198
      u8 i, j, y;
  
 diff --git a/src/region_map.c b/src/region_map.c
-index d65f99fefa2c3a4bff11a69e674894bfd9a51374..f0af2399754078a3fee92c093ea5a91daac2befb 100644
+index d65f99fefa2c3a4bff11a69e674894bfd9a51374..83546eb7bc5d991d7b86c6820a63f4cbd3c27617 100644
 --- a/src/region_map.c
 +++ b/src/region_map.c
 @@ -825,6 +825,12 @@ static const u8 sTextColors[] = {TEXT_DYNAMIC_COLOR_6, TEXT_COLOR_WHITE, TEXT_CO
@@ -2195,7 +2195,81 @@ index d65f99fefa2c3a4bff11a69e674894bfd9a51374..f0af2399754078a3fee92c093ea5a91d
          sMapOpenCloseAnim->openState++;
          break;
      case 11:
-@@ -4034,3 +4043,60 @@ static void SetFlyWarpDestination(u16 mapsec)
+@@ -2911,17 +2920,29 @@ static void SnapToIconOrButton(void)
+ 
+ static u16 GetMapCursorX(void)
+ {
++#ifdef PORTABLE
++    if (sMapCursor == NULL)
++        return 0;
++#endif
+     return sMapCursor->x;
+ }
+ 
+ static u16 GetMapCursorY(void)
+ {
++#ifdef PORTABLE
++    if (sMapCursor == NULL)
++        return 0;
++#endif
+     return sMapCursor->y;
+ }
+ 
+ static u16 GetMapsecUnderCursor(void)
+ {
+     u8 mapsec;
++#ifdef PORTABLE
++    if (sMapCursor == NULL)
++        return MAPSEC_NONE;
++#endif
+     if (sMapCursor->y < 0
+      || sMapCursor->y >= MAP_HEIGHT
+      || sMapCursor->x < 0
+@@ -2937,6 +2958,11 @@ static u16 GetMapsecUnderCursor(void)
+ static u16 GetDungeonMapsecUnderCursor(void)
+ {
+     u8 mapsec;
++#ifdef PORTABLE
++    // the name box is drawn before the cursor exists; the GBA read NULL
++    if (sMapCursor == NULL)
++        return MAPSEC_NONE;
++#endif
+     if (sMapCursor->y < 0
+      || sMapCursor->y >= MAP_HEIGHT
+      || sMapCursor->x < 0
+@@ -3614,13 +3640,13 @@ static void SetFlyIconInvisibility(u8 whichMap, u8 iconNum, bool8 invisible)
+         for (i = 0; i < NELEMS(sMapIcons->flyIcons); i++)
+         {
+             if (sMapIcons->flyIcons[i].region == whichMap || whichMap == 0xFF)
+-                sMapIcons->flyIcons[i].sprite->invisible = invisible;
++                { if (sMapIcons->flyIcons[i].sprite != NULL) sMapIcons->flyIcons[i].sprite->invisible = invisible; }
+         }
+     }
+     else
+     {
+         if (sMapIcons->flyIcons[iconNum].region == whichMap)
+-            sMapIcons->flyIcons[iconNum].sprite->invisible = invisible;
++            { if (sMapIcons->flyIcons[iconNum].sprite != NULL) sMapIcons->flyIcons[iconNum].sprite->invisible = invisible; }
+     }
+ }
+ 
+@@ -3633,12 +3659,13 @@ static void SetDungeonIconInvisibility(u8 whichMap, u8 iconNum, bool8 invisible)
+         for (i = 0; i < NELEMS(sMapIcons->dungeonIcons); i++)
+         {
+             if (sMapIcons->dungeonIcons[i].region == whichMap || whichMap == 0xFF)
+-                sMapIcons->dungeonIcons[i].sprite->invisible = invisible;
++                { if (sMapIcons->dungeonIcons[i].sprite != NULL) sMapIcons->dungeonIcons[i].sprite->invisible = invisible; }
+         }
+     }
+     else
+     {
+-        if (sMapIcons->dungeonIcons[iconNum].region != whichMap)
++        if (sMapIcons->dungeonIcons[iconNum].region != whichMap
++         && sMapIcons->dungeonIcons[iconNum].sprite != NULL)
+             sMapIcons->dungeonIcons[iconNum].sprite->invisible = invisible;
+     }
+ }
+@@ -4034,3 +4061,60 @@ static void SetFlyWarpDestination(u16 mapsec)
      }
      ReturnToFieldFromFlyMapSelect();
  }
