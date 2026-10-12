@@ -1186,13 +1186,12 @@ DOJO_EXACT = [(2, 54, 40, 72), (72, 54, 94, 72), (8, 21, 40, 52), (72, 21, 88, 5
 
 SAFFRON_GROUND = [GRASS, 0x2E9, 0x2E3, 0x2E5, 0x2EC, 0x2F3, 0x2F4, 0x2F5, 0x2EB, 0x2ED,
                   0x2E4, 0x20F, 0x20E, 0x2F1, 0x229, 0x228, 0x216, 0x2E8, 0x220]
-# (x, y, rows, front): the two-floor houses, the low ones, and the row along
-# the south edge, whose facade stops at row 56
-SAFFRON_HOUSES = ([(x, y, 5, 80) for (x, y) in ((17, 10), (21, 10), (25, 10), (18, 17), (46, 17),
-                                                (18, 34), (31, 34), (35, 34), (41, 34), (46, 34))]
-                  + [(x, y, 4, 64) for (x, y) in ((22, 18), (42, 18), (27, 35), (50, 8))]
-                  + [(x, y, 4, 56) for (x, y) in ((19, 41), (23, 41), (27, 41), (39, 41), (43, 41),
-                                                  (47, 41))])
+# (x, y, rows, front): one copy of each distinct house - the two-floor
+# ones, the low ones, the row along the south edge (its facade stops at row
+# 56); the identical copies are found by their metatiles and share it
+SAFFRON_HOUSES = ([(x, y, 5, 80) for (x, y) in ((17, 10), (21, 10), (46, 17), (41, 34))]
+                  + [(x, y, 4, 64) for (x, y) in ((22, 18), (50, 8))]
+                  + [(19, 41, 4, 56)])
 
 
 # ── General's gatehouses ───────────────────────────────────────────────────
@@ -1328,6 +1327,102 @@ def pokemon_league(art):
 
 LEAGUE_EXACT = [(2, 65, 66, 104), (110, 65, 174, 104), (0, 58, 176, 65), (66, 64, 110, 112),
                 (0, 4, 176, 56)]
+
+
+# ── Sevii Islands ──────────────────────────────────────────────────────────
+
+def sevii_house(art):
+    """The purple houses of Islands 1-3 (One Island's cells 7..11 x 8..11),
+    80 x 64: the back slope's sheets, light (rows 9-16), the ridge (17-20),
+    the front slope's purple ribs (21-42), the fascia (43-45) and the
+    facade (46-63)."""
+    front_z, back_z = 64, 16
+    overhang = 2
+    wall_top = front_z + overhang - 46
+    ribs = (4, 76)
+    roof = FrHipRoof(
+        "roof", 0, 80, zf=front_z + overhang, zb=back_z - overhang, y0=wall_top,
+        fascia=Strip((43, 46), wrap=ribs),
+        slope=Strip((21, 43), repeat=(21, 25), wrap=ribs),
+        back=Strip((10, 17), repeat=(11, 15), wrap=ribs),
+        teeth=(18, 21), cap=(17, 18), pitch=25.0, run=4,
+        ridge_u=(4, 76), end_tile=Tile(4, 18, 8, 21))
+    plaster = Tile(66, 58, 78, 61, top=wall_top)
+    walls = Prism(
+        "walls", 1, 79,
+        [(front_z, 0), (front_z, wall_top), (back_z, wall_top), (back_z, 0)],
+        edges={0: Proj(46, 64), 2: plaster}, skip=(1, 3),
+        caps=[Band(0, wall_top + 1, plaster, front_z)])
+    return [walls, roof], art
+
+
+def sevii_harbor(art):
+    """The islands' harbour office (Two Island's cells 8..12 x 9..13),
+    80 x 80: its orange roof of ribbed sheets (rows 1..40), the roof's
+    front edge (41..46), the facade (47..71). The pier boards behind it and
+    the red posts either side over the water are the map's."""
+    front_z, back_z = 72, 16
+    wall_top = front_z - 47
+    roof = flat_roof("roof", 0, 80, front_z, back_z, wall_top, (41, 47),
+                     Strip((2, 41), repeat=(9, 17), tail=(1, 2)), Tile(8, 41, 16, 47))
+    grey = Tile(4, 62, 12, 66, top=wall_top)
+    walls = Prism(
+        "walls", 0, 80,
+        [(front_z, 0), (front_z, wall_top), (back_z, wall_top), (back_z, 0)],
+        edges={0: Proj(47, 72), 2: grey}, skip=(1, 3),
+        caps=[Band(0, wall_top + 1, grey, front_z)])
+    return [walls, roof], art
+
+
+def network_center(art):
+    """One Island's Pokemon Net Center (cells 11..17 x 0..5), 112 x 96: the
+    Center's shape - an octagonal plan, a band rising 6 (rows 57..68, its
+    round emblem drawn over the middle) and a flat top of orange grid
+    (rows 9..56) - on a facade of rows 69..93."""
+    front, back, c = 94, 16, 8
+    plan = [(c, front), (112 - c, front), (112, front - c), (112, back + c),
+            (112 - c, back), (c, back), (0, back + c), (0, front - c)]
+    return [Frustum(
+        "body", plan, wall_top=25, wall_side=Strip((70, 92), wrap=(16, 40)),
+        band_rise=6, band_side=Strip((57, 69), wrap=(16, 40)),
+        top=Strip((13, 57), repeat=(17, 21), tail=(9, 13), wrap=(8, 104)))], art
+
+
+def two_island_shop(art):
+    """Two Island's shop (cells 37..41 x 6..9), 80 x 64: a flat roof inside
+    a border (rows 1..36), the parapet with the shop's sign (37..46), the
+    facade (47..63)."""
+    front_z, back_z = 64, 16
+    wall_top = front_z - 47
+    roof = flat_roof("roof", 0, 80, front_z, back_z, wall_top, (37, 47),
+                     Strip((5, 37), repeat=(7, 9), tail=(1, 5)), Tile(4, 39, 20, 47))
+    stone = Tile(4, 50, 24, 56, top=wall_top)
+    walls = Prism(
+        "walls", 0, 80,
+        [(front_z, 0), (front_z, wall_top), (back_z, wall_top), (back_z, 0)],
+        edges={0: Proj(47, 64), 2: stone}, skip=(1, 3),
+        caps=[Band(0, wall_top + 1, stone, front_z)])
+    return [walls, roof], art
+
+
+SEVII_GROUND = [GRASS, 0x008, 0x009, 0x010, 0x001, 0x004, 0x0C5, 0x0C6, 0x0C4, 0x0BE]
+
+
+def sea_cottage(art):
+    """Bill's Sea Cottage (Route 25, cells 49..53 x 1..4), 80 x 64: a gable
+    end and a chimney stack drawn over the roof in a way no simple roof
+    reads, so its whole roof (rows 0..44) is laid on the box's top, exact at
+    the GBA's angle, over the facade (45..63)."""
+    front_z = 64
+    wall_top = front_z - 45
+    back_z = wall_top
+    plaster = Tile(4, 47, 12, 61, top=wall_top)
+    walls = Prism(
+        "walls", 0, 80,
+        [(front_z, 0), (front_z, wall_top), (back_z, wall_top), (back_z, 0)],
+        edges={0: Proj(45, 64), 1: Proj(0, 45), 2: plaster}, skip=(3,),
+        caps=[Band(0, wall_top + 1, plaster, front_z)])
+    return [walls], art
 
 SPECS = [
     {
@@ -1491,6 +1586,7 @@ SPECS += [
         "rect": (x, y, 3, 4),
         "ground": VERMILION_GROUND + [0x1B8, 0x1B9, 0x1BA, 0x1C0, 0x1C1, 0x1C2, 0x302, 0x303],
         "at": [("LAYOUT_VERMILION_CITY", x, y)],
+        "quads": {},
         "parts": canopy,
         "exact": CANOPY_EXACT,
     }
@@ -1589,7 +1685,6 @@ SPECS += [
         "layout": "LAYOUT_SAFFRON_CITY",
         "rect": (x, y, 4, rows),
         "ground": SAFFRON_GROUND,
-        "owned": {(i, j) for i in range(4) for j in range(rows)},
         "parts": saffron_house(4, front),
         "exact": [(3, 43, 61, front), (12, 9, 52, 40)],
     }
@@ -1657,3 +1752,84 @@ SPECS.append({
     "parts": pokemon_league,
     "exact": LEAGUE_EXACT,
 })
+
+# every copy, found by its drawing (the islands draw them with three tilesets,
+# and the doors move): each stands on its own art
+SEVII_HOUSES = [("LAYOUT_ONE_ISLAND", 18, 6), ("LAYOUT_ONE_ISLAND", 7, 8), ("LAYOUT_TWO_ISLAND", 32, 6),
+                ("LAYOUT_THREE_ISLAND", 3, 3), ("LAYOUT_THREE_ISLAND", 11, 3),
+                ("LAYOUT_THREE_ISLAND", 11, 9), ("LAYOUT_THREE_ISLAND", 12, 16),
+                ("LAYOUT_FOUR_ISLAND", 24, 11), ("LAYOUT_FOUR_ISLAND", 32, 20),
+                ("LAYOUT_FOUR_ISLAND", 24, 23), ("LAYOUT_FIVE_ISLAND", 11, 3),
+                ("LAYOUT_SIX_ISLAND", 15, 14), ("LAYOUT_SEVEN_ISLAND", 10, 6),
+                ("LAYOUT_THREE_ISLAND", 2, 28)]
+SEVII_HARBORS = [("LAYOUT_TWO_ISLAND", 8, 9), ("LAYOUT_FOUR_ISLAND", 8, 29),
+                 ("LAYOUT_FIVE_ISLAND", 10, 15), ("LAYOUT_SIX_ISLAND", 9, 24),
+                 ("LAYOUT_SEVEN_ISLAND", 14, 14)]
+SPECS += [
+    {
+        "name": "sevii_house_%s_%d_%d" % (lid[7:].lower(), x, y),
+        "layout": lid,
+        "rect": (x, y, 5, 4),
+        "ground": SEVII_GROUND,
+        "owned": {(i, j) for i in range(5) for j in range(4)},
+        "parts": sevii_house,
+        "exact": [(2, 46, 78, 64), (4, 21, 76, 43)],
+    }
+    for (lid, x, y) in SEVII_HOUSES
+] + [
+    {
+        "name": "sevii_harbor_%s" % lid[7:].lower(),
+        "layout": lid,
+        "rect": (x, y, 5, 5),
+        "ground": SEVII_GROUND + [0x273, 0x274, 0x26F, 0x278],
+        "owned": {(i, j) for i in range(5) for j in range(5)},
+        "parts": sevii_harbor,
+        "exact": [(0, 47, 80, 72), (0, 41, 80, 47), (0, 2, 80, 41)],
+    }
+    for (lid, x, y) in SEVII_HARBORS
+]
+SPECS.append({
+    "name": "network_center",
+    "layout": "LAYOUT_ONE_ISLAND",
+    "rect": (11, 0, 7, 6),
+    "ground": SEVII_GROUND,
+    "parts": network_center,
+    "exact": [(8, 69, 104, 94), (8, 57, 104, 69), (12, 17, 100, 57)],
+})
+SPECS += [
+    {
+        "name": "two_island_shop",
+        "layout": "LAYOUT_TWO_ISLAND",
+        "rect": (37, 6, 5, 4),
+        "ground": SEVII_GROUND,
+        "parts": two_island_shop,
+        "exact": [(0, 47, 80, 64), (0, 37, 80, 47), (0, 5, 80, 37)],
+    },
+    {
+        "name": "four_island_daycare",
+        "layout": "LAYOUT_FOUR_ISLAND",
+        "rect": (11, 10, 4, 4),
+        "ground": SEVII_GROUND + [0x00D, 0x0E6],
+        "parts": shed_house(4, ribs=(11, 41), eave=(41, 45), facade_top=45),
+        "exact": shed_exact(4, ribs=(11, 41), facade_top=45),
+    },
+]
+SPECS += [
+    {
+        "name": "route5_daycare",
+        "layout": "LAYOUT_ROUTE5",
+        "rect": (21, 21, 5, 5),
+        "ground": [GRASS, 0x008, 0x009, 0x010, 0x001, 0x004, 0x0F4, 0x0BD, 0x0C5, 0x0BE, 0x0C6],
+        "parts": saffron_house(5, 80),
+        "exact": [(3, 43, 77, 80), (12, 9, 68, 40)],
+    },
+    {
+        "name": "sea_cottage",
+        "layout": "LAYOUT_ROUTE25",
+        "rect": (49, 1, 5, 4),
+        "ground": [GRASS, 0x008, 0x009, 0x010, 0x001, 0x004, 0x07C, 0x0B5, 0x0B4, 0x01D, 0x01C,
+                   0x024, 0x025, 0x0E7, 0x169, 0x16A, 0x16B, 0x16C],
+        "parts": sea_cottage,
+        "exact": [(0, 45, 80, 64), (0, 8, 80, 45)],
+    },
+]
