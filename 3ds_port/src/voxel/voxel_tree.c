@@ -67,6 +67,20 @@ static int PropIndex(const void *secondaryTileset, int metatileId)
  * its posts, facing the camera as the east-west fences' posts do, and its
  * rail along the line between them.
  */
+static bool SideIsWood(int prop)
+{
+    static int wood = -2;
+
+    if (wood == -2)
+    {
+        wood = -1;
+        for (int i = 0; i < (int)(sizeof(sProps) / sizeof(sProps[0])); ++i)
+            if (sProps[i].set == 0 && sProps[i].id == 0x0E6)
+                wood = i;
+    }
+    return wood >= 0 && sProps[prop].sx == sProps[wood].x && sProps[prop].sy == sProps[wood].y;
+}
+
 static void EmitPost(VoxelBuilder *builder, int x, int y, int prop, int north, int south)
 {
     float cx = (float)x + sProps[prop].centre / 16.0f;
@@ -85,21 +99,33 @@ static void EmitPost(VoxelBuilder *builder, int x, int y, int prop, int north, i
              : sProps[south].kind == 1 ? (float)y + 1.0f
              : (float)(y + 1) + sProps[south].r1 / 16.0f;
 
-    /* posts every half cell from a cell's edge, as the fence drawn front on
-     * keeps them: this cell's are at y + 0.5 and y + 1 (the one at y is the
-     * cell north's, or the corner's own), and one more short of a corner
-     * fence to the south, which brings its own post */
-    float last = south >= 0 && sProps[south].kind == 1 ? (float)y + 1.0f : z1 - 0.01f;
+    /* One post a cell, in its middle: its front the front-on fence's post,
+     * its top the post's top rows. Cards every half cell, as the fence drawn
+     * front on keeps them, crowded into a double zigzag seen along the line;
+     * sides, seen nearly edge on, stood out as thin sticks beside each post. */
+    {
+        float pz = (float)y + 0.5f;
+        float x0 = cx - half, x1 = cx + half;
+        float zb = pz - 2.5f / 16.0f, zf = pz + 2.5f / 16.0f;
+        float vt = TEX_V(sProps[prop].sy + sProps[prop].sr + 2);
 
-    for (float pz = (float)y + 0.5f; pz <= last + 1e-4f; pz += 0.5f)
+        VoxelBuilder_Quad(builder, /* top */
+            &(VoxelVertex){x0, h, zb, pu0, v0, 1.0f}, &(VoxelVertex){x1, h, zb, pu1, v0, 1.0f},
+            &(VoxelVertex){x1, h, zf, pu1, vt, 1.0f}, &(VoxelVertex){x0, h, zf, pu0, vt, 1.0f});
+        VoxelBuilder_Quad(builder, /* south */
+            &(VoxelVertex){x0, h,    zf, pu0, v0, 1.0f}, &(VoxelVertex){x1, h,    zf, pu1, v0, 1.0f},
+            &(VoxelVertex){x1, 0.0f, zf, pu1, v1, 1.0f}, &(VoxelVertex){x0, 0.0f, zf, pu0, v1, 1.0f});
+    }
+    /* the rail stops above the shadow drawn at the fence's foot; a wooden
+     * fence (drawn front on as 0x0E6) has none, its posts stand apart */
+    if (!SideIsWood(prop))
+    {
+        float hr = 3.0f / 16.0f, vr = TEX_V(sProps[prop].sy + 13);
+
         VoxelBuilder_Quad(builder,
-            &(VoxelVertex){cx - half, h,    pz, pu0, v0, 1.0f},
-            &(VoxelVertex){cx + half, h,    pz, pu1, v0, 1.0f},
-            &(VoxelVertex){cx + half, 0.0f, pz, pu1, v1, 1.0f},
-            &(VoxelVertex){cx - half, 0.0f, pz, pu0, v1, 1.0f});
-    VoxelBuilder_Quad(builder,
-        &(VoxelVertex){cx, h,    z0, ru0, v0, 0.9f}, &(VoxelVertex){cx, h,    z1, ru1, v0, 0.9f},
-        &(VoxelVertex){cx, 0.0f, z1, ru1, v1, 0.9f}, &(VoxelVertex){cx, 0.0f, z0, ru0, v1, 0.9f});
+            &(VoxelVertex){cx, h,  z0, ru0, v0, 0.9f}, &(VoxelVertex){cx, h,  z1, ru1, v0, 0.9f},
+            &(VoxelVertex){cx, hr, z1, ru1, vr, 0.9f}, &(VoxelVertex){cx, hr, z0, ru0, vr, 0.9f});
+    }
 }
 
 /*
