@@ -91,20 +91,21 @@ static void EmitPost(VoxelBuilder *builder, int x, int y, int prop, int north, i
     float pu0 = TEX_U(sProps[prop].sx + 1), pu1 = TEX_U(sProps[prop].sx + 8);
     float ru0 = TEX_U(sProps[prop].sx + 8), ru1 = TEX_U(sProps[prop].sx + 9);
     const float half = 3.5f / 16.0f;
-    /* From the fence it meets to the next: another post runs on through the
-     * cell, a fence drawn front on is met where it stands, and a free end
-     * stops at the post in the middle of the cell. */
-    float z0 = north < 0 ? (float)y + 0.25f : (float)y;
-    float z1 = south < 0 ? (float)y + 0.75f
+    /* One post a cell, at its south edge: every post a cell from the next,
+     * the first a cell from the corner fence's own post (drawn front on at
+     * the corner cell's south edge, this cell's north one). A post half a
+     * cell from the corner stood right behind its post: a fence over a
+     * fence. A free end keeps its post in the middle of its cell. */
+    float pz = south < 0 ? (float)y + 0.5f : (float)y + 1.0f;
+    float z0 = north < 0 ? pz : (float)y;
+    float z1 = south < 0 ? pz
              : sProps[south].kind == 1 ? (float)y + 1.0f
              : (float)(y + 1) + sProps[south].r1 / 16.0f;
 
-    /* One post a cell, in its middle: its front the front-on fence's post,
-     * its top the post's top rows. Cards every half cell, as the fence drawn
-     * front on keeps them, crowded into a double zigzag seen along the line;
-     * sides, seen nearly edge on, stood out as thin sticks beside each post. */
+    /* its front the front-on fence's post, its top the post's top rows.
+     * Cards every half cell crowded into a double zigzag seen along the
+     * line; sides, seen nearly edge on, stood out as thin sticks. */
     {
-        float pz = (float)y + 0.5f;
         float x0 = cx - half, x1 = cx + half;
         float zb = pz - 2.5f / 16.0f, zf = pz + 2.5f / 16.0f;
         float vt = TEX_V(sProps[prop].sy + sProps[prop].sr + 2);
@@ -118,7 +119,7 @@ static void EmitPost(VoxelBuilder *builder, int x, int y, int prop, int north, i
     }
     /* the rail stops above the shadow drawn at the fence's foot; a wooden
      * fence (drawn front on as 0x0E6) has none, its posts stand apart */
-    if (!SideIsWood(prop))
+    if (!SideIsWood(prop) && z1 > z0)
     {
         float hr = 3.0f / 16.0f, vr = TEX_V(sProps[prop].sy + 13);
 
@@ -220,7 +221,10 @@ static void EmitProp(VoxelBuilder *builder, int x, int y, int prop, int below, i
                 s0 = c - 2.0f / 16.0f;
         }
     }
-    if (below >= 0 && sProps[prop].r1 == 16 && sProps[prop].r0 > 0 && sProps[below].r0 == 0)
+    /* (not a corner over a north-south fence's post: that lifted the
+     * corner onto the post, a fence stood on a fence) */
+    if (below >= 0 && sProps[prop].r1 == 16 && sProps[prop].r0 > 0 && sProps[below].r0 == 0
+        && sProps[below].kind == 0)
     {
         zc = (float)(y + 1) + sProps[below].r1 / 16.0f;
         base = sProps[below].r1 / 16.0f;

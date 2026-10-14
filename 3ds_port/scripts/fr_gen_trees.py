@@ -58,7 +58,7 @@ def layer(ts, entries, which):
 
 # The upper layer of each stands up as a card (voxel_tree.c); the ground
 # drawn under it is the same metatile without that layer.
-SIGNS = [0x002, 0x003, 0x160, 0x168]   # 160 over 168: the Gym's sign
+SIGNS = [0x002, 0x003, 0x160, 0x168, 0x161, 0x169]   # 160 over 168: the Gym's sign; 161 over 169
 ROCKS = [0x0A7, 0x0AF, 0x0B7]
 BUSHES = [0x005, 0x0FA, 0x0FB]
 FLOWERS = [0x004]
@@ -67,7 +67,11 @@ FENCES = [0x0DE, 0x0DF] + list(range(0x0E6, 0x0F4)) + [0x0F6, 0x0F7, 0x0F8, 0x0F
 MB_JUMP_SOUTH = 0x3B
 TIP_FENCES = {0x0D6: 0x010, 0x0D7: 0x011}
 # A town's own props that use none of General's tiles
-EXTRA_PROPS = {"gTileset_FuchsiaCity": [0x28E, 0x28F]}     # the stone fence
+# the stone fence; the pens' sign
+EXTRA_PROPS = {"gTileset_FuchsiaCity": [0x28E, 0x28F, 0x296]}
+# A town's grey fences drawn on the lower layer over grass: keyed off the
+# grass, the cell's ground plain grass (Fuchsia's by the pond)
+LOWER_FENCES = {"gTileset_FuchsiaCity": {0x336: 0x010, 0x337: 0x010, 0x33F: 0x010}}
 # Drawn from above, raised as a low block rather than stood up: the hedge
 # walls of Fuchsia's Pokemon pens
 BLOCKS = {"gTileset_FuchsiaCity": [0x290, 0x291, 0x292, 0x293, 0x294, 0x295, 0x29B, 0x29C]}
@@ -124,14 +128,17 @@ def build_props(root, ts, metatile, image):
 
     ledges = set(south_ledges(root))
 
-    def place(tiles, set_index, mid, e, plain, block=False):
+    def place(tiles, set_index, mid, e, plain, block=False, lower=None):
         top = layer(tiles, e, 1)
         base = layer(tiles, e, 0)
+        if lower is not None:
+            # drawn on the lower layer: what is the grass's colour is ground
+            top = [[(rgb, 0 if rgb in grass else 1) for rgb, idx in line] for line in base]
         # the flowers' upper layer repeats the grass round them: what draws
         # the same colour as the ground below is ground, not the prop
         for y in range(16):
             for x in range(16):
-                if top[y][x][1] and top[y][x][0] == base[y][x][0]:
+                if lower is None and top[y][x][1] and top[y][x][0] == base[y][x][0]:
                     top[y][x] = (top[y][x][0], 0)
         rows = [y for y in range(16) if any(top[y][x][1] for x in range(16))]
         if not rows:
@@ -169,8 +176,10 @@ def build_props(root, ts, metatile, image):
             post = 4
         centre = (cols[0] + cols[-1] + 1) // 2
         # a post's fence seen side on: the fence of its material drawn front on
-        metal = any((v >> 12) == 2 for v in e[4:] if v & 0x3FF)
-        out.append([set_index, mid, sx, sy, rows[0], rows[-1] + 1, plain.get(e[:4], mid), post,
+        # (the towns' lower-layer fences are all grey)
+        metal = lower is not None or any((v >> 12) == 2 for v in e[4:] if v & 0x3FF)
+        ground = lower if lower is not None else plain.get(e[:4], mid)
+        out.append([set_index, mid, sx, sy, rows[0], rows[-1] + 1, ground, post,
                     centre, 0x0E7 if metal else 0x0E6])
         return e
 
@@ -192,6 +201,10 @@ def build_props(root, ts, metatile, image):
     for i, e in enumerate(general):
         if i not in listed and any(v & 0x3FF for v in e[4:])            and all((v & 0x3FF) in allowed for v in e[4:] if v & 0x3FF):
             place(ts, 0, i, e, plain)
+    grass = set()
+    for g in (0x010, 0x011):
+        for line in layer(ts, general[g], 0):
+            grass |= {rgb for rgb, idx in line}
     sets = []
     for name in outdoor_secondaries(root):
         path = os.path.join(fr_art.tileset_dir(name), "metatiles.bin")
@@ -206,7 +219,8 @@ def build_props(root, ts, metatile, image):
                  and all((v & 0x3FF) in allowed for v in e[4:] if v & 0x3FF)]
         found += [m - 0x280 for m in EXTRA_PROPS.get(name, [])]
         blocks = [m - 0x280 for m in BLOCKS.get(name, [])]
-        if not found and not blocks:
+        lower = LOWER_FENCES.get(name, {})
+        if not found and not blocks and not lower:
             continue
         sets.append(name)
         tiles = fr_art.Tilesets("gTileset_General", name)
@@ -214,13 +228,11 @@ def build_props(root, ts, metatile, image):
             place(tiles, len(sets), 0x280 + i, sec[i], local)
         for i in blocks:
             place(tiles, len(sets), 0x280 + i, sec[i], local, block=True)
+        for m, ground in lower.items():
+            place(tiles, len(sets), m, sec[m - 0x280], local, lower=ground)
     # A tree's tip over a fence (0D6/0D7): the fence is on the lower layer,
     # drawn over the grass. It stands up on its own, keyed off the grass;
     # the tree's card carries the tip, and the cell's ground is plain grass.
-    grass = set()
-    for g in (0x010, 0x011):
-        for line in layer(ts, general[g], 0):
-            grass |= {rgb for rgb, idx in line}
     for mid, ground in TIP_FENCES.items():
         base = layer(ts, general[mid], 0)
         art = [[(rgb, 0 if rgb in grass else 1) for rgb, idx in line] for line in base]
