@@ -125,7 +125,8 @@ ROMFS_SOUND_OUTS := romfs/sound/songs.bin romfs/sound/songs.rel
 ROMFS_GAMEDATA_OUTS := romfs/gamedata/gamedata.bin romfs/gamedata/gamedata.rel
 ROMFS_SHADER_OUTS :=
 ifeq ($(VOXEL),1)
-ROMFS_SHADER_OUTS += romfs/shaders/voxel.shbin romfs/voxel/buildings.bin romfs/voxel/trees.rgba5551
+ROMFS_SHADER_OUTS += romfs/shaders/voxel.shbin romfs/voxel/buildings.bin romfs/voxel/trees.rgba5551 \
+	romfs/voxel/relief.bin
 endif
 
 $(FULL_OBJECTS): build/config
@@ -227,6 +228,12 @@ romfs/voxel/buildings.bin: scripts/fr_export_buildings.py scripts/fr_gen_buildin
 romfs/voxel/trees.rgba5551: scripts/fr_gen_trees.py scripts/fr_art.py
 	@mkdir -p $(dir $@)
 	POKEFIRERED=$(abspath $(ROOT)) "$(PYTHON)" scripts/fr_gen_trees.py --output $@
+
+# The mountains, lifted off the drawing (fr_gen_relief.py); props are never rock.
+romfs/voxel/relief.bin: scripts/fr_gen_relief.py scripts/fr_map_render.py scripts/fr_art.py \
+		src/voxel/voxel_props_table.h
+	@mkdir -p $(dir $@)
+	POKEFIRERED=$(abspath $(ROOT)) "$(PYTHON)" scripts/fr_gen_relief.py --output $@
 
 romfs/shaders/voxel.shbin: src/voxel/voxel.v.pica
 	@mkdir -p $(dir $@)
