@@ -81,15 +81,17 @@ int VoxelRoom_Ground(const VoxelMapInstance *inst, int x, int y)
     return sRoomCells[i].ground;
 }
 
-static void EmitCell(VoxelBuilder *b, const VoxelMapInstance *inst, unsigned i)
+/* The cell's piece, its art the rectangle (u0, v0)-(u1, v1): v0 its top row. */
+static void EmitCell(VoxelBuilder *b, const VoxelMapInstance *inst, unsigned i,
+                     float u0, float v0, float u1, float v1)
 {
     const float x0 = (float)(inst->originX + sRoomCells[i].x), x1 = x0 + 1.0f;
     const int ly = sRoomCells[i].y, h = sRoomCells[i].h, ybot = sRoomCells[i].ybot;
     const float oz = (float)inst->originY;
     const int split = ybot * 16 - h;            /* the first row of the front */
     int ps = split - ly * 16;
-    float u0 = TEX_U(sRoomCells[i].sx), u1 = TEX_U(sRoomCells[i].sx + 16);
-    float sy = (float)sRoomCells[i].sy;
+#define ROW_V(r) (v0 + (v1 - v0) * (float)(r) / 16.0f)
+#define COL_U(c) (u0 + (u1 - u0) * (float)(c) / 16.0f)
 
     if (ps < 0) ps = 0;
     if (ps > 16) ps = 16;
@@ -97,7 +99,7 @@ static void EmitCell(VoxelBuilder *b, const VoxelMapInstance *inst, unsigned i)
     {
         float ht = h / 16.0f;
         float za = oz + (ly * 16 + h) / 16.0f, zb = oz + (ly * 16 + ps + h) / 16.0f;
-        float va = TEX_V(sy), vb = TEX_V(sy + ps);
+        float va = ROW_V(0), vb = ROW_V(ps);
 
         VoxelBuilder_Quad(b, /* top */
             &(VoxelVertex){x0, ht, za, u0, va, 1.0f}, &(VoxelVertex){x1, ht, za, u1, va, 1.0f},
@@ -105,7 +107,7 @@ static void EmitCell(VoxelBuilder *b, const VoxelMapInstance *inst, unsigned i)
         /* its sides, where the piece ends: the edge column of its top */
         if (sRoomCells[i].flags & ROOM_WEST)
         {
-            float uc0 = TEX_U(sRoomCells[i].sx + 1), uc1 = TEX_U(sRoomCells[i].sx + 2);
+            float uc0 = COL_U(1), uc1 = COL_U(2);
 
             VoxelBuilder_Quad(b,
                 &(VoxelVertex){x0, ht,   za, uc0, va, 0.8f}, &(VoxelVertex){x0, ht,   zb, uc1, vb, 0.8f},
@@ -113,7 +115,7 @@ static void EmitCell(VoxelBuilder *b, const VoxelMapInstance *inst, unsigned i)
         }
         if (sRoomCells[i].flags & ROOM_EAST)
         {
-            float uc0 = TEX_U(sRoomCells[i].sx + 14), uc1 = TEX_U(sRoomCells[i].sx + 15);
+            float uc0 = COL_U(14), uc1 = COL_U(15);
 
             VoxelBuilder_Quad(b,
                 &(VoxelVertex){x1, ht,   zb, uc1, vb, 0.8f}, &(VoxelVertex){x1, ht,   za, uc0, va, 0.8f},
@@ -124,12 +126,30 @@ static void EmitCell(VoxelBuilder *b, const VoxelMapInstance *inst, unsigned i)
     {
         float z = oz + (float)ybot;
         float ya = (ybot * 16 - (ly * 16 + ps)) / 16.0f, yb = (ybot * 16 - (ly * 16 + 16)) / 16.0f;
-        float va = TEX_V(sy + ps), vb = TEX_V(sy + 16);
+        float va = ROW_V(ps), vb = ROW_V(16);
 
         VoxelBuilder_Quad(b, /* front */
             &(VoxelVertex){x0, ya, z, u0, va, 1.0f}, &(VoxelVertex){x1, ya, z, u1, va, 1.0f},
             &(VoxelVertex){x1, yb, z, u1, vb, 1.0f}, &(VoxelVertex){x0, yb, z, u0, vb, 1.0f});
     }
+#undef ROW_V
+#undef COL_U
+}
+
+int VoxelRoom_AtlasArt(const VoxelMapInstance *inst, int x, int y)
+{
+    int i = RoomCell(inst, x, y);
+
+    return i >= 0 && (sRoomCells[i].flags & ROOM_ATLAS) ? (int)sRoomCells[i].sx : -1;
+}
+
+void VoxelRoom_EmitAtlasCell(VoxelBuilder *builder, const VoxelMapInstance *inst, int x, int y,
+                             float u0, float v0, float u1, float v1)
+{
+    int i = RoomCell(inst, x, y);
+
+    if (i >= 0 && (sRoomCells[i].flags & ROOM_ATLAS))
+        EmitCell(builder, inst, (unsigned)i, u0, v0, u1, v1);
 }
 
 void VoxelRoom_EmitInstance(VoxelBuilder *builder, const VoxelMapInstance *inst,
@@ -143,7 +163,8 @@ void VoxelRoom_EmitInstance(VoxelBuilder *builder, const VoxelMapInstance *inst,
     {
         int x = inst->originX + sRoomCells[i].x, y = inst->originY + sRoomCells[i].y;
 
-        if (x >= x0 && x < x1 && y >= y0 && y < y1)
-            EmitCell(builder, inst, i);
+        if (x >= x0 && x < x1 && y >= y0 && y < y1 && !(sRoomCells[i].flags & ROOM_ATLAS))
+            EmitCell(builder, inst, i, TEX_U(sRoomCells[i].sx), TEX_V(sRoomCells[i].sy),
+                     TEX_U(sRoomCells[i].sx + 16), TEX_V(sRoomCells[i].sy + 16));
     }
 }

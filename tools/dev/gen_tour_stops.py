@@ -38,6 +38,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("out")
     ap.add_argument("--only", help="comma-separated substrings of map names")
+    ap.add_argument("--types", help="comma-separated map types (e.g. MAP_TYPE_INDOOR)")
     args = ap.parse_args()
     only = args.only.split(",") if args.only else None
     groups = json.load(open(os.path.join(ROOT, "data", "maps", "map_groups.json")))
@@ -49,6 +50,8 @@ def main():
             if only and not any(s in name for s in only):
                 continue
             m = json.load(open(os.path.join(ROOT, "data", "maps", name, "map.json")))
+            if args.types and m.get("map_type") not in args.types.split(","):
+                continue
             try:
                 layout = fr_map_render.FrLayout(m["layout"])
             except Exception:

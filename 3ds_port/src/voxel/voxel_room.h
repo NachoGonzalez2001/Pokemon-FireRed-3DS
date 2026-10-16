@@ -21,4 +21,10 @@ int VoxelRoom_Ground(const VoxelMapInstance *inst, int x, int y);
 void VoxelRoom_EmitInstance(VoxelBuilder *builder, const VoxelMapInstance *inst,
                             int x0, int y0, int x1, int y1);
 
+/* A piece drawn with the map's own atlas (the whole drawing of its cell):
+ * the metatile, or -1; and the piece, with its UVs, in the ground pass. */
+int VoxelRoom_AtlasArt(const VoxelMapInstance *inst, int x, int y);
+void VoxelRoom_EmitAtlasCell(VoxelBuilder *builder, const VoxelMapInstance *inst, int x, int y,
+                             float u0, float v0, float u1, float v1);
+
 #endif

@@ -1046,8 +1046,12 @@ void VoxelMesh_EmitGroundRow(VoxelBuilder *builder, const VoxelMapInstance *inst
             {
                 float u0, v0, u1, v1;
 
+                int art = VoxelRoom_AtlasArt(inst, x, y);
+
                 if (ground >= 0 && MetatileUV(builder, ground, &u0, &v0, &u1, &v1))
                     VoxelMesh_Top(builder, (float)x, (float)y, 0.0f, 0.0f, u0, v0, u1, v1, SHADE_TOP);
+                if (art >= 0 && MetatileUV(builder, art, &u0, &v0, &u1, &v1))
+                    VoxelRoom_EmitAtlasCell(builder, inst, x, y, u0, v0, u1, v1);
                 continue;
             }
         }
