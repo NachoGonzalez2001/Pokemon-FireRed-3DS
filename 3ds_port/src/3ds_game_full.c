@@ -459,6 +459,7 @@ static void DebugWarp(void)
 /* The overworld's 3D status (ctr_voxel.c): "on" once it draws the map; a
  * heavy map shows the 2D picture while it loads. */
 extern const char *CtrVoxel_Status(void);
+extern const char *CtrVoxel_DebugLine(void);
 static int TourReadInt(const char *path, int fallback)
 {
     FILE *file = fopen(path, "r");
@@ -522,6 +523,7 @@ static void DebugTour(void)
         }
         announced = TRUE;
         lastPoll = sFrames;
+        CtrLog_Write(CTR_LOG_GAME, "tour %d state: %s", stop, CtrVoxel_DebugLine());
         return;
     }
     if (sFrames - lastPoll < 10)

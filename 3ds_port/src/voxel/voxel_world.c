@@ -1006,6 +1006,17 @@ int VoxelWorld_BorderMetatile(int worldX, int worldY)
     return (int)(border[index] & MAPGRID_METATILE_ID_MASK);
 }
 
+/* True when the world past the map is water there (the sea round an
+ * island): it lies flat, as the 2D game's does, not stood up as a block. */
+bool VoxelWorld_BorderIsWater(int worldX, int worldY)
+{
+    int metatileId = VoxelWorld_BorderMetatile(worldX, worldY);
+
+    return metatileId >= 0 && sInstanceCount != 0
+        && BehaviorShape(UNPACK_BEHAVIOR(GetMetatileAttribute(&sInstances[0], metatileId)))
+           == VOXEL_SHAPE_WATER;
+}
+
 /*
  * Layouts of the maps just past those placed: the connections of each
  * connection. They are placed the moment the player crosses, and whatever is

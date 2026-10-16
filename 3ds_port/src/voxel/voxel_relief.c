@@ -55,7 +55,9 @@ typedef struct
     int16_t base;          /* pixels */
     bool drawn;            /* the relief is all of this map's terrain */
     const uint8_t *cells;  /* into sBlob: x, y and the stored heights */
-    int16_t *heights;      /* GRID per cell, pixels */
+    int16_t *heights;      /* GRID per cell, pixels: decoded when first asked
+                            * for (Heights), let go when the map is not loaded */
+    uint8_t unit;          /* pixels a stored step stands for */
     /* A drawn map's surface where it stands, for the sun to be stopped by:
      * its height (pixels) every lattice step of world X and Z, not of the
      * drawing's rows - a point of the drawing lies as far south as it is
@@ -96,6 +98,51 @@ static uint32_t U32(const uint8_t *p)
 {
     return (uint32_t)p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16)
          | ((uint32_t)p[3] << 24);
+}
+
+/*
+ * A layout's heights in pixels. Decoding every map's at load held them all -
+ * every room and cave, a few MiB - for the one map walked; they are decoded
+ * when a map is first drawn and let go again by VoxelRelief_Trim. NULL only
+ * without the memory for them: the map stands level then.
+ */
+static unsigned long sDecodedBytes;
+static const int16_t *Heights(ReliefLayout *l)
+{
+    if (l->heights == NULL && l->count != 0)
+    {
+        l->heights = malloc((size_t)l->count * GRID * sizeof(int16_t));
+        if (l->heights == NULL)
+            return NULL;
+        for (unsigned k = 0; k < l->count; ++k)
+            for (unsigned g = 0; g < GRID; ++g)
+                l->heights[k * GRID + g] =
+                    (int16_t)((int8_t)l->cells[k * CELL_BYTES + 2 + g] * (int)l->unit);
+        sDecodedBytes += (unsigned long)l->count * GRID * sizeof(int16_t);
+    }
+    return l->heights;
+}
+
+#define DECODED_BUDGET (384ul * 1024ul)
+void VoxelRelief_Trim(void)
+{
+    if (sDecodedBytes <= DECODED_BUDGET)
+        return;
+    for (unsigned i = 0; i < sLayoutCount; ++i)
+    {
+        ReliefLayout *l = &sLayouts[i];
+        bool loaded = false;
+
+        if (l->heights == NULL || l->drawn)
+            continue;
+        for (unsigned n = 0; n < VoxelWorld_InstanceCount() && !loaded; ++n)
+            loaded = (unsigned)VoxelWorld_Instance(n)->layoutId == l->layoutId;
+        if (loaded)
+            continue;
+        free(l->heights);
+        l->heights = NULL;
+        sDecodedBytes -= (unsigned long)l->count * GRID * sizeof(int16_t);
+    }
 }
 
 bool VoxelRelief_Init(void)
@@ -160,13 +207,8 @@ bool VoxelRelief_Init(void)
             if (a[1] > c[1] || (a[1] == c[1] && a[0] >= c[0]))
                 goto fail;  /* not in row order: the search would miss cells */
         }
-        l->heights = malloc((size_t)(cells ? cells : 1) * GRID * sizeof(int16_t));
-        if (l->heights == NULL)
-            goto fail;
-        for (unsigned k = 0; k < cells; ++k)
-            for (unsigned g = 0; g < GRID; ++g)
-                l->heights[k * GRID + g] =
-                    (int16_t)((int8_t)l->cells[k * CELL_BYTES + 2 + g] * (int)unit);
+        l->unit = (uint8_t)unit;
+        l->heights = NULL;
     }
     fclose(file);
     for (unsigned i = 0; i < sLayoutCount; ++i)
@@ -209,6 +251,7 @@ void VoxelRelief_Shutdown(void)
         free(sLayouts[i].heights);
     }
     free(sLayouts);
+    sDecodedBytes = 0;
     free(sLayoutIndex);
     sLayoutIndex = NULL;
     sLayoutIndexSize = 0;
@@ -299,7 +342,8 @@ const int16_t *VoxelRelief_Cell(const VoxelMapInstance *inst, int x, int y)
 {
     const ReliefLayout *l = LayoutOf(inst);
     int k = Find(l, inst, x, y);
-    return k >= 0 ? l->heights + (unsigned)k * GRID : NULL;
+    const int16_t *h = k >= 0 ? Heights((ReliefLayout *)l) : NULL;
+    return h != NULL ? h + (unsigned)k * GRID : NULL;
 }
 
 const int16_t *VoxelRelief_Depth(const VoxelMapInstance *inst, int x, int y)
@@ -413,7 +457,8 @@ static void Point(const ReliefLayout *l, unsigned i, unsigned j, int *h, int *d)
     memset(&inst, 0, sizeof(inst));
     inst.layoutId = l->layoutId;
     k = Find(l, &inst, (int)x, (int)y);
-    *h = k >= 0 ? l->heights[(unsigned)k * GRID + b * VOXEL_RELIEF_SIDE + a] : 0;
+    *h = k >= 0 && Heights((ReliefLayout *)l) != NULL
+       ? l->heights[(unsigned)k * GRID + b * VOXEL_RELIEF_SIDE + a] : 0;
     *d = *h;
 }
 

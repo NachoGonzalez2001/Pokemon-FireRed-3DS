@@ -1388,19 +1388,31 @@ static bool BorderOnRelief(VoxelBuilder *builder, int x, int y)
         }
     if (!lifted || !MetatileUV(builder, VoxelWorld_BorderMetatile(x, y), &u0, &v0, &u1, &v1))
         return false;
-    for (int c = 0; c < LATTICE; ++c)
-        for (int a = 0; a < LATTICE; ++a)
+    /* Past the map the heights run on from its edge: across the edge they
+     * do not change, so a strip does where 16 quads did (a belt of them was
+     * thousands of vertices a chunk, too slow to build). */
+    bool flatA = true, flatC = true;
+
+    for (int c = 0; c <= LATTICE; ++c)
+        for (int a = 0; a <= LATTICE; ++a)
         {
-            float fx0 = (float)a / LATTICE, fx1 = (float)(a + 1) / LATTICE;
-            float fz0 = (float)c / LATTICE, fz1 = (float)(c + 1) / LATTICE;
+            flatA = flatA && h[c][a] == h[c][0];
+            flatC = flatC && h[c][a] == h[0][a];
+        }
+    for (int c = 0; c < LATTICE; c += flatC ? LATTICE : 1)
+        for (int a = 0; a < LATTICE; a += flatA ? LATTICE : 1)
+        {
+            int a1 = flatA ? LATTICE : a + 1, c1 = flatC ? LATTICE : c + 1;
+            float fx0 = (float)a / LATTICE, fx1 = (float)a1 / LATTICE;
+            float fz0 = (float)c / LATTICE, fz1 = (float)c1 / LATTICE;
             float su0 = u0 + (u1 - u0) * fx0, su1 = u0 + (u1 - u0) * fx1;
             float sv0 = v0 + (v1 - v0) * fz0, sv1 = v0 + (v1 - v0) * fz1;
 
             VoxelBuilder_Quad(builder,
-                &(VoxelVertex){x + fx0, h[c][a],         y + fz0 + h[c][a],         su0, sv0, SHADE_TOP},
-                &(VoxelVertex){x + fx1, h[c][a + 1],     y + fz0 + h[c][a + 1],     su1, sv0, SHADE_TOP},
-                &(VoxelVertex){x + fx1, h[c + 1][a + 1], y + fz1 + h[c + 1][a + 1], su1, sv1, SHADE_TOP},
-                &(VoxelVertex){x + fx0, h[c + 1][a],     y + fz1 + h[c + 1][a],     su0, sv1, SHADE_TOP});
+                &(VoxelVertex){x + fx0, h[c][a],   y + fz0 + h[c][a],   su0, sv0, SHADE_TOP},
+                &(VoxelVertex){x + fx1, h[c][a1],  y + fz0 + h[c][a1],  su1, sv0, SHADE_TOP},
+                &(VoxelVertex){x + fx1, h[c1][a1], y + fz1 + h[c1][a1], su1, sv1, SHADE_TOP},
+                &(VoxelVertex){x + fx0, h[c1][a],  y + fz1 + h[c1][a],  su0, sv1, SHADE_TOP});
         }
     return true;
 }
@@ -1445,6 +1457,13 @@ void VoxelMesh_EmitBorder(VoxelBuilder *builder, int x0, int y0, int x1, int y1)
             }
             if (BorderOnRelief(builder, x, y))
                 continue;
+            /* the sea past an island lies flat, at the water's level */
+            if (VoxelWorld_BorderIsWater(x, y))
+            {
+                if (MetatileUV(builder, VoxelWorld_BorderMetatile(x, y), &u0, &v0, &u1, &v1))
+                    VoxelMesh_Top(builder, wx, wz, 0.0f, 0.0f, u0, v0, u1, v1, SHADE_TOP);
+                continue;
+            }
             south = !BorderAt(x, y + 1);
             east = !BorderAt(x + 1, y);
             west = !BorderAt(x - 1, y);

@@ -68,6 +68,15 @@ def cave_door():
 
 CAVE_DOOR = cave_door()
 
+# Woods drawn as one mass of round canopies (Viridian Forest, Berry Forest,
+# Pattern Bush, the Safari Zone): lifted like rock, the lowest cell of each
+# run - its trunks and shade - the face it stands on.
+FOREST = {
+    "gTileset_ViridianForest": range(0x288, 0x2A8),
+    "gTileset_BerryForest": range(0x288, 0x2A8),
+    "gTileset_FuchsiaCity": range(0x2F4, 0x328),
+}
+
 SIDE = 5            # lattice points per cell side, every 4 pixels
 STEP = 4
 # General's rock (palettes 0 and 1): seen from above, and its faces
@@ -121,6 +130,16 @@ def relief_of(layout):
             if (layout.collision(x, y) or door) and share >= ROCK_SHARE and not prop:
                 rock[y][x] = True
                 face[y][x] = rows
+    forest = FOREST.get(layout.secondary, ())
+    tree = [[layout.collision(x, y) and layout.metatile(x, y) in forest
+             and layout.metatile(x, y) not in PROPS.get(layout.secondary, ())
+             for x in range(W)] for y in range(H)]
+    for y in range(H):
+        for x in range(W):
+            if tree[y][x]:
+                rock[y][x] = True
+                foot = y + 1 >= H or not tree[y + 1][x]
+                face[y][x] = [foot] * 16
     # Rock drawn walkable but shut in by rock (the top of Diglett's Cave's
     # mound) is rock: no one stands there, and left level it was a pit.
     seen = set()
@@ -238,6 +257,7 @@ def relief_of(layout):
 # floor south of it (the black round the room, its south wall) stays down,
 # where it would hide the room from the camera.
 ROOM_CAP = 48
+FURNITURE_CAP = 16
 SIDE_STEEP = 4      # a piece of furniture's sides: at 45 degrees a table was a tent
 VOID_SHARE = 0.85   # of a cell's pixels black: the filler round the room
 
@@ -288,6 +308,31 @@ def interior_relief(layout):
                     best = min(best, d)
         return best
 
+    # Walls are what reaches the black round the room (or its edge); a mass
+    # standing free on the floor - a shelf, a gravestone, a counter - is one
+    # cell tall at most, its upper rows its top seen from above.
+    cap = [[ROOM_CAP] * W for _ in range(H)]
+    seen = set()
+    for y in range(H):
+        for x in range(W):
+            if kind[y][x] != 1 or (x, y) in seen:
+                continue
+            group, todo, wall = [], [(x, y)], False
+            seen.add((x, y))
+            while todo:
+                cx, cy = todo.pop()
+                group.append((cx, cy))
+                for nx, ny in ((cx - 1, cy), (cx + 1, cy), (cx, cy - 1), (cx, cy + 1)):
+                    if ny < 0 or (0 <= nx < W and 0 <= ny < H and kind[ny][nx] == 2):
+                        wall = True
+                    elif not (0 <= nx < W and 0 <= ny < H):
+                        continue
+                    elif kind[ny][nx] == 1 and (nx, ny) not in seen:
+                        seen.add((nx, ny))
+                        todo.append((nx, ny))
+            if not wall:
+                for cx, cy in group:
+                    cap[cy][cx] = FURNITURE_CAP
     out = {}
     lattice = {}
     for y in range(H):
@@ -299,7 +344,7 @@ def interior_relief(layout):
                 for a in range(SIDE):
                     key = (x * (SIDE - 1) + a, y * (SIDE - 1) + c)
                     if key not in lattice:
-                        lattice[key] = int(min(ROOM_CAP, up[key], SIDE_STEEP * side(*key)))
+                        lattice[key] = int(min(cap[y][x], up[key], SIDE_STEEP * side(*key)))
                     grid.append(lattice[key])
             if any(grid):
                 out[(x, y)] = grid
@@ -309,19 +354,34 @@ def interior_relief(layout):
 OUTDOOR = {"MAP_TYPE_TOWN", "MAP_TYPE_CITY", "MAP_TYPE_ROUTE", "MAP_TYPE_OCEAN_ROUTE"}
 
 
+def map_layouts(root, types):
+    """The layouts maps of these types are drawn on, with those their own
+    scripts swap in (setmaplayoutindex: Seven Island's house with its door
+    open, Seafoam with its currents stopped)."""
+    import re
+    out = set()
+    maps = os.path.join(root, "data", "maps")
+    for name in os.listdir(maps):
+        path = os.path.join(maps, name, "map.json")
+        if not os.path.exists(path):
+            continue
+        m = json.load(open(path, encoding="utf-8"))
+        if m.get("map_type") not in types:
+            continue
+        out.add(m.get("layout"))
+        script = os.path.join(maps, name, "scripts.inc")
+        if os.path.exists(script):
+            out |= set(re.findall(r"setmaplayoutindex\s+(LAYOUT_\w+)",
+                                  open(script, encoding="utf-8").read()))
+    return out
+
+
 def indoor_layouts(root, only=None):
     """The layouts indoor maps (houses, shops, centres, gyms) and caves are
     drawn on: a cave's rock walls stand up from its floor as a room's do."""
     layouts = json.load(open(os.path.join(root, "data", "layouts", "layouts.json"),
                              encoding="utf-8"))["layouts"]
-    indoor = set()
-    maps = os.path.join(root, "data", "maps")
-    for name in os.listdir(maps):
-        path = os.path.join(maps, name, "map.json")
-        if os.path.exists(path):
-            m = json.load(open(path, encoding="utf-8"))
-            if m.get("map_type") in ("MAP_TYPE_INDOOR", "MAP_TYPE_UNDERGROUND"):
-                indoor.add(m.get("layout"))
+    indoor = map_layouts(root, ("MAP_TYPE_INDOOR", "MAP_TYPE_UNDERGROUND"))
     for index, entry in enumerate(layouts, start=1):
         lid = entry.get("id")
         if lid and lid in indoor and (not only or lid in only):
@@ -332,14 +392,7 @@ def outdoor_layouts(root, only=None):
     """The layouts outdoor maps are drawn on (not caves: they come later)."""
     layouts = json.load(open(os.path.join(root, "data", "layouts", "layouts.json"),
                              encoding="utf-8"))["layouts"]
-    outdoor = set()
-    maps = os.path.join(root, "data", "maps")
-    for name in os.listdir(maps):
-        path = os.path.join(maps, name, "map.json")
-        if os.path.exists(path):
-            m = json.load(open(path, encoding="utf-8"))
-            if m.get("map_type") in OUTDOOR:
-                outdoor.add(m.get("layout"))
+    outdoor = map_layouts(root, OUTDOOR)
     for index, entry in enumerate(layouts, start=1):
         lid = entry.get("id")
         if not lid or lid not in outdoor or entry.get("primary_tileset") != "gTileset_General":

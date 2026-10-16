@@ -29,6 +29,9 @@
 
 bool VoxelRelief_Init(void);
 void VoxelRelief_Shutdown(void);
+/* Lets go of the decoded heights of maps no longer loaded, past a budget.
+ * Called where no build holds a cell's heights: before the frame's update. */
+void VoxelRelief_Trim(void);
 
 /* The level a map's ground stands at in the world, tiles (0 for a map the
  * file does not name). */

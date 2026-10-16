@@ -97,6 +97,7 @@ bool VoxelWorld_UsesTreeSprites(const VoxelMapInstance *inst);
  * Without it the view ends in the clear colour past the last map. */
 int VoxelWorld_BorderMetatile(int worldX, int worldY);
 VoxelVisualShape VoxelWorld_ClassifyTile(int worldX, int worldY);
+bool VoxelWorld_BorderIsWater(int worldX, int worldY);
 
 void VoxelWorld_GetMapDimensions(int *width, int *height);
 void VoxelWorld_GetPlayerWorldCoords(float *worldX, float *worldZ);

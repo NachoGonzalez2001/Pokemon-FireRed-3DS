@@ -2047,6 +2047,19 @@ static VoxelAtlasSlot *AcquireAtlas(const VoxelMapInstance *inst, bool mayEvict)
     /* A map on screen does not wait behind one composed ahead of time. */
     if (AtlasJobBusy() && !sAtlasJob.forView && mayEvict)
         AtlasJobCancel();
+    /* Nor behind one no map wants any more: a script that swaps the map's
+     * layout as it loads (Seven Island's house, its door opened) leaves the
+     * atlas of the first layout's tilesets being composed for nothing. */
+    if (AtlasJobBusy() && mayEvict)
+    {
+        bool wanted = false;
+
+        for (unsigned i = 0; i < VoxelWorld_InstanceCount() && !wanted; ++i)
+            wanted = VoxelWorld_Instance(i)->primaryTileset == sAtlasJob.job.primary
+                  && VoxelWorld_Instance(i)->secondaryTileset == sAtlasJob.job.secondary;
+        if (!wanted)
+            AtlasJobCancel();
+    }
     /* One at a time: the job owns the staging buffer, and an upload queued
      * from it this frame has not been made yet. */
     if (AtlasJobBusy() || sAtlasUploadPending || sAtlasStaging == NULL)
@@ -3222,6 +3235,9 @@ static void VisitSite(const ChunkSite *site, VoxelAtlasSlot *atlas,
         stale = true; /* only its draft stands (DraftChunk); drawable meanwhile */
     else if (chunk->uncovered && chunk->atlasExtension != atlas->extension)
         stale = true; /* the atlas grew the ids it was missing; still drawable */
+    else if (chunk->count == 0 && chunk->atlasExtension != atlas->extension)
+        stale = true; /* built empty before the atlas had its ids (a layout a
+                       * script swapped in as the map loaded): never drawn */
     else if (chunk->staleEpoch == sEpoch)
     {
         stale = hashKnown = true;
@@ -3246,9 +3262,11 @@ static void VisitSite(const ChunkSite *site, VoxelAtlasSlot *atlas,
             chunk->staleEpoch = sEpoch;
         }
     }
+    /* an empty chunk shows nothing: rebuilt as a hole, or on a frame that
+     * draws nothing else its turn - the time after FrameEnd - never comes */
     if (stale)
         Request(site, atlas, chunk, hashKnown ? &hash : NULL,
-                inView ? (drawable ? NEED_STALE : NEED_HOLE)
+                inView ? (drawable && chunk->count != 0 ? NEED_STALE : NEED_HOLE)
                        : (drawable ? NEED_AHEAD_STALE : NEED_AHEAD),
                 playerX, playerZ);
     if (!inView)
@@ -4452,6 +4470,11 @@ bool CtrVoxel_Update(void)
     VoxelWorld_BeginBatch();
     VoxelWorld_BuildInstances();
     sStats.instances = VoxelWorld_InstanceCount();
+    /* a map left behind lets go of its relief: no build holds it now, the
+     * frame's jobs start over from the instances just built */
+    if (sJob.active && !JobValid())
+        JobCancel();
+    VoxelRelief_Trim();
     ReadAhead();
     inst = VoxelWorld_Instance(0);
     if (inst == NULL)
@@ -4709,6 +4732,19 @@ bool CtrVoxel_Update(void)
  * but the current map's are released; they are composed again, over frames,
  * when their maps are next on screen.
  */
+const char *CtrVoxel_DebugLine(void)
+{
+    static char line[200];
+    const VoxelMapInstance *inst = VoxelWorld_Instance(0);
+
+    snprintf(line, sizeof(line), "draws=%u chunks=%u view=%d,%d-%d,%d inst=%u lay=%d %d:%d o=%d,%d %dx%d ind=%d",
+             sDrawCount, sStats.chunks, sViewRect[0], sViewRect[1], sViewRect[2], sViewRect[3],
+             VoxelWorld_InstanceCount(), inst ? inst->layoutId : -1, inst ? inst->mapGroup : -1,
+             inst ? inst->mapNum : -1, inst ? inst->originX : 0, inst ? inst->originY : 0,
+             inst ? inst->width : 0, inst ? inst->height : 0, inst ? (int)inst->indoor : -1);
+    return line;
+}
+
 bool CtrVoxel_IsWarmingUp(void)
 {
     return sReady && sFrame < sWarmupUntil && !sAtlasCapacityBlocked;
