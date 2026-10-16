@@ -54,6 +54,20 @@ def prop_metatiles():
 
 PROPS = prop_metatiles()
 
+
+def cave_door():
+    """MB_CAVE_DOOR: a cave's mouth is walkable, drawn in the rock's face."""
+    import re
+    path = os.path.join(fr_art.ROOT, "include", "constants", "metatile_behaviors.h")
+    for line in open(path, encoding="utf-8"):
+        m = re.match(r"#define MB_CAVE_DOOR\s+(0x[0-9A-Fa-f]+|\d+)", line)
+        if m:
+            return int(m.group(1), 0)
+    return -1
+
+
+CAVE_DOOR = cave_door()
+
 SIDE = 5            # lattice points per cell side, every 4 pixels
 STEP = 4
 # General's rock (palettes 0 and 1): seen from above, and its faces
@@ -103,9 +117,44 @@ def relief_of(layout):
             share, rows = classes.of(layout.metatile(x, y))
             m = layout.metatile(x, y)
             prop = m in PROPS.get(None if m < 0x280 else layout.secondary, ())
-            if layout.collision(x, y) and share >= ROCK_SHARE and not prop:
+            door = layout.behaviour(x, y) == CAVE_DOOR
+            if (layout.collision(x, y) or door) and share >= ROCK_SHARE and not prop:
                 rock[y][x] = True
                 face[y][x] = rows
+    # Rock drawn walkable but shut in by rock (the top of Diglett's Cave's
+    # mound) is rock: no one stands there, and left level it was a pit.
+    seen = set()
+    for y in range(H):
+        for x in range(W):
+            if rock[y][x] or (x, y) in seen or classes.of(layout.metatile(x, y))[0] < 0.9:
+                continue
+            group, todo, shut = [], [(x, y)], True
+            seen.add((x, y))
+            while todo:
+                cx, cy = todo.pop()
+                group.append((cx, cy))
+                for nx, ny in ((cx - 1, cy), (cx + 1, cy), (cx, cy - 1), (cx, cy + 1)):
+                    if not (0 <= nx < W and 0 <= ny < H):
+                        shut = False
+                    elif rock[ny][nx] or (nx, ny) in seen:
+                        continue
+                    elif classes.of(layout.metatile(nx, ny))[0] >= 0.9:
+                        seen.add((nx, ny))
+                        todo.append((nx, ny))
+                    else:
+                        shut = False
+            if shut:
+                for cx, cy in group:
+                    rock[cy][cx] = True
+                    face[cy][cx] = classes.of(layout.metatile(cx, cy))[1]
+    # A cave's mouth stands in the face it is cut in: the face's band, from
+    # the rock beside it, or it stood flat and dented the rock round it.
+    for y in range(H):
+        for x in range(W):
+            if rock[y][x] and layout.behaviour(x, y) == CAVE_DOOR:
+                beside = [face[y][n] for n in (x - 1, x + 1)
+                          if 0 <= n < W and rock[y][n] and any(face[y][n])]
+                face[y][x] = beside[0] if beside else [y >= 2 for y in range(16)]
     if not any(any(r) for r in rock):
         return {}
 

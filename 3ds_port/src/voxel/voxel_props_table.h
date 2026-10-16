@@ -55,7 +55,9 @@ static const struct
     /* 1: a north-south fence post (its column `centre`), built as the
      * fence drawn front on at sx, sy from row sr, turned along it;
      * 2: leans back, low; 3: a ledge, its face alone (its drawing kept
-     * flat too); 4: a low block over rows r0..r1, the drawing on top */
+     * flat too); 4: a low block over rows r0..r1, the drawing on top;
+     * 5: a block drawn whole, its top rows above row `centre`, its
+     * face below it */
     unsigned char kind, centre;
     unsigned short sx, sy, sr;
 } sProps[] = {
@@ -172,8 +174,11 @@ static const struct
     { 17, 0x28D, 192,   0,  1, 16, 0x0C5, 0,  8,  64,  16,  2 },
     { 18, 0x2A6,  64,  48,  0, 16, 0x008, 0,  8,  64,  16,  2 },
     { 18, 0x2A7,  80,  48,  0, 16, 0x009, 0,  8,  64,  16,  2 },
-    {  0, 0x0D6,  96,  64,  2, 16, 0x010, 0,  8,  64,  16,  2 },
-    {  0, 0x0D7, 112,  64,  2, 16, 0x011, 0,  8,  64,  16,  2 },
+    {  0, 0x13D,  96,  64,  0, 16, 0x008, 5,  9,  80,  16,  2 },
+    {  0, 0x13E, 112,  64,  0, 16, 0x008, 5,  9,  80,  16,  2 },
+    {  0, 0x13F, 128,  64,  0, 16, 0x008, 5,  9,  80,  16,  2 },
+    {  0, 0x0D6, 144,  64,  2, 16, 0x010, 0,  8,  64,  16,  2 },
+    {  0, 0x0D7, 160,  64,  2, 16, 0x011, 0,  8,  64,  16,  2 },
 };
 
 #endif

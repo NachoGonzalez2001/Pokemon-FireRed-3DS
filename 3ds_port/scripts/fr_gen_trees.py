@@ -74,6 +74,8 @@ EXTRA_PROPS = {"gTileset_FuchsiaCity": [0x28E, 0x28F, 0x296]}
 LOWER_FENCES = {"gTileset_FuchsiaCity": {0x336: 0x010, 0x337: 0x010, 0x33F: 0x010}}
 # Drawn from above, raised as a low block rather than stood up: the hedge
 # walls of Fuchsia's Pokemon pens
+LOWER_BLOCKS = {0x13D: 0x008, 0x13E: 0x008, 0x13F: 0x008}
+HEDGE_FACE = 9      # its first row of front face: above it, its top seen from above
 BLOCKS = {"gTileset_FuchsiaCity": [0x290, 0x291, 0x292, 0x293, 0x294, 0x295, 0x29B, 0x29C]}
 
 
@@ -155,7 +157,7 @@ def build_props(root, ts, metatile, image):
                     rgb, idx = top[y][x]
                     if idx:
                         image[(sx + x, sy + y)] = rgb
-                    elif block:
+                    elif block and lower is None:
                         # a block's top is the whole drawing, ground and all
                         image[(sx + x, sy + y)] = base[y][x][0]
         sx, sy = seen[key]
@@ -230,6 +232,13 @@ def build_props(root, ts, metatile, image):
             place(tiles, len(sets), 0x280 + i, sec[i], local, block=True)
         for m, ground in lower.items():
             place(tiles, len(sets), m, sec[m - 0x280], local, lower=ground)
+    # General's hedge drawn whole on the lower layer, from above (Vermilion's
+    # long one by the Mart): a low block over plain grass
+    for m, ground in LOWER_BLOCKS.items():
+        place(ts, 0, m, general[m], plain, block=True, lower=ground)
+    for p in out:
+        if p[0] == 0 and p[1] in LOWER_BLOCKS:
+            p[7], p[8] = 5, HEDGE_FACE
     # A tree's tip over a fence (0D6/0D7): the fence is on the lower layer,
     # drawn over the grass. It stands up on its own, keyed off the grass;
     # the tree's card carries the tip, and the cell's ground is plain grass.
@@ -271,7 +280,9 @@ def write_table(props, sets, path):
               "    /* 1: a north-south fence post (its column `centre`), built as the",
               "     * fence drawn front on at sx, sy from row sr, turned along it;",
               "     * 2: leans back, low; 3: a ledge, its face alone (its drawing kept",
-              "     * flat too); 4: a low block over rows r0..r1, the drawing on top */",
+              "     * flat too); 4: a low block over rows r0..r1, the drawing on top;",
+              "     * 5: a block drawn whole, its top rows above row `centre`, its",
+              "     * face below it */",
               "    unsigned char kind, centre;",
               "    unsigned short sx, sy, sr;",
               "} sProps[] = {"]

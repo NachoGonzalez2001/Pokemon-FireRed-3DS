@@ -181,6 +181,50 @@ static void EmitBlock(VoxelBuilder *builder, int x, int y, int prop)
         &(VoxelVertex){x1, 0.0f, z1, u1 - 1.0f / VOXEL_TREE_TEXTURE_DIM, vb, 0.8f});
 }
 
+/*
+ * A block drawn whole from above at the GBA's 45 degrees (Vermilion's long
+ * hedge): the rows above `centre` are its top, those below its south face.
+ * Lifted as the drawing says - the top as high as the face is tall, the face
+ * standing at the cell's south edge - it is seen as drawn. Its ends close
+ * where the next cell is not more of it.
+ */
+static void EmitDrawnBlock(VoxelBuilder *builder, int x, int y, int prop, bool westEnd, bool eastEnd)
+{
+    float x0 = (float)x, x1 = x0 + 1.0f;
+    float h = (16 - sProps[prop].centre) / 16.0f;
+    float zb = (float)y + h, zf = (float)y + 1.0f;
+    float u0 = TEX_U(sProps[prop].x), u1 = TEX_U(sProps[prop].x + 16);
+    float vt = TEX_V(sProps[prop].y), vm = TEX_V(sProps[prop].y + sProps[prop].centre);
+    float vb = TEX_V(sProps[prop].y + 16);
+
+    VoxelBuilder_Quad(builder, /* top */
+        &(VoxelVertex){x0, h, zb, u0, vt, 1.0f}, &(VoxelVertex){x1, h, zb, u1, vt, 1.0f},
+        &(VoxelVertex){x1, h, zf, u1, vm, 1.0f}, &(VoxelVertex){x0, h, zf, u0, vm, 1.0f});
+    VoxelBuilder_Quad(builder, /* south */
+        &(VoxelVertex){x0, h,    zf, u0, vm, 1.0f}, &(VoxelVertex){x1, h,    zf, u1, vm, 1.0f},
+        &(VoxelVertex){x1, 0.0f, zf, u1, vb, 1.0f}, &(VoxelVertex){x0, 0.0f, zf, u0, vb, 1.0f});
+    if (westEnd)
+    {
+        float uc0 = TEX_U(sProps[prop].x + 2), uc1 = TEX_U(sProps[prop].x + 3);
+
+        VoxelBuilder_Quad(builder,
+            &(VoxelVertex){x0 + 1.0f / 16.0f, h,    zb, uc0, vm, 0.8f},
+            &(VoxelVertex){x0 + 1.0f / 16.0f, h,    zf, uc1, vm, 0.8f},
+            &(VoxelVertex){x0 + 1.0f / 16.0f, 0.0f, zf, uc1, vb, 0.8f},
+            &(VoxelVertex){x0 + 1.0f / 16.0f, 0.0f, zb, uc0, vb, 0.8f});
+    }
+    if (eastEnd)
+    {
+        float uc0 = TEX_U(sProps[prop].x + 13), uc1 = TEX_U(sProps[prop].x + 14);
+
+        VoxelBuilder_Quad(builder,
+            &(VoxelVertex){x1 - 1.0f / 16.0f, h,    zf, uc1, vm, 0.8f},
+            &(VoxelVertex){x1 - 1.0f / 16.0f, h,    zb, uc0, vm, 0.8f},
+            &(VoxelVertex){x1 - 1.0f / 16.0f, 0.0f, zb, uc0, vb, 0.8f},
+            &(VoxelVertex){x1 - 1.0f / 16.0f, 0.0f, zf, uc1, vb, 0.8f});
+    }
+}
+
 static void EmitProp(VoxelBuilder *builder, int x, int y, int prop, int below, int north,
                      bool westFence, bool eastFence)
 {
@@ -355,6 +399,15 @@ void VoxelTree_EmitInstance(VoxelBuilder *builder, const VoxelMapInstance *inst,
                     EmitLedge(builder, x, y, prop);
                 else if (sProps[prop].kind == 4)
                     EmitBlock(builder, x, y, prop);
+                else if (sProps[prop].kind == 5)
+                {
+                    int w = VoxelWorld_GetInstanceAt(x - 1, y) == inst
+                          ? PropIndex(inst->secondaryTileset, VoxelWorld_GetMetatileId(x - 1, y)) : -1;
+                    int e = VoxelWorld_GetInstanceAt(x + 1, y) == inst
+                          ? PropIndex(inst->secondaryTileset, VoxelWorld_GetMetatileId(x + 1, y)) : -1;
+                    EmitDrawnBlock(builder, x, y, prop, w < 0 || sProps[w].kind != 5,
+                                   e < 0 || sProps[e].kind != 5);
+                }
                 else
                 {
                     bool west = VoxelWorld_GetInstanceAt(x - 1, y) == inst
@@ -399,6 +452,8 @@ void VoxelTree_EmitBorder(VoxelBuilder *builder, int x0, int y0, int x1, int y1)
                 EmitLedge(builder, x, y, prop);
             else if (prop >= 0 && sProps[prop].kind == 4)
                 EmitBlock(builder, x, y, prop);
+            else if (prop >= 0 && sProps[prop].kind == 5)
+                EmitDrawnBlock(builder, x, y, prop, false, false);
             else if (prop >= 0)
                 EmitProp(builder, x, y, prop, -1, -1, false, false);
             if (part >= 0 || crown >= 0)
