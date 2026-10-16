@@ -3882,9 +3882,11 @@ static void UpdateView(float playerX, float playerZ, bool crossed, bool cut)
     {
         float atlasMs = warmup ? holeMs : 0.0f;
 
+        /* (not only when the time after FrameEnd is short: a map with no
+         * atlas draws nothing, and on a frame that draws nothing that time
+         * is never given - the atlas waited for it for ever) */
         if (!warmup && AtlasJobBusy() && sAtlasJob.forView && !sAtlasJob.ready
-         && sFrame - sAtlasProgressFrame >= VOXEL_STARVE_FRAMES
-         && sAfterStarvedFrames >= VOXEL_STARVE_FRAMES)
+         && sFrame - sAtlasProgressFrame >= VOXEL_STARVE_FRAMES)
             atlasMs = VOXEL_STARVE_MS;
         RunAtlasJob(started, atlasMs, true);
     }
@@ -3927,8 +3929,10 @@ static void UpdateView(float playerX, float playerZ, bool crossed, bool cut)
     for (unsigned i = 0; i < sRequestCount; ++i)
     {
         /* Outside the warm-up a hole is one the draft could not cover: the
-         * border belt, which has none. The others wait for their frame. */
-        holes = holes || (sRequests[i].need == NEED_HOLE && (warmup || sRequests[i].site.border));
+         * border belt, which has none, or a square the drafts ran out of
+         * room for. Left for the time after FrameEnd, on a heavy map whose
+         * frames leave none it waited for ever, and the map stayed 2D. */
+        holes = holes || sRequests[i].need == NEED_HOLE;
         starved = starved || RequestOverdue(&sRequests[i]);
     }
     if (sAfterStarvedFrames < VOXEL_STARVE_FRAMES)
@@ -3994,12 +3998,14 @@ static void UpdateView(float playerX, float playerZ, bool crossed, bool cut)
     if (missing != 0 && sFrame - lastMissingLog >= 120u)
     {
         lastMissingLog = sFrame;
-        CtrLog_Write(CTR_LOG_VIDEO, "VOXEL stream frame=%lu missing=%u pending=%u phase=%d age=%lu estimate=%.2fms starts=%u cancels=%u wasted=%.1fms mesh=%.2f/%.2f visit=%.2fms atlasSkip=%u drafts=%u",
+        CtrLog_Write(CTR_LOG_VIDEO, "VOXEL stream frame=%lu missing=%u pending=%u phase=%d age=%lu estimate=%.2fms starts=%u cancels=%u wasted=%.1fms mesh=%.2f/%.2f visit=%.2fms atlasSkip=%u drafts=%u atlasJob=%d/%d/%d upload=%d progress=%lu starved=%lu",
                      (unsigned long)sFrame, missing, sRequestCount, sJob.active ? sJob.phase : -1,
                      (unsigned long)(sJob.active ? sFrame - sJob.firstFrame : 0),
                      sJob.active ? PhaseCost(sJob.phase) : 0.0f,
                      sJobStarts, sJobCancels, sCancelledBuildMs, sInFrameBuildMs, holeMs, visitMs,
-                     sAtlasExtensionsSkipped, sDrafts);
+                     sAtlasExtensionsSkipped, sDrafts, AtlasJobBusy(), sAtlasJob.forView, sAtlasJob.ready,
+                     sAtlasUploadPending, (unsigned long)(sFrame - sAtlasProgressFrame),
+                     (unsigned long)sAfterStarvedFrames);
     }
     sViewReady = true;
 }
@@ -4684,11 +4690,17 @@ bool CtrVoxel_Update(void)
     sStats.updateMs = (float)((svcGetSystemTick() - started) * 1000.0 / SYSCLOCK_ARM11);
     if (sStats.updateMs > sStats.updatePeakMs)
         sStats.updatePeakMs = sStats.updateMs;
-    sStatus = sAtlasCapacityBlocked ? "capacity"
-            : sWarmupUntil != 0 && sStats.chunksMissing != 0 ? "loading"
-            : sDrawCount != 0 ? "on" : "nomesh";
-    return sDrawCount != 0 && !sAtlasCapacityBlocked
-        && !(sWarmupUntil != 0 && sStats.chunksMissing != 0);
+    /* The 2D picture stands in while the warm-up builds the view; past it,
+     * a view with a square or two still to come is drawn as it is (they
+     * come in drafts, then built), not left in 2D until the last one lands -
+     * on a heavy map that was never. */
+    {
+        bool loading = sFrame < sWarmupUntil && sStats.chunksMissing != 0;
+
+        sStatus = sAtlasCapacityBlocked ? "capacity" : loading ? "loading"
+                : sDrawCount != 0 ? "on" : "nomesh";
+        return sDrawCount != 0 && !sAtlasCapacityBlocked && !loading;
+    }
 }
 
 /*

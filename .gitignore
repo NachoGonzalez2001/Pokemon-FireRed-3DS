@@ -5,3 +5,4 @@ __pycache__/
 *.sav
 3ds_port/local.mk
 3ds_port/local-early.mk
+3ds_port/src/debug_tour_stops.h

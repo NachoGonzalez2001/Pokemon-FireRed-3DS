@@ -441,6 +441,117 @@ static void DebugWarp(void)
 }
 #endif
 
+#ifdef CTR_DEBUG_TOUR
+#include "field_fadetransition.h"
+#include "quest_log.h"
+#include "script.h"
+#include "debug_tour_stops.h"
+/*
+ * Diagnostic: a tour of every map (tools/dev/gen_tour_stops.py writes the
+ * stops). At each stop, once the field has stood still a moment, the stop is
+ * written to tour_ready.txt; the driver outside captures the window and
+ * answers with the stop's number in tour_ack.txt, and the tour goes on. A
+ * stop that never settles (a map's own script holding the player) is
+ * announced anyway after a while. tour_start.txt, when present, is the stop
+ * to begin from.
+ */
+#define TOUR_DIR "sdmc:/3ds/emerald3ds/"
+/* The overworld's 3D status (ctr_voxel.c): "on" once it draws the map; a
+ * heavy map shows the 2D picture while it loads. */
+extern const char *CtrVoxel_Status(void);
+static int TourReadInt(const char *path, int fallback)
+{
+    FILE *file = fopen(path, "r");
+    int value = fallback;
+
+    if (file)
+    {
+        if (fscanf(file, "%d", &value) != 1)
+            value = fallback;
+        fclose(file);
+    }
+    return value;
+}
+
+static void TourWarp(int stop)
+{
+    CtrLog_Write(CTR_LOG_GAME, "tour %d: %s", stop, sTourStops[stop].name);
+    SetWarpDestination(sTourStops[stop].group, sTourStops[stop].num, -1,
+                       sTourStops[stop].x, sTourStops[stop].y);
+    DoWarp();
+}
+
+static void DebugTour(void)
+{
+    static int stop = -1;
+    static bool8 announced;
+    static u32 since, still, lastPoll;
+    const int count = (int)(sizeof(sTourStops) / sizeof(sTourStops[0]));
+    bool8 idle = gMain.callback1 == CB1_Overworld && !ArePlayerFieldControlsLocked()
+              && !gPaletteFade.active && !ScriptContext_IsEnabled() && gQuestLogState == 0;
+
+    if (stop < 0)
+    {
+        if (!idle)
+            return;
+        remove(TOUR_DIR "tour_ack.txt");
+        remove(TOUR_DIR "tour_ready.txt");
+        stop = TourReadInt(TOUR_DIR "tour_start.txt", 0);
+        if (stop < 0 || stop >= count)
+            stop = 0;
+        TourWarp(stop);
+        since = sFrames;
+        still = 0;
+        return;
+    }
+    if (stop >= count)
+        return;
+    if (!announced)
+    {
+        FILE *file;
+
+        still = (idle && strcmp(CtrVoxel_Status(), "on") == 0) ? still + 1 : 0;
+        if (still < 60 && sFrames - since < 1800)
+            return;
+        file = fopen(TOUR_DIR "tour_ready.txt", "w");
+        if (file)
+        {
+            fprintf(file, "%d %s %s %s\n", stop, sTourStops[stop].name, still >= 60 ? "ok" : "stuck",
+                    CtrVoxel_Status());
+            fclose(file);
+        }
+        announced = TRUE;
+        lastPoll = sFrames;
+        return;
+    }
+    if (sFrames - lastPoll < 10)
+        return;
+    lastPoll = sFrames;
+    if (TourReadInt(TOUR_DIR "tour_ack.txt", -1) != stop)
+        return;
+    announced = FALSE;
+    if (++stop >= count)
+    {
+        FILE *file = fopen(TOUR_DIR "tour_ready.txt", "w");
+
+        if (file)
+        {
+            fprintf(file, "%d done\n", stop);
+            fclose(file);
+        }
+        CtrLog_Write(CTR_LOG_GAME, "tour done");
+        return;
+    }
+    /* a stop held by its map's script is warped out of all the same: the
+     * driver notices if the game does not come back from it */
+    if (ScriptContext_IsEnabled() || gMain.callback1 != CB1_Overworld)
+        CtrLog_Write(CTR_LOG_GAME, "tour: leaving %d in the middle of a script", stop - 1);
+    TourWarp(stop);
+    since = sFrames;
+    still = 0;
+}
+#endif
+
 #ifdef CTR_DEBUG_GRANT
 #include "event_data.h"
 #include "pokedex.h"
@@ -486,6 +597,9 @@ void CtrGame_WaitFrame(void)
 {
 #ifdef CTR_DEBUG_WARP
     DebugWarp();
+#endif
+#ifdef CTR_DEBUG_TOUR
+    DebugTour();
 #endif
 #ifdef CTR_DEBUG_GRANT
     DebugGrant();
