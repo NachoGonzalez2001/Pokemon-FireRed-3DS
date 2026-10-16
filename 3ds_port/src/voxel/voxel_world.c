@@ -22,6 +22,7 @@
 #include "port_platform.h"
 
 #include "voxel_world.h"
+#include "voxel_room.h"
 #include "voxel_regions.h"
 #include "voxel_tree.h"
 #include "voxel_atlas.h"
@@ -868,6 +869,24 @@ void VoxelWorld_MarkUsedMetatiles(const void *primaryTileset, const void *second
         if (border != NULL)
             for (unsigned t = 0; t < 4; ++t)
                 used[border[t] & MAPGRID_METATILE_ID_MASK] = 2;
+    }
+    /* A room's pieces lay their floor under them: bare ids, or the floor
+     * of a cell beside (voxel_room.c) */
+    for (unsigned i = 0; i < sInstanceCount; ++i)
+    {
+        const VoxelMapInstance *inst = &sInstances[i];
+
+        if (!inst->indoor || inst->primaryTileset != primaryTileset
+         || inst->secondaryTileset != secondaryTileset)
+            continue;
+        for (int y = 0; y < inst->height; ++y)
+            for (int x = 0; x < inst->width; ++x)
+            {
+                int ground = VoxelRoom_Ground(inst, inst->originX + x, inst->originY + y);
+
+                if (ground >= 0 && ground < (int)VOXEL_METATILE_IDS)
+                    used[ground] = 2;
+            }
     }
     /* The replacement removes canopy fringes even on maps that never used
      * their bare ground tile. Keep that material available in the atlas. */

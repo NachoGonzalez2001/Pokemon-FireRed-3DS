@@ -4,7 +4,7 @@
 
 #include "voxel_mesh_builder.h"
 
-#define VOXEL_TREE_TEXTURE_DIM 256u
+#define VOXEL_TREE_TEXTURE_DIM 512u
 #define VOXEL_TREE_TEXTURE_PATH "romfs:/voxel/trees.rgba5551"
 
 /* Emerald's one-cell small tree; FireRed's General has none in use. */

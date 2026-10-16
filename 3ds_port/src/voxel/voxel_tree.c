@@ -6,6 +6,7 @@
 extern const struct Tileset gTileset_LavenderTown;
 #include "voxel_atlas.h"
 #include "voxel_building.h"
+#include "voxel_room.h"
 
 /* Where gen_voxel_trees.py packs each tree, in texels. */
 #define TEX_U(px) ((float)(px) / VOXEL_TREE_TEXTURE_DIM)
@@ -371,6 +372,12 @@ static void EmitCell(VoxelBuilder *builder, int x, int y, int part, int crown)
 void VoxelTree_EmitInstance(VoxelBuilder *builder, const VoxelMapInstance *inst,
                             int x0, int y0, int x1, int y1)
 {
+    /* a room's pieces stand in the same pass, from the same texture */
+    if (inst != NULL && inst->indoor)
+    {
+        VoxelRoom_EmitInstance(builder, inst, x0, y0, x1, y1);
+        return;
+    }
     if (!VoxelWorld_UsesTreeSprites(inst))
         return;
     if (x0 < inst->originX) x0 = inst->originX;

@@ -19,6 +19,7 @@
 #include "voxel_tree.h"
 #include "voxel_lighting.h"
 #include "voxel_sign.h"
+#include "voxel_room.h"
 #include "voxel_building.h"
 #include "voxel_relief.h"
 
@@ -1036,6 +1037,20 @@ void VoxelMesh_EmitGroundRow(VoxelBuilder *builder, const VoxelMapInstance *inst
     {
         VoxelVisualShape shape = VoxelMesh_Classify(x, y);
 
+        /* A room's piece stands in the tree pass; under it, its floor. */
+        if (inst->indoor)
+        {
+            int ground = VoxelRoom_Ground(inst, x, y);
+
+            if (ground != VOXEL_ROOM_NONE)
+            {
+                float u0, v0, u1, v1;
+
+                if (ground >= 0 && MetatileUV(builder, ground, &u0, &v0, &u1, &v1))
+                    VoxelMesh_Top(builder, (float)x, (float)y, 0.0f, 0.0f, u0, v0, u1, v1, SHADE_TOP);
+                continue;
+            }
+        }
         /* The tree pass supplies both the trunk's ground and its crown. */
         if (VoxelWorld_UsesTreeSprites(inst)
          && VoxelTree_Part(inst->secondaryTileset, VoxelWorld_GetMetatileId(x, y)) >= 0)

@@ -103,7 +103,7 @@ ifeq ($(VOXEL),1)
 VOXEL_GAME_SRCS := src/voxel/voxel_world.c src/voxel/voxel_camera.c \
 	src/voxel/voxel_atlas.c src/voxel/voxel_mesh_builder.c src/voxel/voxel_entities.c \
 	src/voxel/voxel_regions.c src/voxel/voxel_tree.c src/voxel/voxel_sign.c \
-	src/voxel/voxel_building.c src/voxel/voxel_relief.c \
+	src/voxel/voxel_building.c src/voxel/voxel_relief.c src/voxel/voxel_room.c \
 	src/voxel/voxel_arena.c src/voxel/voxel_grade.c src/voxel/voxel_battle.c
 ifeq ($(VOXEL_LIGHTING),1)
 VOXEL_GAME_SRCS += src/voxel/voxel_lighting.c
@@ -225,7 +225,7 @@ romfs/voxel/buildings.bin: scripts/fr_export_buildings.py scripts/fr_gen_buildin
 	POKEFIRERED=$(abspath $(ROOT)) "$(PYTHON)" scripts/fr_export_buildings.py --output $@
 
 # The General tree as a standing card, taken off the tileset (fr_gen_trees.py).
-romfs/voxel/trees.rgba5551: scripts/fr_gen_trees.py scripts/fr_art.py
+romfs/voxel/trees.rgba5551: scripts/fr_gen_trees.py scripts/fr_gen_rooms.py scripts/fr_art.py
 	@mkdir -p $(dir $@)
 	POKEFIRERED=$(abspath $(ROOT)) "$(PYTHON)" scripts/fr_gen_trees.py --output $@
 

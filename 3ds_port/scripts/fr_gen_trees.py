@@ -31,7 +31,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import fr_art  # noqa: E402
 
-DIM = 256
+DIM = 512
 GRASS = {0x8, 0xD, 0xE}
 SHADOW = 0xF
 
@@ -322,7 +322,30 @@ def build(root):
                     image[(ox + x, 32 + y)] = rgb
                     image[(32 + ox + x, y)] = shadow_rgb
     props = build_props(root, ts, metatile, image)
-    return image, props
+    rooms = build_rooms(root, image)
+    return image, props, rooms
+
+
+def build_rooms(root, image):
+    """The rooms' pieces (fr_gen_rooms.py), their art in the slots the props
+    left: the same drawing shares one."""
+    import fr_gen_rooms
+    used = {(x // 16 * 16, y // 16 * 16) for (x, y) in image}
+    free = (s for s in prop_slots() if s not in used)
+    seen = {}
+
+    def place(art):
+        key = tuple(tuple(row) for row in art)
+        if key not in seen:
+            sx, sy = next(free)
+            for y in range(16):
+                for x in range(16):
+                    if art[y][x] is not None:
+                        image[(sx + x, sy + y)] = tuple(art[y][x][:3])
+            seen[key] = (sx, sy)
+        return seen[key]
+
+    return fr_gen_rooms.build(str(root), place)
 
 
 def pack(image):
@@ -342,9 +365,11 @@ def main():
     parser.add_argument("--table", type=Path, help="write voxel_props_table.h")
     args = parser.parse_args()
     root = Path(os.environ.get("POKEFIRERED", port.parent))
-    image, props = build(root)
+    image, props, rooms = build(root)
     if args.table:
         write_table(props[0], props[1], args.table)
+        import fr_gen_rooms
+        fr_gen_rooms.write_table(rooms, args.table.parent / "voxel_room_table.h")
     pixels = pack(image)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_bytes(pixels)

@@ -381,7 +381,8 @@ def indoor_layouts(root, only=None):
     drawn on: a cave's rock walls stand up from its floor as a room's do."""
     layouts = json.load(open(os.path.join(root, "data", "layouts", "layouts.json"),
                              encoding="utf-8"))["layouts"]
-    indoor = map_layouts(root, ("MAP_TYPE_INDOOR", "MAP_TYPE_UNDERGROUND"))
+    # (rooms stand up as pieces instead: fr_gen_rooms.py)
+    indoor = map_layouts(root, ("MAP_TYPE_UNDERGROUND",))
     for index, entry in enumerate(layouts, start=1):
         lid = entry.get("id")
         if lid and lid in indoor and (not only or lid in only):
