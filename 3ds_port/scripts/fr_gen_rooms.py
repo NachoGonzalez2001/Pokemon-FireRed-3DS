@@ -51,8 +51,8 @@ ROOM_OBJECTS = {
         ([[0x12E], [0x136]], 30),
     ],
     "gTileset_GenericBuilding1": [
-        ([[0x283, 0x284, 0x285], [0x28B, 0x28C, 0x28D], [0x293, 0x294, 0x295]], 10),  # bed
-        ([[0x035], [0x28E], [0x296]], 40, {"depth": 10}),  # television on its table
+        ([[0x283, 0x284], [0x28B, 0x28C], [0x293, 0x294]], 10),  # bed
+        ([[0x035], [0x28E]], 14, {"rows": 1, "depth": 8}),  # television, the console flat
     ],
     "gTileset_GenericBuilding2": [
         # gatehouse plants
@@ -91,11 +91,11 @@ ROOM_OBJECTS = {
         ([[0x2F5]], 8), ([[0x2FD]], 8),                   # its stools
     ],
     "gTileset_Mart": [
-        ([[0x296, 0x297], [0x29E, 0x29F], [0x2A6, 0x2A7], [0x2AE, 0x2AF]], 40),  # shelves
-        ([[0x296], [0x29E], [0x2A6], [0x2AE]], 40),
+        ([[0x296, 0x297], [0x29E, 0x29F], [0x2A6, 0x2A7], [0x2AE, 0x2AF]], 52),  # shelves
+        ([[0x296], [0x29E], [0x2A6], [0x2AE]], 52),
         ([[0x2A8, 0x2A9, 0x2AA], [0x2B0, 0x2B1, 0x2B2]], 12),   # the counter
         ([[0x2B7, 0x2BC], [0x2C1, 0x2C2]], 12),                  # the low counter
-        ([[0x29D], [0x2A5], [0x2AD]], 30),                       # the display case
+        ([[0x29D], [0x2A5], [0x2AD]], 40),                       # the display case
         ([[0x2B6]], 14),                                          # the plant's pot
     ],
 }
@@ -151,6 +151,13 @@ class Room:
     def entries(self, m):
         return self.L.entries(m)
 
+    def part_black(self, x, y):
+        """A bevelled corner: a good part of it the black round the room."""
+        m = self.m(x, y)
+        px = self.L.metatile_image(m).convert("RGB").load()
+        black = sum(1 for j in range(16) for i in range(16) if px[i, j] == (0, 0, 0))
+        return 40 <= black < VOID_SHARE * 256
+
     def void(self, x, y):
         m = self.m(x, y)
         if m not in self._void:
@@ -181,9 +188,10 @@ def match_objects(room):
         for spec in ROOM_OBJECTS.get(ts, ()):
             cells, h = spec[0], spec[1]
             opt = spec[2] if len(spec) > 2 else {}
-            specs.append((cells, h, opt.get("xrep"), opt.get("yrep"), opt.get("depth", 0)))
+            specs.append((cells, h, opt.get("xrep"), opt.get("yrep"), opt.get("depth", 0),
+                          opt.get("rows")))
     specs.sort(key=lambda s: -sum(1 for row in s[0] for c in row if c is not None))
-    for base, h, xrep, yrep, depth in specs:
+    for base, h, xrep, yrep, depth, only in specs:
         reps = range(max(room.w, room.h), 0, -1) if (xrep is not None or yrep is not None) else (1,)
         for y in range(room.h):
             for x in range(room.w):
@@ -192,13 +200,14 @@ def match_objects(room):
                     rows, cols = len(cells), len(cells[0])
                     if x + cols > room.w or y + rows > room.h:
                         continue
-                    here = {(x + i, y + j) for j in range(rows) for i in range(cols)
+                    part = only or rows       # the rows that are the object
+                    here = {(x + i, y + j) for j in range(part) for i in range(cols)
                             if cells[j][i] is not None}
                     if here & taken:
                         continue
                     if all(room.m(x + i, y + j) == cells[j][i] for j in range(rows) for i in range(cols)
                            if cells[j][i] is not None):
-                        found.append((here, x, x + cols, y + rows, h, here, depth))
+                        found.append((here, x, x + cols, y + part, h, here, depth))
                         taken |= here
                         break
     return found, taken
@@ -215,7 +224,7 @@ def walls(room, taken):
             continue
         cells = []
         for y in range(y0, min(room.h, y0 + WALL_ROWS)):
-            if (x, y) in taken or not room.L.collision(x, y):
+            if (x, y) in taken or not room.L.collision(x, y) or room.part_black(x, y):
                 break
             cells.append((x, y))
         if cells:

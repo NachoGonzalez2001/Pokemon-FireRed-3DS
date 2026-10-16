@@ -120,22 +120,21 @@ static void EmitCell(VoxelBuilder *b, const VoxelMapInstance *inst, unsigned i,
                 &(VoxelVertex){x1, ht, zd, u1, va, 0.7f}, &(VoxelVertex){x0, ht, zd, u0, va, 0.7f},
                 &(VoxelVertex){x0, 0.0f, zd, u0, v1r, 0.7f}, &(VoxelVertex){x1, 0.0f, zd, u1, v1r, 0.7f});
         }
-        /* its sides, where the piece ends: the edge column of its top */
-        if (sRoomCells[i].flags & ROOM_WEST)
+        /* its sides, where the piece ends: plain, the colour of its frame
+         * (a texel of its front's edge) - the drawing's edge column
+         * stretched over them was the dark outline, or stripes of the top */
         {
-            float uc0 = COL_U(1), uc1 = COL_U(2);
+            float su = COL_U(3.5f), sv = ROW_V(8.5f);
 
-            VoxelBuilder_Quad(b,
-                &(VoxelVertex){x0, ht,   za, uc0, va, 0.8f}, &(VoxelVertex){x0, ht,   zb, uc1, vb, 0.8f},
-                &(VoxelVertex){x0, 0.0f, zb, uc1, vb, 0.8f}, &(VoxelVertex){x0, 0.0f, za, uc0, va, 0.8f});
-        }
-        if (sRoomCells[i].flags & ROOM_EAST)
-        {
-            float uc0 = COL_U(14), uc1 = COL_U(15);
-
-            VoxelBuilder_Quad(b,
-                &(VoxelVertex){x1, ht,   zb, uc1, vb, 0.8f}, &(VoxelVertex){x1, ht,   za, uc0, va, 0.8f},
-                &(VoxelVertex){x1, 0.0f, za, uc0, va, 0.8f}, &(VoxelVertex){x1, 0.0f, zb, uc1, vb, 0.8f});
+            if (sRoomCells[i].flags & ROOM_WEST)
+                VoxelBuilder_Quad(b,
+                    &(VoxelVertex){x0, ht,   za, su, sv, 0.75f}, &(VoxelVertex){x0, ht,   zb, su, sv, 0.75f},
+                    &(VoxelVertex){x0, 0.0f, zb, su, sv, 0.75f}, &(VoxelVertex){x0, 0.0f, za, su, sv, 0.75f});
+            su = COL_U(12.5f);
+            if (sRoomCells[i].flags & ROOM_EAST)
+                VoxelBuilder_Quad(b,
+                    &(VoxelVertex){x1, ht,   zb, su, sv, 0.75f}, &(VoxelVertex){x1, ht,   za, su, sv, 0.75f},
+                    &(VoxelVertex){x1, 0.0f, za, su, sv, 0.75f}, &(VoxelVertex){x1, 0.0f, zb, su, sv, 0.75f});
         }
     }
     if (ps < 16)
