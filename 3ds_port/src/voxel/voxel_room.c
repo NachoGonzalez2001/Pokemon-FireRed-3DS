@@ -124,23 +124,29 @@ static void EmitCell(VoxelBuilder *b, const VoxelMapInstance *inst, unsigned i,
                 &(VoxelVertex){x0, 0.0f, zd, u0, v1r, 0.7f}, &(VoxelVertex){x1, 0.0f, zd, u1, v1r, 0.7f});
         }
         /* a card (a plant) is all front, its top a sliver: no sides -
-         * stood up they were a coloured line beside it */
+         * stood up they were a coloured line beside it. A box's sides are
+         * its front's edge column, top to bottom of the front, run back
+         * across the depth: the frame of the thing, never a plain slab. */
         if (zb - za >= 4.0f / 16.0f)
-        /* its sides, where the piece ends: plain, the colour of its frame
-         * (a texel of its front's edge) - the drawing's edge column
-         * stretched over them was the dark outline, or stripes of the top */
         {
-            float su = COL_U(3.5f), sv = ROW_V(8.5f);
+            float vf0 = ROW_V(ps < 16 ? ps : 15), vf1 = ROW_V(16);
 
             if (sRoomCells[i].flags & ROOM_WEST)
+            {
+                float uc = COL_U(1.5f);
+
                 VoxelBuilder_Quad(b,
-                    &(VoxelVertex){x0, ht,   za, su, sv, 0.75f}, &(VoxelVertex){x0, ht,   zb, su, sv, 0.75f},
-                    &(VoxelVertex){x0, 0.0f, zb, su, sv, 0.75f}, &(VoxelVertex){x0, 0.0f, za, su, sv, 0.75f});
-            su = COL_U(12.5f);
+                    &(VoxelVertex){x0, ht,   za, uc, vf0, 0.8f}, &(VoxelVertex){x0, ht,   zb, uc, vf0, 0.8f},
+                    &(VoxelVertex){x0, 0.0f, zb, uc, vf1, 0.8f}, &(VoxelVertex){x0, 0.0f, za, uc, vf1, 0.8f});
+            }
             if (sRoomCells[i].flags & ROOM_EAST)
+            {
+                float uc = COL_U(14.5f);
+
                 VoxelBuilder_Quad(b,
-                    &(VoxelVertex){x1, ht,   zb, su, sv, 0.75f}, &(VoxelVertex){x1, ht,   za, su, sv, 0.75f},
-                    &(VoxelVertex){x1, 0.0f, za, su, sv, 0.75f}, &(VoxelVertex){x1, 0.0f, zb, su, sv, 0.75f});
+                    &(VoxelVertex){x1, ht,   zb, uc, vf0, 0.8f}, &(VoxelVertex){x1, ht,   za, uc, vf0, 0.8f},
+                    &(VoxelVertex){x1, 0.0f, za, uc, vf1, 0.8f}, &(VoxelVertex){x1, 0.0f, zb, uc, vf1, 0.8f});
+            }
         }
     }
     if (ps < 16)

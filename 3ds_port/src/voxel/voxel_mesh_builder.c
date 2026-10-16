@@ -448,8 +448,18 @@ static void EmitTile(VoxelBuilder *builder, int x, int y, VoxelVisualShape shape
 {
     float wx = (float)x, wz = (float)y;
     float u0, v0, u1, v1;
-    float h = ShapeHeight(shape);
+    float h;
 
+    /* A room's furniture stands as its pieces (voxel_room.c); what the
+     * behaviours alone stood up - a counter's whole run, the walls of the
+     * League's halls by the bottom edge - lies as drawn. */
+    {
+        const VoxelMapInstance *inst = VoxelWorld_GetInstanceAt(x, y);
+
+        if (inst != NULL && inst->indoor && shape != VOXEL_SHAPE_WATER)
+            shape = VOXEL_SHAPE_FLAT;
+    }
+    h = ShapeHeight(shape);
     if (!VoxelMesh_TileUV(builder, x, y, &u0, &v0, &u1, &v1))
         return;
 

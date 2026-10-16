@@ -143,8 +143,26 @@ def load_graphics(name):
     return _GRAPHICS[name]
 
 
+def graphics_dir(name):
+    """Where a tileset's tiles and palettes are: its header's .tiles symbol's
+    INCBIN, not its metatiles' folder - Silph Co. draws with the
+    Condominiums' graphics, and read from its own folder it had none."""
+    headers = open(os.path.join(ROOT, "src", "data", "tilesets", "headers.h"),
+                   encoding="utf-8").read()
+    m = re.search(r"const struct Tileset %s\s*=\s*\{(.*?)\};" % re.escape(name), headers, re.S)
+    if m:
+        sym = re.search(r"\.tiles\s*=\s*(\w+)", m.group(1))
+        if sym:
+            gfx = open(os.path.join(ROOT, "src", "data", "tilesets", "graphics.h"),
+                       encoding="utf-8").read()
+            inc = re.search(r"%s\[\]\s*=\s*INCBIN_U\d+\(\"([^\"]+)\"" % re.escape(sym.group(1)), gfx)
+            if inc:
+                return os.path.dirname(os.path.join(ROOT, inc.group(1)))
+    return tileset_dir(name)
+
+
 def _load_graphics(name):
-    base = tileset_dir(name)
+    base = graphics_dir(name)
     if base is None:
         return b"", []
     if os.path.exists(os.path.join(base, "tiles.4bpp")):
