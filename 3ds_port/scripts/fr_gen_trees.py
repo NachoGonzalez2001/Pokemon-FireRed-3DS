@@ -31,7 +31,8 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import fr_art  # noqa: E402
 
-DIM = 512
+DIM = 512        # wide
+DIM_H = 1024     # tall: the rooms' art under the props'
 GRASS = {0x8, 0xD, 0xE}
 SHADOW = 0xF
 
@@ -102,7 +103,7 @@ MAILBOX_TILES = {0x150, 0x151, 0x160, 0x161, 0x170, 0x171}
 
 def prop_slots():
     """16x16 slots of the texture clear of the tree (x < 64, y < 48)."""
-    for sy in range(DIM // 16):
+    for sy in range(DIM_H // 16):
         for sx in range(DIM // 16):
             if not (sx < 4 and sy < 3):
                 yield sx * 16, sy * 16
@@ -349,7 +350,7 @@ def build_rooms(root, image):
 
 
 def pack(image):
-    pixels = bytearray(DIM * DIM * 2)
+    pixels = bytearray(DIM * DIM_H * 2)
     for (x, y), rgb in image.items():
         r, g, b = rgb
         value = (r >> 3) << 11 | (g >> 3) << 6 | (b >> 3) << 1 | 1
@@ -375,11 +376,11 @@ def main():
     args.output.write_bytes(pixels)
     if args.png:
         from PIL import Image
-        preview = Image.new("RGBA", (DIM, DIM))
+        preview = Image.new("RGBA", (DIM, DIM_H))
         for (x, y), rgb in image.items():
             preview.putpixel((x, y), tuple(rgb) + (255,))
-        preview.resize((DIM * 4, DIM * 4), Image.NEAREST).save(args.png)
-    print(f"voxel trees: {DIM}x{DIM}, {len(pixels)} bytes -> {args.output}")
+        preview.resize((DIM * 2, DIM_H * 2), Image.NEAREST).save(args.png)
+    print(f"voxel trees: {DIM}x{DIM_H}, {len(pixels)} bytes -> {args.output}")
 
 
 if __name__ == "__main__":

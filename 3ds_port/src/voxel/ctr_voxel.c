@@ -1690,22 +1690,22 @@ bool CtrVoxel_Init(void)
     VoxelEntities_Reset();
 
     step = "tree texture " VOXEL_TREE_TEXTURE_PATH;
-    if (!C3D_TexInit(&sTreeAtlas, VOXEL_TREE_TEXTURE_DIM, VOXEL_TREE_TEXTURE_DIM, GPU_RGBA5551))
+    if (!C3D_TexInit(&sTreeAtlas, VOXEL_TREE_TEXTURE_DIM, VOXEL_TREE_TEXTURE_H, GPU_RGBA5551))
         goto fail;
     /* Optional: a build without generated scenery has no tree models, and the
      * trees stay drawn on the ground as the map draws them. */
-    memset(sTreeAtlas.data, 0, VOXEL_TREE_TEXTURE_DIM * VOXEL_TREE_TEXTURE_DIM * sizeof(uint16_t));
+    memset(sTreeAtlas.data, 0, VOXEL_TREE_TEXTURE_DIM * VOXEL_TREE_TEXTURE_H * sizeof(uint16_t));
     file = fopen(VOXEL_TREE_TEXTURE_PATH, "rb");
     if (file == NULL)
         CtrLog_Write(CTR_LOG_VIDEO, "VOXEL: %s absent, trees stay flat", VOXEL_TREE_TEXTURE_PATH);
     else
     {
-        size_t bytes = VOXEL_TREE_TEXTURE_DIM * VOXEL_TREE_TEXTURE_DIM * sizeof(uint16_t);
+        size_t bytes = VOXEL_TREE_TEXTURE_DIM * VOXEL_TREE_TEXTURE_H * sizeof(uint16_t);
         bool loaded = fread(sTreeAtlas.data, 1, bytes, file) == bytes;
         fclose(file);
         if (!loaded)
             goto fail;
-        VoxelGrade_Texels(sTreeAtlas.data, VOXEL_TREE_TEXTURE_DIM * VOXEL_TREE_TEXTURE_DIM);
+        VoxelGrade_Texels(sTreeAtlas.data, VOXEL_TREE_TEXTURE_DIM * VOXEL_TREE_TEXTURE_H);
         BrightenCrowns(sTreeAtlas.data);
     }
     C3D_TexSetFilter(&sTreeAtlas, GPU_NEAREST, GPU_NEAREST);

@@ -52,7 +52,7 @@ ROOM_OBJECTS = {
     ],
     "gTileset_GenericBuilding1": [
         ([[0x283, 0x284, 0x285], [0x28B, 0x28C, 0x28D], [0x293, 0x294, 0x295]], 10),  # bed
-        ([[0x035], [0x28E], [0x296]], 30),                # television on its table
+        ([[0x035], [0x28E], [0x296]], 40, {"depth": 10}),  # television on its table
     ],
     "gTileset_GenericBuilding2": [
         # gatehouse plants
@@ -137,6 +137,10 @@ class Room:
         self.L = fr_map_render.FrLayout(layout_id)
         self.w, self.h = self.L.w, self.L.h
         self._void = {}
+        # the doormat's half in the bottom edge row, and whatever is beside
+        # the black under the room: floor, never furniture
+        self.flat = {(x, y) for y in range(self.h) for x in range(self.w)
+                     if y + 1 >= self.h or self.void(x, y + 1)}
 
     def m(self, x, y):
         return self.L.metatile(x, y)
@@ -177,9 +181,9 @@ def match_objects(room):
         for spec in ROOM_OBJECTS.get(ts, ()):
             cells, h = spec[0], spec[1]
             opt = spec[2] if len(spec) > 2 else {}
-            specs.append((cells, h, opt.get("xrep"), opt.get("yrep")))
+            specs.append((cells, h, opt.get("xrep"), opt.get("yrep"), opt.get("depth", 0)))
     specs.sort(key=lambda s: -sum(1 for row in s[0] for c in row if c is not None))
-    for base, h, xrep, yrep in specs:
+    for base, h, xrep, yrep, depth in specs:
         reps = range(max(room.w, room.h), 0, -1) if (xrep is not None or yrep is not None) else (1,)
         for y in range(room.h):
             for x in range(room.w):
@@ -194,7 +198,7 @@ def match_objects(room):
                         continue
                     if all(room.m(x + i, y + j) == cells[j][i] for j in range(rows) for i in range(cols)
                            if cells[j][i] is not None):
-                        found.append((here, x, x + cols, y + rows, h))
+                        found.append((here, x, x + cols, y + rows, h, here, depth))
                         taken |= here
                         break
     return found, taken
@@ -211,7 +215,7 @@ def walls(room, taken):
             continue
         cells = []
         for y in range(y0, min(room.h, y0 + WALL_ROWS)):
-            if (x, y) in taken:
+            if (x, y) in taken or not room.L.collision(x, y):
                 break
             cells.append((x, y))
         if cells:
@@ -236,7 +240,8 @@ def auto_objects(room, taken):
     out, seen = [], set(taken)
     for y in range(room.h):
         for x in range(room.w):
-            if (x, y) in seen or room.void(x, y) or not room.L.collision(x, y):
+            if (x, y) in seen or room.void(x, y) or not room.L.collision(x, y) \
+                    or (x, y) in room.flat:
                 continue
             group, todo = set(), [(x, y)]
             seen.add((x, y))
@@ -245,9 +250,15 @@ def auto_objects(room, taken):
                 group.add((cx, cy))
                 for nx, ny in ((cx - 1, cy), (cx + 1, cy), (cx, cy - 1), (cx, cy + 1)):
                     if 0 <= nx < room.w and 0 <= ny < room.h and (nx, ny) not in seen \
-                            and not room.void(nx, ny) and room.L.collision(nx, ny):
+                            and not room.void(nx, ny) and room.L.collision(nx, ny) \
+                            and (nx, ny) not in room.flat:
                         seen.add((nx, ny))
                         todo.append((nx, ny))
+            # against the room's side or round its edge: the room's own
+            # strip of wall or stairs, which lie as drawn
+            if any(cx in (0, room.w - 1) or (cx > 0 and room.void(cx - 1, cy))
+                   or (cx < room.w - 1 and room.void(cx + 1, cy)) for cx, cy in group):
+                continue
             # what is drawn over the cells just north of it is part of it
             crown = set()
             for (cx, cy) in group:
@@ -305,13 +316,16 @@ def build(root, place_art):
         wall = walls(room, taken)
         for w in wall:
             taken |= w[0]
-        pieces = [(o, False) for o in objects] + [(w, True) for w in wall] \
-            + [(a, False) for a in auto_objects(room, taken)]
+        pieces = [(o, "object") for o in objects] + [(w, "wall") for w in wall] \
+            + [(a, "auto") for a in auto_objects(room, taken)]
         all_cells = set().union(*[p[0][0] for p in pieces]) if pieces else set()
         rows = []
-        for piece, wall in pieces:
+        for piece, kind in pieces:
+            wall = kind == "wall"
             cells, x0, x1, ybot, h = piece[:5]
             group = piece[5] if len(piece) > 5 else cells
+            depth = piece[6] if len(piece) > 6 else 0
+            first = min(cy for _, cy in cells)
             for (x, y) in sorted(cells, key=lambda c: (c[1], c[0])):
                 m = room.m(x, y)
                 ts = fr_art.Tilesets(room.L.primary, room.L.secondary) if not hasattr(room, "ts") else room.ts
@@ -327,6 +341,14 @@ def build(root, place_art):
                     art = [[(top[j][i][0] + (255,)) if top[j][i][1] else None for i in range(16)]
                            for j in range(16)]
                     sx, sy = place_art(art)
+                elif kind == "object":
+                    # a listed piece of furniture: its whole drawing but the
+                    # floor showing round it (a bed is not a block of floor)
+                    floor = room.L.metatile_image(floor_near(room, x, y, all_cells)).convert("RGB").load()
+                    img = room.L.metatile_image(m).convert("RGB").load()
+                    art = [[None if (not top[j][i][1] and img[i, j] == floor[i, j]) else img[i, j] + (255,)
+                            for i in range(16)] for j in range(16)]
+                    sx, sy = place_art(art)
                 else:
                     # the whole drawing: the map's own atlas has it
                     flags |= FLAG_ATLAS
@@ -338,12 +360,16 @@ def build(root, place_art):
                 if wall:
                     flags |= FLAG_NO_GROUND
                     ground = 0
+                elif kind == "object":
+                    # under it the floor beside it: its own lower layer is
+                    # more of it, a second bed lying flat under the bed
+                    ground = floor_near(room, x, y, all_cells)
                 elif upper:
                     flags |= FLAG_BARE
                     ground = m
                 else:
                     ground = floor_near(room, x, y, all_cells)
-                rows.append((y, x, h, ybot, flags, sx, sy, ground))
+                rows.append((y, x, h, ybot, flags, sx, sy, ground, depth if y == first else 0))
         if rows:
             rows.sort()
             out.append((index, lid, rows))
@@ -369,10 +395,11 @@ def write_table(rooms, path):
               "{",
               "    unsigned char y, x, h, ybot, flags;",
               "    unsigned short sx, sy, ground;",
+              "    unsigned char depth;  /* the first row's top runs on this far back */",
               "} sRoomCells[] = {"]
     for index, lid, rows in rooms:
         for r in rows:
-            lines.append("    { %d, %d, %d, %d, %d, %d, %d, 0x%03X }," % r)
+            lines.append("    { %d, %d, %d, %d, %d, %d, %d, 0x%03X, %d }," % r)
     lines += ["};", "", "#endif", ""]
     with open(path, "w", encoding="utf-8", newline="\n") as f:
         f.write("\n".join(lines))

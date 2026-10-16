@@ -10,7 +10,7 @@ extern const struct Tileset gTileset_LavenderTown;
 
 /* Where gen_voxel_trees.py packs each tree, in texels. */
 #define TEX_U(px) ((float)(px) / VOXEL_TREE_TEXTURE_DIM)
-#define TEX_V(py) (1.0f - (float)(py) / VOXEL_TREE_TEXTURE_DIM)
+#define TEX_V(py) (1.0f - (float)(py) / VOXEL_TREE_TEXTURE_H)
 
 /*
  * FireRed's General tree is two metatiles wide and three tall: the tip over

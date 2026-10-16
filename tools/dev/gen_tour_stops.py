@@ -39,10 +39,13 @@ def main():
     ap.add_argument("out")
     ap.add_argument("--only", help="comma-separated substrings of map names")
     ap.add_argument("--types", help="comma-separated map types (e.g. MAP_TYPE_INDOOR)")
+    ap.add_argument("--views", action="store_true",
+                    help="indoors: one map per layout, seen from its west, east and front")
     args = ap.parse_args()
     only = args.only.split(",") if args.only else None
     groups = json.load(open(os.path.join(ROOT, "data", "maps", "map_groups.json")))
     stops = []
+    layouts_seen = set()
     for g, group in enumerate(groups["group_order"]):
         if group == "gMapGroup_Link":
             continue
@@ -64,6 +67,14 @@ def main():
                         p = nearest(layout, tx + TILE_W // 2, ty + TILE_H // 2 + 2, box)
                         if p:
                             points.append(p)
+            elif args.views:
+                if m["layout"] in layouts_seen:
+                    continue
+                layouts_seen.add(m["layout"])
+                for fx, fy in ((0.2, 0.55), (0.8, 0.55), (0.5, 0.9)):
+                    p = nearest(layout, int(layout.w * fx), int(layout.h * fy))
+                    if p and p not in points:
+                        points.append(p)
             else:
                 for w in m.get("warp_events", [])[:1]:
                     if walkable(layout, w["x"], w["y"] - 1):

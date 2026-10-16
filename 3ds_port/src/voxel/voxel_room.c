@@ -23,7 +23,7 @@
 #include "voxel_room_table.h"
 
 #define TEX_U(px) ((float)(px) / VOXEL_TREE_TEXTURE_DIM)
-#define TEX_V(py) (1.0f - (float)(py) / VOXEL_TREE_TEXTURE_DIM)
+#define TEX_V(py) (1.0f - (float)(py) / VOXEL_TREE_TEXTURE_H)
 #define ROOM_LAYOUTS (sizeof(sRoomLayouts) / sizeof(sRoomLayouts[0]))
 
 /* The layout's run of cells, cached for the map last asked about. */
@@ -98,12 +98,28 @@ static void EmitCell(VoxelBuilder *b, const VoxelMapInstance *inst, unsigned i,
     if (ps > 0)
     {
         float ht = h / 16.0f;
-        float za = oz + (ly * 16 + h) / 16.0f, zb = oz + (ly * 16 + ps + h) / 16.0f;
+        float za = oz + (ly * 16 + h) / 16.0f;
+        const float zb = oz + (ly * 16 + ps + h) / 16.0f;
         float va = ROW_V(0), vb = ROW_V(ps);
 
         VoxelBuilder_Quad(b, /* top */
             &(VoxelVertex){x0, ht, za, u0, va, 1.0f}, &(VoxelVertex){x1, ht, za, u1, va, 1.0f},
             &(VoxelVertex){x1, ht, zb, u1, vb, 1.0f}, &(VoxelVertex){x0, ht, zb, u0, vb, 1.0f});
+        /* a thing drawn all but front on (a television) has no top to
+         * speak of: its first row runs on back, so it is not a sheet */
+        if (sRoomCells[i].depth != 0)
+        {
+            float zd = za - sRoomCells[i].depth / 16.0f, v1r = ROW_V(1);
+
+            za = zd;
+            VoxelBuilder_Quad(b,
+                &(VoxelVertex){x0, ht, zd, u0, va, 1.0f}, &(VoxelVertex){x1, ht, zd, u1, va, 1.0f},
+                &(VoxelVertex){x1, ht, zd + sRoomCells[i].depth / 16.0f, u1, v1r, 1.0f},
+                &(VoxelVertex){x0, ht, zd + sRoomCells[i].depth / 16.0f, u0, v1r, 1.0f});
+            VoxelBuilder_Quad(b, /* its back */
+                &(VoxelVertex){x1, ht, zd, u1, va, 0.7f}, &(VoxelVertex){x0, ht, zd, u0, va, 0.7f},
+                &(VoxelVertex){x0, 0.0f, zd, u0, v1r, 0.7f}, &(VoxelVertex){x1, 0.0f, zd, u1, v1r, 0.7f});
+        }
         /* its sides, where the piece ends: the edge column of its top */
         if (sRoomCells[i].flags & ROOM_WEST)
         {
