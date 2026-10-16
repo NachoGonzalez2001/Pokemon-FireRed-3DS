@@ -231,7 +231,101 @@ def relief_of(layout):
     return out
 
 
+# Indoors nothing says what is a wall's face and what a table's top: the
+# drawing is stood up. Every blocked cell rises straight up from the floor
+# south of it - a wall, a shelf, a counter's front stands as drawn - to
+# ROOM_CAP; its sides drop steeply to the floor beside it; and what has no
+# floor south of it (the black round the room, its south wall) stays down,
+# where it would hide the room from the camera.
+ROOM_CAP = 48
+SIDE_STEEP = 4      # a piece of furniture's sides: at 45 degrees a table was a tent
+VOID_SHARE = 0.85   # of a cell's pixels black: the filler round the room
+
+
+def interior_relief(layout):
+    W, H = layout.w, layout.h
+    void_of = {}
+
+    def void(m):
+        if m not in void_of:
+            px = layout.metatile_image(m).convert("RGB").load()
+            black = sum(1 for y in range(16) for x in range(16) if px[x, y] == (0, 0, 0))
+            void_of[m] = black >= VOID_SHARE * 256
+        return void_of[m]
+
+    # 0 floor, 1 blocked (stands), 2 void
+    kind = [[2 if void(layout.metatile(x, y)) else 1 if layout.collision(x, y) else 0
+             for x in range(W)] for y in range(H)]
+    if not any(k == 1 for row in kind for k in row):
+        return {}
+    rows_px = H * 16
+    up = {}
+    for i in range(W * STEP + 1):
+        px = min(i * STEP, W * 16 - 1)
+        cx = px // 16
+        climb = None    # None: not standing on a floor
+        at = [0] * (rows_px + 1)
+        for p in range(rows_px - 1, -1, -1):
+            k = kind[p // 16][cx]
+            if k == 0:
+                climb = 0
+            elif k == 2:
+                climb = None
+            elif climb is not None:
+                climb += 1
+            at[p] = climb if (k == 1 and climb is not None) else 0
+        for j in range(H * STEP + 1):
+            up[(i, j)] = at[min(j * STEP, rows_px - 1)] if j * STEP < rows_px else 0
+
+    def side(i, j):
+        """Pixels across to the nearest floor cell level with the point."""
+        ux, vy = i * STEP, j * STEP
+        best = INF
+        for cy in {min(vy // 16, H - 1), max(0, (vy - 1) // 16)}:
+            for cx in range(W):
+                if kind[cy][cx] == 0:
+                    d = max(cx * 16 - ux, 0, ux - (cx * 16 + 16))
+                    best = min(best, d)
+        return best
+
+    out = {}
+    lattice = {}
+    for y in range(H):
+        for x in range(W):
+            if kind[y][x] != 1:
+                continue
+            grid = []
+            for c in range(SIDE):
+                for a in range(SIDE):
+                    key = (x * (SIDE - 1) + a, y * (SIDE - 1) + c)
+                    if key not in lattice:
+                        lattice[key] = int(min(ROOM_CAP, up[key], SIDE_STEEP * side(*key)))
+                    grid.append(lattice[key])
+            if any(grid):
+                out[(x, y)] = grid
+    return out
+
+
 OUTDOOR = {"MAP_TYPE_TOWN", "MAP_TYPE_CITY", "MAP_TYPE_ROUTE", "MAP_TYPE_OCEAN_ROUTE"}
+
+
+def indoor_layouts(root, only=None):
+    """The layouts indoor maps (houses, shops, centres, gyms) and caves are
+    drawn on: a cave's rock walls stand up from its floor as a room's do."""
+    layouts = json.load(open(os.path.join(root, "data", "layouts", "layouts.json"),
+                             encoding="utf-8"))["layouts"]
+    indoor = set()
+    maps = os.path.join(root, "data", "maps")
+    for name in os.listdir(maps):
+        path = os.path.join(maps, name, "map.json")
+        if os.path.exists(path):
+            m = json.load(open(path, encoding="utf-8"))
+            if m.get("map_type") in ("MAP_TYPE_INDOOR", "MAP_TYPE_UNDERGROUND"):
+                indoor.add(m.get("layout"))
+    for index, entry in enumerate(layouts, start=1):
+        lid = entry.get("id")
+        if lid and lid in indoor and (not only or lid in only):
+            yield index, lid
 
 
 def outdoor_layouts(root, only=None):
@@ -289,9 +383,11 @@ def main():
     args = ap.parse_args()
     only = set(args.layouts.split(",")) if args.layouts else None
     tables = []
-    for index, lid in outdoor_layouts(fr_art.ROOT, only):
+    jobs = [(i, l, relief_of) for i, l in outdoor_layouts(fr_art.ROOT, only)]
+    jobs += [(i, l, interior_relief) for i, l in indoor_layouts(fr_art.ROOT, only)]
+    for index, lid, solve in sorted(jobs):
         layout = fr_map_render.FrLayout(lid)
-        cells = relief_of(layout)
+        cells = solve(layout)
         if not cells:
             continue
         tables.append((index, layout.w, layout.h, cells))
