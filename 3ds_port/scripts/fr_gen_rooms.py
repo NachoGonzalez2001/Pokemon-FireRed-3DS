@@ -51,8 +51,8 @@ ROOM_OBJECTS = {
         ([[0x12E], [0x136]], 30),
     ],
     "gTileset_GenericBuilding1": [
-        ([[0x283, 0x284], [0x28B, 0x28C], [0x293, 0x294]], 10),  # bed
-        ([[0x035], [0x28E]], 14, {"rows": 1, "depth": 8}),  # television, the console flat
+        ([[0x28B, 0x28C, 0x28D], [0x293, 0x294, 0x295]], 10),  # bed (the row above is floor)
+        ([[0x035], [0x28E]], 22, {"depth": 6}),           # television; the console lies flat
     ],
     "gTileset_GenericBuilding2": [
         # gatehouse plants
@@ -80,7 +80,7 @@ ROOM_OBJECTS = {
         ([[0x302, 0x363, 0x365], [0x303, 0x2E9, 0x367]], 12),
         ([[0x2F6], [0x2F8]], 12), ([[0x326], [0x062]], 12), ([[0x376], [0x37E]], 12),
         ([[0x2E7], [0x2EF]], 30), ([[0x300], [0x301]], 30),
-        ([[0x2B6]], 30), ([[0x288], [0x2E9]], 30), ([[0x340], [0x301]], 30),
+        ([[0x288], [0x2E9]], 30), ([[0x340], [0x301]], 30),
         # the Indigo Plateau's counter running down the west wall
         ([[0x338], [0x331], [0x2B5], [0x2BD]], 12),
         ([[0x362]], 30), ([[0x32F]], 30),
@@ -91,11 +91,13 @@ ROOM_OBJECTS = {
         ([[0x2F5]], 8), ([[0x2FD]], 8),                   # its stools
     ],
     "gTileset_Mart": [
-        ([[0x296, 0x297], [0x29E, 0x29F], [0x2A6, 0x2A7], [0x2AE, 0x2AF]], 52),  # shelves
-        ([[0x296], [0x29E], [0x2A6], [0x2AE]], 52),
-        ([[0x2A8, 0x2A9, 0x2AA], [0x2B0, 0x2B1, 0x2B2]], 12),   # the counter
-        ([[0x2B7, 0x2BC], [0x2C1, 0x2C2]], 12),                  # the low counter
-        ([[0x29D], [0x2A5], [0x2AD]], 40),                       # the display case
+        # the shelves, drawn front on: their cap the top, run back so a
+        # shelf is a cabinet and not a sheet
+        ([[0x296, 0x297], [0x29E, 0x29F], [0x2A6, 0x2A7], [0x2AE, 0x2AF]], 52, {"depth": 14}),
+        ([[0x296], [0x29E], [0x2A6], [0x2AE]], 52, {"depth": 14}),
+        ([[0x2B0, 0x2B1, 0x2B2]], 8),                            # the counter (above: floor)
+        ([[0x2C1, 0x2C2]], 8),                                   # the low counter
+        ([[0x29D], [0x2A5], [0x2AD]], 36, {"depth": 8}),         # the display case
         ([[0x2B6]], 14),                                          # the plant's pot
     ],
 }
@@ -346,6 +348,7 @@ def build(root, place_art):
                 # upper layer; a box's faces are solid, its whole drawing
                 card = h >= (ybot - min(cy for _, cy in cells)) * 16 - 4
                 flags = 0
+                cap = 0
                 if upper and card:
                     art = [[(top[j][i][0] + (255,)) if top[j][i][1] else None for i in range(16)]
                            for j in range(16)]
@@ -358,6 +361,7 @@ def build(root, place_art):
                     art = [[None if (not top[j][i][1] and img[i, j] == floor[i, j]) else img[i, j] + (255,)
                             for i in range(16)] for j in range(16)]
                     sx, sy = place_art(art)
+                    cap = next((j for j in range(16) if any(art[j][i] for i in range(16))), 0)
                 else:
                     # the whole drawing: the map's own atlas has it
                     flags |= FLAG_ATLAS
@@ -378,7 +382,7 @@ def build(root, place_art):
                     ground = m
                 else:
                     ground = floor_near(room, x, y, all_cells)
-                rows.append((y, x, h, ybot, flags, sx, sy, ground, depth if y == first else 0))
+                rows.append((y, x, h, ybot, flags, sx, sy, ground, depth if y == first else 0, cap))
         if rows:
             rows.sort()
             out.append((index, lid, rows))
@@ -405,10 +409,11 @@ def write_table(rooms, path):
               "    unsigned char y, x, h, ybot, flags;",
               "    unsigned short sx, sy, ground;",
               "    unsigned char depth;  /* the first row's top runs on this far back */",
+              "    unsigned char cap;    /* the first row of the drawing that is the piece */",
               "} sRoomCells[] = {"]
     for index, lid, rows in rooms:
         for r in rows:
-            lines.append("    { %d, %d, %d, %d, %d, %d, %d, 0x%03X, %d }," % r)
+            lines.append("    { %d, %d, %d, %d, %d, %d, %d, 0x%03X, %d, %d }," % r)
     lines += ["};", "", "#endif", ""]
     with open(path, "w", encoding="utf-8", newline="\n") as f:
         f.write("\n".join(lines))

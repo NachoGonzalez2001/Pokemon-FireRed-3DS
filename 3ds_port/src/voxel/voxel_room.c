@@ -109,17 +109,23 @@ static void EmitCell(VoxelBuilder *b, const VoxelMapInstance *inst, unsigned i,
          * speak of: its first row runs on back, so it is not a sheet */
         if (sRoomCells[i].depth != 0)
         {
-            float zd = za - sRoomCells[i].depth / 16.0f, v1r = ROW_V(1);
+            /* run back from the piece's own first row (its cap), not the
+             * floor drawn above it */
+            float zd = za + (sRoomCells[i].cap - sRoomCells[i].depth) / 16.0f;
+            float vcap = ROW_V(sRoomCells[i].cap), v1r = ROW_V(sRoomCells[i].cap + 1);
 
             za = zd;
             VoxelBuilder_Quad(b,
-                &(VoxelVertex){x0, ht, zd, u0, va, 1.0f}, &(VoxelVertex){x1, ht, zd, u1, va, 1.0f},
+                &(VoxelVertex){x0, ht, zd, u0, vcap, 1.0f}, &(VoxelVertex){x1, ht, zd, u1, vcap, 1.0f},
                 &(VoxelVertex){x1, ht, zd + sRoomCells[i].depth / 16.0f, u1, v1r, 1.0f},
                 &(VoxelVertex){x0, ht, zd + sRoomCells[i].depth / 16.0f, u0, v1r, 1.0f});
             VoxelBuilder_Quad(b, /* its back */
-                &(VoxelVertex){x1, ht, zd, u1, va, 0.7f}, &(VoxelVertex){x0, ht, zd, u0, va, 0.7f},
+                &(VoxelVertex){x1, ht, zd, u1, vcap, 0.7f}, &(VoxelVertex){x0, ht, zd, u0, vcap, 0.7f},
                 &(VoxelVertex){x0, 0.0f, zd, u0, v1r, 0.7f}, &(VoxelVertex){x1, 0.0f, zd, u1, v1r, 0.7f});
         }
+        /* a card (a plant) is all front, its top a sliver: no sides -
+         * stood up they were a coloured line beside it */
+        if (zb - za >= 4.0f / 16.0f)
         /* its sides, where the piece ends: plain, the colour of its frame
          * (a texel of its front's edge) - the drawing's edge column
          * stretched over them was the dark outline, or stripes of the top */
