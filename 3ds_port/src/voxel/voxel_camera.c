@@ -55,7 +55,12 @@ static void AdaptDistance(VoxelCamera *cam)
     scale = (float)(mapW > mapH ? mapW : mapH) * 0.2f;
     if (scale > 5.0f)
         scale = 5.0f;
+#ifdef CTR_DEBUG_CAMERA_ZOOM
+    /* diagnostic tours: a close look, past the options' range */
+    cam->distance = (8.0f + scale) * 100.0f / (float)CTR_DEBUG_CAMERA_ZOOM;
+#else
     cam->distance = (8.0f + scale) * 100.0f / (float)CtrSettings_VoxelZoom();
+#endif
     cam->pitch = (float)CtrSettings_VoxelPitch();
 }
 

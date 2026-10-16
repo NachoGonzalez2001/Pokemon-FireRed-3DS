@@ -71,10 +71,15 @@ def main():
                 if m["layout"] in layouts_seen:
                     continue
                 layouts_seen.add(m["layout"])
-                for fx, fy in ((0.2, 0.55), (0.8, 0.55), (0.5, 0.9)):
-                    p = nearest(layout, int(layout.w * fx), int(layout.h * fy))
-                    if p and p not in points:
-                        points.append(p)
+                # a close look all over: a stop every few cells
+                for gy in range(2, layout.h, 4):
+                    for gx in range(2, layout.w, 5):
+                        p = nearest(layout, gx, gy, (max(0, gx - 2), max(0, gy - 2),
+                                                     min(layout.w, gx + 3), min(layout.h, gy + 2)))
+                        if p and p not in points:
+                            points.append(p)
+                if len(points) > 6:
+                    points = [points[round(i * (len(points) - 1) / 5)] for i in range(6)]
             else:
                 for w in m.get("warp_events", [])[:1]:
                     if walkable(layout, w["x"], w["y"] - 1):
