@@ -127,7 +127,9 @@ static void EmitCell(VoxelBuilder *b, const VoxelMapInstance *inst, unsigned i,
          * stood up they were a coloured line beside it. A box's sides are
          * its front's edge column, top to bottom of the front, run back
          * across the depth: the frame of the thing, never a plain slab. */
-        if (zb - za >= 4.0f / 16.0f)
+        /* (only walls: an object's art is cut out of the floor, its edge
+         * column half clear - stood up as a side it was a grey wedge) */
+        if (zb - za >= 4.0f / 16.0f && (sRoomCells[i].flags & ROOM_ATLAS))
         {
             float vf0 = ROW_V(ps < 16 ? ps : 15), vf1 = ROW_V(16);
 
