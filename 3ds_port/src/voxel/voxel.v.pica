@@ -23,11 +23,22 @@
 .fvec projection[4], modelView[4]
 .fvec shadeTint, tintDiff, grade, fog
 .fvec dappleU, dappleV
+; cutaway: the player's place relative to the draw's origin (x, -, z) and,
+; in w, 0 indoors or a large number to switch it off. Indoors, whatever stands
+; south of the player, just in front of the camera, is pressed down to a low
+; height so that a tall shelf never hides him; the further from him, the
+; less (see CutawayUniforms in ctr_voxel.c).
+.fvec cutaway
 
 ; x: position scale, y: shade scale, z: 0, w: 1
 .constf ctrVoxelConst(0.001953125, 0.00006103515625, 0.0, 1.0)
 .alias  ones  ctrVoxelConst.wwww
 .alias  zeros ctrVoxelConst.zzzz
+; x: the lowest height, y: rise a tile aside or beyond, z: rise behind, w: how far behind
+.constf cutC(0.9, 12.0, 12.0, 0.6)
+; x: half the width kept low (all of it: a band, rows not columns, so no
+; object is cut into a wedge at its side), y: how far south
+.constf cutD(1000.0, 4.5, 0.0, 0.0)
 
 .out outpos position
 .out outtc0 texcoord0
@@ -40,6 +51,25 @@
 .proc main
 	mul r0.xyz, ctrVoxelConst.xxxx, inpos
 	mov r0.w,   ones
+
+	; the cutaway: cap = 0.9 + 12*max(0,|dx|-0.8) + 12*max(0,dz-4.5)
+	;                  + 12*max(0,0.6-dz) + off;  y = min(y, cap)
+	add r7, -cutaway, r0
+	max r8.x, r7.xxxx, -r7.xxxx
+	add r8.x, -cutD.xxxx, r8.xxxx
+	max r8.x, zeros, r8.xxxx
+	add r8.z, -cutD.yyyy, r7.zzzz
+	max r8.z, zeros, r8.zzzz
+	add r8.y, cutC.wwww, -r7.zzzz
+	max r8.y, zeros, r8.yyyy
+	mul r8.x, cutC.yyyy, r8.xxxx
+	mul r8.z, cutC.yyyy, r8.zzzz
+	mul r8.y, cutC.zzzz, r8.yyyy
+	add r9.x, r8.xxxx, r8.zzzz
+	add r9.x, r9.xxxx, r8.yyyy
+	add r9.x, cutC.xxxx, r9.xxxx
+	add r9.x, cutaway.wwww, r9.xxxx
+	min r0.y, r0.yyyy, r9.xxxx
 
 	; r1 = modelView * position
 	dp4 r1.x, modelView[0], r0
