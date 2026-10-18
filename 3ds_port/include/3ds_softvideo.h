@@ -1,6 +1,7 @@
 #ifndef CTR_SOFTVIDEO_H
 #define CTR_SOFTVIDEO_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 /*
@@ -17,5 +18,8 @@
 void CtrSoftVideo_SetFrame(const uint16_t *pixels);
 /* The 3D overworld frame's UI layer (bit 15 marks drawn pixels), or NULL. */
 void CtrSoftVideo_SetUi(const uint16_t *pixels);
+/* The 3D battle: the world drawn as the battle's scenery under the UI layer,
+ * the scenery sliding in, and the shake of a hit (BG3's scroll, GBA pixels). */
+void CtrSoftVideo_SetBattle(bool on, bool sliding, float shakeX, float shakeY);
 
 #endif

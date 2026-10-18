@@ -22,6 +22,8 @@
 #include "global.h"
 #include "main.h"
 #include "overworld.h"
+#include "battle.h"
+#include "battle_main.h"
 #include "gba/flash_internal.h"
 #include "gpu_regs.h"
 #include "palette.h"
@@ -78,6 +80,11 @@ bool8 CtrSprite_IsVoxelWeather(const struct Sprite *sprite)
  * where nothing is drawn (gba_fast_draw.c). */
 static uint16_t sUi[CTR_SOFT_WIDTH * CTR_SOFT_HEIGHT];
 extern uint16_t *gPortUiPixels;
+extern uint16_t gPortUiLayers;
+extern bool8 gPortUiTrim;
+/* The battle scene's state the 3D battle needs (patch 0007). */
+bool8 CtrBattleIntro_Sliding(void);
+bool8 CtrBattleBg_MoveBgShown(void);
 #endif
 #ifdef CTR_WATCHDOG
 volatile uint32_t gPortCrumb;
@@ -249,8 +256,32 @@ void CtrGame_VBlank(void)
 #if CTR_VOXEL_ENABLED
     {
         bool voxelUi = CtrSettings_Voxel() && gMain.callback1 == CB1_Overworld && !CtrBottom_TakesGameFrame();
+        /* The 3D battle: the world as the scenery, the battle's own picture
+         * without it (BG3) over it - and while the scenery slides in, without
+         * the entry picture either (BG1, BG2). A move's background on BG3 is
+         * the 2D battle's, whole. */
+        bool battle = CtrSettings_Voxel() && CtrSettings_VoxelBattle() && gMain.inBattle
+                   && gMain.callback2 == BattleMainCB2 && !(gBattleTypeFlags & BATTLE_TYPE_LINK);
+        bool sliding = battle && CtrBattleIntro_Sliding();
+        bool scenery = battle && !CtrBattleBg_MoveBgShown();
 
-        gPortUiPixels = voxelUi ? sUi : NULL;
+        if (scenery)
+        {
+            gPortUiLayers = sliding ? (DISPCNT_BG0_ON | DISPCNT_OBJ_ON)
+                                    : (DISPCNT_BG0_ON | DISPCNT_BG1_ON | DISPCNT_BG2_ON | DISPCNT_OBJ_ON);
+            gPortUiTrim = FALSE;
+            gPortUiPixels = sUi;
+        }
+        else
+        {
+            gPortUiLayers = DISPCNT_BG0_ON;
+            gPortUiTrim = TRUE;
+            gPortUiPixels = voxelUi ? sUi : NULL;
+        }
+        /* BG3's scroll shakes the scenery when a move hits; not while it slides in */
+        CtrSoftVideo_SetBattle(scenery, sliding,
+                               sliding ? 0.0f : (float)((int)((GetGpuReg(REG_OFFSET_BG3HOFS) + 128) & 255) - 128),
+                               sliding ? 0.0f : (float)((int)((GetGpuReg(REG_OFFSET_BG3VOFS) + 128) & 255) - 128));
         CtrSoftVideo_SetUi(gPortUiPixels);
     }
 #endif
@@ -614,11 +645,67 @@ static void DebugGrant(void)
 }
 #endif
 
+#ifdef CTR_DEBUG_BATTLE
+#include "battle_setup.h"
+#include "quest_log.h"
+#include "script.h"
+#include "script_pokemon_util.h"
+#include "constants/items.h"
+#include "constants/species.h"
+/* Diagnostic: once the field takes input (after CTR_DEBUG_WARP's warp, when
+ * there is one), a wild Pidgey: a battle to look at without walking for one. */
+static void DebugBattle(void)
+{
+    static bool8 done;
+    static u32 idleSince;
+
+    if (done || gMain.callback1 != CB1_Overworld || ArePlayerFieldControlsLocked() || gPaletteFade.active
+     || ScriptContext_IsEnabled() || gQuestLogState != 0)
+    {
+        idleSince = 0;
+        return;
+    }
+#ifdef CTR_DEBUG_WARP
+    {
+        static const int target[4] = { CTR_DEBUG_WARP };
+
+        if (gSaveBlock1Ptr->location.mapGroup != target[0] || gSaveBlock1Ptr->location.mapNum != target[1])
+            return;
+    }
+#endif
+    /* a moment standing still first, for the world to be drawn */
+    if (idleSince == 0)
+        idleSince = sFrames;
+    if (sFrames - idleSince < 120)
+        return;
+    done = TRUE;
+    CtrLog_Write(CTR_LOG_GAME, "debug battle: a wild Pidgey");
+    CreateScriptedWildMon(SPECIES_PIDGEY, 5, ITEM_NONE);
+    StartWildBattle();
+}
+#endif
+
 void CtrGame_WaitFrame(void)
 {
 #ifdef CTR_DEBUG_WARP
     DebugWarp();
 #endif
+#ifdef CTR_DEBUG_BATTLE
+    DebugBattle();
+#endif
+    /* The battle scene on screen (not its bag or party): the compositor lays
+     * it out as a battle - the box on the top screen's foot, the 3D world as
+     * its scenery when that option is on. */
+    {
+        static bool8 wasBattle;
+        bool8 battle = gMain.inBattle && gMain.callback2 == BattleMainCB2;
+
+        if (battle != wasBattle)
+            CtrLog_Write(CTR_LOG_VIDEO, "GBA battle %s at frame %lu", battle ? "on" : "off",
+                         (unsigned long)sFrames);
+        wasBattle = battle;
+        CtrVideo_SetBattle(battle);
+    }
 #ifdef CTR_DEBUG_TOUR
     DebugTour();
 #endif

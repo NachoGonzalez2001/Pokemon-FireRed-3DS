@@ -23,11 +23,13 @@ unsigned CtrVideo_VoxelUploadsLeft(void);
 #define CTR_BATTLE_X CTR_STAGE_X
 #define CTR_BATTLE_Y (CTR_GAME_HEIGHT - 160)
 /*
- * The battle scene itself is magnified: the middle of its bottom edge (GBA
- * 120,112) sits on screen (200,192), on top of the 1:1 text box. At 1.5 the
- * tile grid still lands on whole screen pixels.
+ * The battle scene on the top screen: FireRed's presenter (3ds_soft_video.c)
+ * shows the whole GBA picture at 1.5, centred, so the middle of the scene's
+ * bottom edge (GBA 120,112) sits on screen (200,168). The 3D battle's camera
+ * places the stage by it (voxel_battle.c).
  */
-#define CTR_BATTLE_ZOOM 1.4f
+#define CTR_BATTLE_ZOOM 1.5f
+#define CTR_BATTLE_FOOT_Y 168.0f
 
 typedef struct
 {

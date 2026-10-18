@@ -25,6 +25,8 @@
 #include "3ds_softvideo.h"
 #include "3ds_video.h"
 #include "voxel/ctr_voxel.h"
+#include "voxel/voxel_battle.h"
+#include <math.h>
 
 #define TOP_WIDTH 400
 #define TOP_HEIGHT 240
@@ -42,6 +44,14 @@ static uint8_t sSrcY[TOP_HEIGHT];
 void CtrSoftVideo_SetFrame(const uint16_t *pixels) { sFrame = pixels; }
 static const uint16_t *sUi;
 void CtrSoftVideo_SetUi(const uint16_t *pixels) { sUi = pixels; }
+static struct { bool on, sliding; float shakeX, shakeY; } sBattle;
+void CtrSoftVideo_SetBattle(bool on, bool sliding, float shakeX, float shakeY)
+{
+    sBattle.on = on;
+    sBattle.sliding = sliding;
+    sBattle.shakeX = shakeX;
+    sBattle.shakeY = shakeY;
+}
 #if CTR_GPU_PRESENT
 static bool GpuInit(void);
 #endif
@@ -190,6 +200,71 @@ static void GpuUploadUi(void)
                             (u32 *)sUiTex.data, GX_BUFFER_DIM(TEX_DIM, TEX_DIM), UI_TRANSFER_FLAGS);
 }
 
+#if CTR_VOXEL_ENABLED
+/*
+ * The 3D battle's shadows under the battlers (VoxelBattle_Shadows): an
+ * ellipse of the world's shadow blue fading out from its middle, one small
+ * texture stretched to each, between the world and the battle's picture.
+ */
+#define BATTLE_SHADOW_W 64
+#define BATTLE_SHADOW_H 16
+#define BATTLE_SHADOW_ALPHA 0.50f
+static C3D_Tex sShadowTex;
+static bool sShadowFailed;
+
+static bool ShadowTexture(void)
+{
+    uint32_t *texels;
+
+    if (sShadowTex.data || sShadowFailed)
+        return sShadowTex.data != NULL;
+    if (!C3D_TexInit(&sShadowTex, BATTLE_SHADOW_W, BATTLE_SHADOW_H, GPU_RGBA8))
+    {
+        memset(&sShadowTex, 0, sizeof(sShadowTex));
+        sShadowFailed = true;
+        return false;
+    }
+    C3D_TexSetFilter(&sShadowTex, GPU_LINEAR, GPU_LINEAR);
+    C3D_TexSetWrap(&sShadowTex, GPU_CLAMP_TO_EDGE, GPU_CLAMP_TO_EDGE);
+    texels = sShadowTex.data;
+    for (unsigned y = 0; y < BATTLE_SHADOW_H; ++y)
+        for (unsigned x = 0; x < BATTLE_SHADOW_W; ++x)
+        {
+            float u = (x + 0.5f) / (BATTLE_SHADOW_W / 2) - 1.0f, v = (y + 0.5f) / (BATTLE_SHADOW_H / 2) - 1.0f;
+            float d = 1.0f - (u * u + v * v), a = d > 0.0f ? BATTLE_SHADOW_ALPHA * d * sqrtf(d) : 0.0f;
+            /* 8x8 Morton tiles, top row first as the GPU reads them */
+            unsigned ty = BATTLE_SHADOW_H - 1 - y;
+            unsigned m = 0;
+
+            for (unsigned bit = 0; bit < 3; ++bit)
+                m |= ((x >> bit) & 1u) << (2 * bit) | ((ty >> bit) & 1u) << (2 * bit + 1);
+            texels[((ty / 8) * (BATTLE_SHADOW_W / 8) + x / 8) * 64 + m] =
+                8u << 24 | 20u << 16 | 40u << 8 | (uint32_t)(a * 255.0f + 0.5f);
+        }
+    C3D_TexFlush(&sShadowTex);
+    return true;
+}
+
+static void BattleShadows(void)
+{
+    static const Tex3DS_SubTexture whole = { BATTLE_SHADOW_W, BATTLE_SHADOW_H, 0.0f, 1.0f, 1.0f, 0.0f };
+    VoxelBattleShadow shadows[4];
+    unsigned count = VoxelBattle_Shadows(shadows, 4);
+
+    if (count == 0 || !ShadowTexture())
+        return;
+    for (unsigned i = 0; i < count; ++i)
+    {
+        /* GBA pixels to the top screen: the picture at 1.5, OUT_X across */
+        float x = shadows[i].x * 1.5f + OUT_X, y = shadows[i].y * 1.5f;
+        float rx = shadows[i].rx * 1.5f, ry = shadows[i].ry * 1.5f;
+
+        C2D_DrawImageAt((C2D_Image){ &sShadowTex, &whole }, x - rx, y - ry, 0.45f, NULL,
+                        rx * 2.0f / BATTLE_SHADOW_W, ry * 2.0f / BATTLE_SHADOW_H);
+    }
+}
+#endif
+
 static void GpuPresent(void)
 {
     uint64_t start = svcGetSystemTick(), drawStart, beginTick;
@@ -198,8 +273,18 @@ static void GpuPresent(void)
     bool voxel = false;
 
 #if CTR_VOXEL_ENABLED
-    /* The field with the 3D world on: the game's side asked for the UI layer. */
-    voxel = sVoxelReady && sUi != NULL && CtrVoxel_IsAvailable();
+    /* The field with the 3D world on: the game's side asked for the UI layer.
+     * In a battle the same, the world framed by the battle's camera
+     * (ctr_voxel.c), the scenery the game would have drawn left out of it. */
+    if (sVoxelReady && sUi != NULL && sBattle.on && CtrVoxel_IsAvailableForBattle())
+    {
+        if (!CtrVoxel_InBattle())
+            CtrVoxel_BeginBattle();
+        CtrVoxel_SetBattleFrame(sBattle.sliding, sBattle.shakeX, sBattle.shakeY);
+        voxel = true;
+    }
+    else
+        voxel = sVoxelReady && sUi != NULL && CtrVoxel_IsAvailable();
 #endif
     if (sFrame && !voxel)
         GpuUpload();
@@ -240,6 +325,8 @@ static void GpuPresent(void)
                        GPU_SRC_ALPHA, GPU_ONE_MINUS_SRC_ALPHA);
         C2D_SceneBegin(sTop);
         C2D_DrawImageAt(world, 0.0f, 0.0f, 0.4f, NULL, 1.0f, 1.0f);
+        if (sBattle.on && CtrVoxel_InBattle() && !sBattle.sliding)
+            BattleShadows();
 #ifndef CTR_NO_UI_OVERLAY
         C2D_DrawImageAt(ui, (float)OUT_X, 0.0f, 0.5f, NULL, 1.5f, 1.5f);
 #else

@@ -42,7 +42,7 @@ bool VoxelBattle_IsLink(void)
  * The camera looks north from the south, the target at the origin and the
  * ground there at height 0: the eye at (0, D sin p, D cos p). Screen points are
  * the top screen's 400x240; the battle's GBA picture lies on it at
- * CTR_BATTLE_ZOOM, its point (120, 112) on (200, 192) (3ds_video.c).
+ * CTR_BATTLE_ZOOM, its point (120, 112) on (200, CTR_BATTLE_FOOT_Y) (3ds_video.h).
  */
 typedef struct
 {
@@ -62,7 +62,7 @@ static void ViewInit(BattleView *v)
 }
 
 static float GbaToScreenX(float x) { return CTR_GAME_WIDTH / 2 + (x - 120.0f) * CTR_BATTLE_ZOOM; }
-static float GbaToScreenY(float y) { return CTR_GAME_HEIGHT - 48 + (y - 112.0f) * CTR_BATTLE_ZOOM; }
+static float GbaToScreenY(float y) { return CTR_BATTLE_FOOT_Y + (y - 112.0f) * CTR_BATTLE_ZOOM; }
 
 /* The ground under a screen point, from the target. */
 static void ScreenToGround(const BattleView *v, float sx, float sy, float *x, float *z)
