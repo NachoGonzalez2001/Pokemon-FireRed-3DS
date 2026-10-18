@@ -58,6 +58,32 @@ int main(void)
             CtrInput_Update(&state, &sample);
             assert((state.held & (state.held - 1)) == 0); /* zero or one bit */
         }
+    /* the diagonal the overworld reads, never in held */
+    sample.circleX = 0;
+    sample.circleY = 0;
+    CtrInput_Update(&state, &sample);
+    assert(state.circleDiagonal == 0);
+    sample.circleX = 100;
+    sample.circleY = 100;
+    CtrInput_Update(&state, &sample);
+    assert(state.circleDiagonal == (CTR_KEY_UP | CTR_KEY_RIGHT));
+    assert((state.held & (state.held - 1)) == 0);
+    sample.circleY = 45;                       /* 24 degrees: kept */
+    CtrInput_Update(&state, &sample);
+    assert(state.circleDiagonal == (CTR_KEY_UP | CTR_KEY_RIGHT));
+    sample.circleY = 20;                       /* 11 degrees: let go */
+    CtrInput_Update(&state, &sample);
+    assert(state.circleDiagonal == 0);
+    sample.circleY = 45;                       /* not enough to take it again */
+    CtrInput_Update(&state, &sample);
+    assert(state.circleDiagonal == 0);
+    sample.circleX = -90;
+    sample.circleY = -90;
+    CtrInput_Update(&state, &sample);
+    assert(state.circleDiagonal == (CTR_KEY_DOWN | CTR_KEY_LEFT));
+    sample.circleX = 0;
+    sample.circleY = 0;
+    CtrInput_Update(&state, &sample);
     sample.touchActive = true;
     sample.touchX = 999;
     sample.touchY = 999;

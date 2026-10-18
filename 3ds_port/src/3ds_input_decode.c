@@ -16,6 +16,16 @@ static uint16_t CircleDirection(int x, int y, uint16_t previous)
                       : (y < 0 ? CTR_KEY_DOWN : CTR_KEY_UP);
 }
 
+static uint16_t CircleDiagonal(int x, int y, uint16_t previous)
+{
+    unsigned ax = x < 0 ? -x : x, ay = y < 0 ? -y : y;
+    unsigned threshold = previous ? CTR_CIRCLE_LEAVE : CTR_CIRCLE_ENTER;
+    unsigned lo = ax < ay ? ax : ay, hi = ax < ay ? ay : ax;
+    unsigned need = previous ? CTR_CIRCLE_DIAGONAL_LEAVE : CTR_CIRCLE_DIAGONAL_ENTER;
+    if (ax * ax + ay * ay < threshold * threshold || lo * 100 < hi * need) return 0;
+    return (y < 0 ? CTR_KEY_DOWN : CTR_KEY_UP) | (x < 0 ? CTR_KEY_LEFT : CTR_KEY_RIGHT);
+}
+
 void CtrInput_Update(CtrInput *state, const CtrInputSample *sample)
 {
     uint16_t previous = state->held;
@@ -30,6 +40,7 @@ void CtrInput_Update(CtrInput *state, const CtrInputSample *sample)
     state->circleX = sample->circleX;
     state->circleY = sample->circleY;
     state->circleDirection = CircleDirection(sample->circleX, sample->circleY, state->circleDirection);
+    state->circleDiagonal = CircleDiagonal(sample->circleX, sample->circleY, state->circleDiagonal);
     state->held = buttons & CTR_KEY_GAME;
     /* Explicit D-pad input takes precedence over the stick. This avoids
      * manufacturing a diagonal/opposite pair by combining both sources. */

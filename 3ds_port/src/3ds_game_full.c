@@ -668,4 +668,21 @@ void CtrGame_WaitFrame(void)
                      (unsigned long)(stats->bytes >> 10), (unsigned long)stats->hits,
                      (unsigned long)stats->misses, (unsigned long)stats->errors);
     }
+#ifdef CTR_DEBUG_STEPS
+    /* Every step the player takes, to check movement by (local.mk). */
+    if (gPlayerAvatar.objectEventId < OBJECT_EVENTS_COUNT)
+    {
+        static s16 lastX = -999, lastY = -999;
+        const struct ObjectEvent *player = &gObjectEvents[gPlayerAvatar.objectEventId];
+
+        if (player->active && (player->currentCoords.x != lastX || player->currentCoords.y != lastY))
+        {
+            lastX = player->currentCoords.x;
+            lastY = player->currentCoords.y;
+            CtrLog_Write(CTR_LOG_GAME, "step frame=%lu x=%d y=%d facing=%u moving=%u",
+                         (unsigned long)sFrames, lastX, lastY, player->facingDirection,
+                         player->movementDirection);
+        }
+    }
+#endif
 }

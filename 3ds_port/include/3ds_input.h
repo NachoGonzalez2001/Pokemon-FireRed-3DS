@@ -13,7 +13,10 @@ enum {
     CTR_KEY_X = 1 << 10, CTR_KEY_Y = 1 << 11,
     CTR_KEY_DPAD = 0xf0, CTR_KEY_GAME = 0x3ff,
     CTR_CIRCLE_ENTER = 40, CTR_CIRCLE_LEAVE = 28,
-    CTR_CIRCLE_AXIS_HYSTERESIS = 12
+    CTR_CIRCLE_AXIS_HYSTERESIS = 12,
+    /* a diagonal: the lesser axis this many hundredths of the greater
+     * (about 29 degrees off the axis to take it, 19 to keep it) */
+    CTR_CIRCLE_DIAGONAL_ENTER = 55, CTR_CIRCLE_DIAGONAL_LEAVE = 35
 };
 
 typedef struct {
@@ -32,6 +35,10 @@ typedef struct {
     uint16_t touchX, touchY; /* bottom pixels: 0..319, 0..239 */
     float touchNormX, touchNormY; /* 0..1, zero when not touching */
     int16_t circleX, circleY;
+    /* The Circle Pad held at a diagonal: its two arms (UP|LEFT...), or 0.
+     * Never in `held` - menus keep the one-way stick; the overworld reads
+     * it for the player's diagonal step. */
+    uint16_t circleDiagonal;
 } CtrInput;
 
 /* Pure conversion shared by HID and host regression tests. */

@@ -1283,6 +1283,24 @@ void CtrBottom_Frame(void)
     sDrawn = TRUE;
 }
 
+/* field_player_avatar.c: the Circle Pad at a diagonal, as the game's
+ * DIR_SOUTHWEST..DIR_NORTHEAST (0 none); the D-pad held decides alone. */
+u8 CtrPlayer_StickDiagonal(void)
+{
+    const CtrInput *input = CtrInput_Get();
+
+    if (input->physicalHeld & CTR_KEY_DPAD)
+        return 0;
+    switch (input->circleDiagonal)
+    {
+    case CTR_KEY_DOWN | CTR_KEY_LEFT:  return DIR_SOUTHWEST;
+    case CTR_KEY_DOWN | CTR_KEY_RIGHT: return DIR_SOUTHEAST;
+    case CTR_KEY_UP | CTR_KEY_LEFT:    return DIR_NORTHWEST;
+    case CTR_KEY_UP | CTR_KEY_RIGHT:   return DIR_NORTHEAST;
+    }
+    return 0;
+}
+
 /* field_player_avatar.c: running without B (the options screen's RUN). */
 bool8 CtrPlayer_RunAlways(void)
 {
