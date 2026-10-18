@@ -182,7 +182,6 @@ static shaderProgram_s sProgram;
 static int sUniProjection = -1, sUniModelView = -1;
 static int sUniShadeTint = -1, sUniTintDiff = -1, sUniGrade = -1, sUniFog = -1;
 static int sUniDappleU = -1, sUniDappleV = -1;
-static int sUniCutaway = -1;
 /* The tree crowns' brightness against the rest of the art, applied once as
  * the tree texture loads (BrightenCrowns). */
 #define VOXEL_TREE_BRIGHTNESS 1.12f
@@ -1628,7 +1627,6 @@ bool CtrVoxel_Init(void)
     sUniFog = shaderInstanceGetUniformLocation(sProgram.vertexShader, "fog");
     sUniDappleU = shaderInstanceGetUniformLocation(sProgram.vertexShader, "dappleU");
     sUniDappleV = shaderInstanceGetUniformLocation(sProgram.vertexShader, "dappleV");
-    sUniCutaway = shaderInstanceGetUniformLocation(sProgram.vertexShader, "cutaway");
     if (sUniProjection < 0 || sUniModelView < 0 || sUniShadeTint < 0
      || sUniTintDiff < 0 || sUniGrade < 0 || sUniFog < 0
      || sUniDappleU < 0 || sUniDappleV < 0)
@@ -4829,26 +4827,9 @@ static void FitToLogicalSurface(C3D_Mtx *mtx)
     }
 }
 
-/*
- * Indoors, what stands just south of the player - between him and the
- * camera - is pressed down in the vertex shader (voxel.v.pica's cutaway), so
- * that a shelf drawn three tiles tall never hides him behind it. Set for the
- * map's chunks only: the sprites, the battle and the rest draw it off.
- */
-static bool sCutawayOn;
-static void CutawayUniforms(int worldX, int worldZ)
-{
-    if (sUniCutaway < 0)
-        return;
-    C3D_FVUnifSet(GPU_VERTEX_SHADER, sUniCutaway, sLastX - (float)worldX, 0.0f,
-                  sLastZ - (float)worldZ, sCutawayOn ? 0.0f : 10000.0f);
-}
-
 static void SetModelView(const C3D_Mtx *view, int worldX, int worldZ)
 {
     C3D_Mtx model;
-
-    CutawayUniforms(worldX, worldZ);
 
     Mtx_Copy(&model, view);
     Mtx_Translate(&model, (float)worldX, 0.0f, (float)worldZ, true);
@@ -5299,8 +5280,6 @@ static void DrawRays(const VoxelLight *light, const VoxelLight *unlit)
     FitToLogicalSurface(&ortho);
     Mtx_Identity(&identity);
     C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, sUniProjection, &ortho);
-    sCutawayOn = false;
-    CutawayUniforms(0, 0);
     C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, sUniModelView, &identity);
     /* The pattern in pixels, turned to the rays. */
     C3D_FVUnifSet(GPU_VERTEX_SHADER, sUniDappleU,
@@ -5902,8 +5881,6 @@ static void DrawFogBanks(const C3D_Mtx *view, const VoxelLight *light, bool cave
         Mtx_Translate(&model, floorf(sCamera.targetX / period) * period + dx,
                       sCamera.ground + sFogBanks[bank].height,
                       floorf(sCamera.targetZ / period) * period + dz, true);
-        sCutawayOn = false;
-        CutawayUniforms(0, 0);
         C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, sUniModelView, &model);
 
         /* 0: the fog colour, coverage = texture x shade, doubled. */
@@ -6030,11 +6007,6 @@ void CtrVoxel_Draw(C3D_RenderTarget *target, float eyeOffset)
      * static VRAM buffer, measured from its own corner, so every draw carries
      * that corner's place in the world in its model-view.
      */
-    {
-        const VoxelMapInstance *here = VoxelWorld_Instance(0);
-
-        sCutawayOn = here != NULL && here->indoor && !sBattle.on;
-    }
     for (unsigned pass = 0; pass < VOXEL_ATLAS_PAGES + 2u; ++pass)
     {
         const C3D_Tex *boundTex = NULL;
@@ -6081,7 +6053,6 @@ void CtrVoxel_Draw(C3D_RenderTarget *target, float eyeOffset)
         TerrainTexEnv(NULL);
 
     /* Billboards and shadows: the linear buffer, around the camera's tile. */
-    sCutawayOn = false;
     SetModelView(&view, sDynamicX, sDynamicZ);
     BindVertices(sDynamic);
 
@@ -6532,8 +6503,6 @@ void CtrVoxel_StereoDraw(int eye, C3D_Tex *tex, VoxelStereoPass pass, float dx, 
     model.r[1].y = 512.0f / VOXEL_STEREO_UNIT;
     model.r[1].w = dy;
     C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, sUniProjection, &projection);
-    sCutawayOn = false;
-    CutawayUniforms(0, 0);
     C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, sUniModelView, &model);
     /* Colour = shade / 2 (the row's share of the blur), no grade, no haze. */
     C3D_FVUnifSet(GPU_VERTEX_SHADER, sUniShadeTint, 0.5f, 0.5f, 0.5f, 0.0f);
