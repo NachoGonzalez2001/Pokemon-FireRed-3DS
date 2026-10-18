@@ -884,8 +884,12 @@ void VoxelWorld_MarkUsedMetatiles(const void *primaryTileset, const void *second
             {
                 int ground = VoxelRoom_Ground(inst, inst->originX + x, inst->originY + y);
 
+                int art = VoxelRoom_AtlasArt(inst, inst->originX + x, inst->originY + y);
+
                 if (ground >= 0 && ground < (int)VOXEL_METATILE_IDS)
                     used[ground] = 2;
+                if (art >= 0 && art < (int)VOXEL_METATILE_IDS)
+                    used[art] = 2;      /* a plain wall drawn where it is not on the map */
             }
     }
     /* The replacement removes canopy fringes even on maps that never used

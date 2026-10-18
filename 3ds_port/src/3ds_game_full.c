@@ -474,6 +474,15 @@ static int TourReadInt(const char *path, int fallback)
     return value;
 }
 
+/* Each stop is seen from the front and turned to either side
+ * (CTR_DEBUG_TOUR_VIEWS), so a model is judged from where the follow camera
+ * never looks; voxel_camera.c turns the eye by gCtrDebugYaw. */
+#ifndef CTR_DEBUG_TOUR_VIEWS
+#define CTR_DEBUG_TOUR_VIEWS 1
+#endif
+float gCtrDebugYaw;
+static const float sTourYaws[3] = { 0.0f, -55.0f, 55.0f };
+
 static void TourWarp(int stop)
 {
     CtrLog_Write(CTR_LOG_GAME, "tour %d: %s", stop, sTourStops[stop].name);
@@ -484,7 +493,7 @@ static void TourWarp(int stop)
 
 static void DebugTour(void)
 {
-    static int stop = -1;
+    static int stop = -1, view;
     static bool8 announced;
     static u32 since, still, lastPoll;
     const int count = (int)(sizeof(sTourStops) / sizeof(sTourStops[0]));
@@ -517,8 +526,8 @@ static void DebugTour(void)
         file = fopen(TOUR_DIR "tour_ready.txt", "w");
         if (file)
         {
-            fprintf(file, "%d %s %s %s\n", stop, sTourStops[stop].name, still >= 60 ? "ok" : "stuck",
-                    CtrVoxel_Status());
+            fprintf(file, "%d %s_v%d %s %s\n", stop * 10 + view, sTourStops[stop].name, view,
+                    still >= 60 ? "ok" : "stuck", CtrVoxel_Status());
             fclose(file);
         }
         announced = TRUE;
@@ -529,16 +538,26 @@ static void DebugTour(void)
     if (sFrames - lastPoll < 10)
         return;
     lastPoll = sFrames;
-    if (TourReadInt(TOUR_DIR "tour_ack.txt", -1) != stop)
+    if (TourReadInt(TOUR_DIR "tour_ack.txt", -1) != stop * 10 + view)
         return;
     announced = FALSE;
+    if (++view < CTR_DEBUG_TOUR_VIEWS)
+    {
+        /* the same stop, the camera turned: it settles before the next shot */
+        gCtrDebugYaw = sTourYaws[view % 3];
+        since = sFrames;
+        still = 0;
+        return;
+    }
+    view = 0;
+    gCtrDebugYaw = 0.0f;
     if (++stop >= count)
     {
         FILE *file = fopen(TOUR_DIR "tour_ready.txt", "w");
 
         if (file)
         {
-            fprintf(file, "%d done\n", stop);
+            fprintf(file, "%d done\n", stop * 10);
             fclose(file);
         }
         CtrLog_Write(CTR_LOG_GAME, "tour done");

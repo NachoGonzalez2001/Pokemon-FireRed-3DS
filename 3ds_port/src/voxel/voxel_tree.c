@@ -292,9 +292,29 @@ int VoxelTree_Part(const void *secondaryTileset, int metatileId)
     }
 }
 
+/* Pallet Town's trees beside the path north, a fence post drawn under
+ * their tip and crown (2AA/2AB, 2B2/2BA): the tree as the General one, the
+ * post dropped for its grass. */
+static int PalletFencedTree(const void *secondaryTileset, int metatileId)
+{
+    if (secondaryTileset != &gTileset_PalletTown)
+        return -1;
+    switch (metatileId)
+    {
+    case 0x2AA: return 0x00E;
+    case 0x2AB: return 0x00F;
+    case 0x2B2: return 0x01E;
+    case 0x2BA: return 0x01F;
+    default: return -1;
+    }
+}
+
 int VoxelTree_Crown(const void *secondaryTileset, int metatileId)
 {
-    (void)secondaryTileset;
+    int as = PalletFencedTree(secondaryTileset, metatileId);
+
+    if (as >= 0)
+        metatileId = as;
     switch (metatileId)
     {
     case 0x01C: case 0x01E: return 0;
@@ -305,7 +325,10 @@ int VoxelTree_Crown(const void *secondaryTileset, int metatileId)
 
 int VoxelTree_GroundMetatile(const void *secondaryTileset, int metatileId)
 {
-    int prop = PropIndex(secondaryTileset, metatileId);
+    int prop = PropIndex(secondaryTileset, metatileId), as = PalletFencedTree(secondaryTileset, metatileId);
+
+    if (as >= 0)
+        metatileId = as;
 
     /* a ledge keeps its drawing on the ground under its face: the face
      * standing alone left a seam between it and the ground behind */

@@ -62,6 +62,13 @@ static void AdaptDistance(VoxelCamera *cam)
     cam->distance = (8.0f + scale) * 100.0f / (float)CtrSettings_VoxelZoom();
 #endif
     cam->pitch = (float)CtrSettings_VoxelPitch();
+#ifdef CTR_DEBUG_TOUR
+    {
+        extern float gCtrDebugYaw;
+
+        cam->yaw = gCtrDebugYaw;
+    }
+#endif
 }
 
 void VoxelCamera_Snap(VoxelCamera *cam, float playerWorldX, float playerWorldZ)
