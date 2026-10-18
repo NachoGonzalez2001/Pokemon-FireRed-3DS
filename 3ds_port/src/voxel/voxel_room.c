@@ -101,25 +101,6 @@ static void SideQuad(VoxelBuilder *b, float x, float y0, float y1, float za, flo
             &(VoxelVertex){x, y0, zb, u1, v1, 0.8f}, &(VoxelVertex){x, y0, za, u0, v1, 0.8f});
 }
 
-/* The piece's sides, from its side art (the generator's, a slot of the tree
- * texture): x0's when the piece ends west, x1's when it ends east. */
-static void EmitSides(VoxelBuilder *b, unsigned i, float x0, float x1, float y0, float y1,
-                      float za, float zb)
-{
-    float su0, sv0, su1, sv1;
-
-    if (sRoomCells[i].ssx == 0 && sRoomCells[i].ssy == 0)
-        return;
-    su0 = TEX_U(sRoomCells[i].ssx);
-    su1 = TEX_U(sRoomCells[i].ssx + 16);
-    sv0 = TEX_V(sRoomCells[i].ssy);
-    sv1 = TEX_V(sRoomCells[i].ssy + 16);
-    if (sRoomCells[i].flags & ROOM_WEST)
-        SideQuad(b, x0 + sRoomCells[i].inw / 16.0f, y0, y1, za, zb, su0, sv0, su1, sv1, false);
-    if (sRoomCells[i].flags & ROOM_EAST)
-        SideQuad(b, x1 - sRoomCells[i].ine / 16.0f, y0, y1, za, zb, su0, sv0, su1, sv1, true);
-}
-
 /* A model: the cell's share of the box's front, and with the cell that holds
  * the box's first row, its top and its sides. */
 static void EmitModel(VoxelBuilder *b, const VoxelMapInstance *inst, unsigned i,
@@ -155,9 +136,20 @@ static void EmitModel(VoxelBuilder *b, const VoxelMapInstance *inst, unsigned i,
         float ye = lift + h * (float)(ybot - sRoomCells[i].te) / span;
         unsigned flags = sRoomCells[i].flags;
 
-        VoxelBuilder_Quad(b, /* top: its first rows, stretched back */
-            &(VoxelVertex){x0, yt, za, u0, ROW_V(r), 1.0f}, &(VoxelVertex){x1, yt, za, u1, ROW_V(r), 1.0f},
-            &(VoxelVertex){x1, yt, zf, u1, ROW_V(r1), 1.0f}, &(VoxelVertex){x0, yt, zf, u0, ROW_V(r1), 1.0f});
+        if (sRoomCells[i].tsx != 0 || sRoomCells[i].tsy != 0)
+        {
+            /* its top art: each column's first rows, opaque, run back */
+            float tu0 = TEX_U(sRoomCells[i].tsx), tu1 = TEX_U(sRoomCells[i].tsx + 16);
+            float tv0 = TEX_V(sRoomCells[i].tsy), tv1 = TEX_V(sRoomCells[i].tsy + 16);
+
+            VoxelBuilder_Quad(b,
+                &(VoxelVertex){x0, yt, za, tu0, tv0, 1.0f}, &(VoxelVertex){x1, yt, za, tu1, tv0, 1.0f},
+                &(VoxelVertex){x1, yt, zf, tu1, tv1, 1.0f}, &(VoxelVertex){x0, yt, zf, tu0, tv1, 1.0f});
+        }
+        else
+            VoxelBuilder_Quad(b, /* top: its first rows, stretched back */
+                &(VoxelVertex){x0, yt, za, u0, ROW_V(r), 1.0f}, &(VoxelVertex){x1, yt, za, u1, ROW_V(r), 1.0f},
+                &(VoxelVertex){x1, yt, zf, u1, ROW_V(r1), 1.0f}, &(VoxelVertex){x0, yt, zf, u0, ROW_V(r1), 1.0f});
         /* each side as high as the drawing reaches at that edge */
         if (sRoomCells[i].ssx != 0 || sRoomCells[i].ssy != 0)
         {
@@ -236,8 +228,24 @@ static void EmitCell(VoxelBuilder *b, const VoxelMapInstance *inst, unsigned i,
                     SideQuad(b, x1, 0.0f, ht, za, zb, COL_U(14.5f), vf0, COL_U(14.5f), vf1, true);
             }
         }
-        else
-            EmitSides(b, i, x0, x1, lift / 16.0f, ht, za, zb);
+        else if (sRoomCells[i].ssx != 0 || sRoomCells[i].ssy != 0)
+        {
+            /* each side from where the drawing starts at that edge: before
+             * it, nothing is drawn there to have a side */
+            float su0 = TEX_U(sRoomCells[i].ssx), su1 = TEX_U(sRoomCells[i].ssx + 16);
+            float sv0 = TEX_V(sRoomCells[i].ssy), sv1 = TEX_V(sRoomCells[i].ssy + 16);
+            float zw = oz + (sRoomCells[i].tw + h + lift) / 16.0f;
+            float ze = oz + (sRoomCells[i].te + h + lift) / 16.0f;
+
+            if (zw < za) zw = za;
+            if (ze < za) ze = za;
+            if ((sRoomCells[i].flags & ROOM_WEST) && zw < zb)
+                SideQuad(b, x0 + sRoomCells[i].inw / 16.0f, lift / 16.0f, ht, zw, zb,
+                         su0, sv0, su1, sv1, false);
+            if ((sRoomCells[i].flags & ROOM_EAST) && ze < zb)
+                SideQuad(b, x1 - sRoomCells[i].ine / 16.0f, lift / 16.0f, ht, ze, zb,
+                         su0, sv0, su1, sv1, true);
+        }
     }
     if (ps < pe)
     {

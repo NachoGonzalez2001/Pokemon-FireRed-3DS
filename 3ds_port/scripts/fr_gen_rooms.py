@@ -48,12 +48,28 @@ ROOM_OBJECTS = {
         ([[0x09B], [0x093]], 30), ([[0x09C], [0x094]], 30),
         ([[0x156], [0x15E]], 30), ([[0x102], [0x103]], 30), ([[0x102], [0x136]], 30),
         ([[0x12E], [0x136]], 30),
+        # against the back wall, standing out of it, the wall plain behind:
+        # the bookshelf, the drawers, the glass cupboard - cabinets
+        ([[0x02B, 0x02C], [0x033, 0x034], [0x03B, 0x03C]], 0, {"model": (30, 12)}),
+        ([[0x030], [0x038]], 0, {"model": (22, 12)}),
+        ([[0x02E, 0x02F], [0x036, 0x037], [0x03E, 0x03F]], 0, {"model": (30, 12)}),
+        # the kitchen counter, sink and stove: seen from above, its front low
+        ([[0x031, 0x032], [0x039, 0x03A]], 12),
+        # a television on its stand against the wall: its top, its front
+        ([[0x02D], [0x035], [0x03D]], 17),
+        # the desk's free end: its checked top, its front
+        ([[0x086], [0x05A]], 10),
     ],
     "gTileset_GenericBuilding1": [
         ([[0x035], [0x281]], 16, {"rows": 1}),            # a television alone, a card
         ([[0x281]], 8),                                   # the console on its table
-        ([[0x283, 0x284], [0x28B, 0x28C], [0x293, 0x294]], 10),  # bed (the cable beside it lies flat)
-        ([[0x286], [0x035], [0x28E]], 0, {"model": (22, 12)}),  # the television, a box
+        # the bed: a column and a half wide, centred on the middle one
+        ([[0x283, 0x284, 0x285], [0x28B, 0x28C, 0x28D], [0x293, 0x294, 0x295]], 10),
+        # the television, seen from above like the rest: its top, its front
+        # 17 high; the SNES on the rug in front of it, its own low piece
+        ([[0x286], [0x035], [0x28E]], 17, {"split": (8, 3)}),
+        # the PC on its desk against the wall: a box
+        ([[0x287], [0x28F], [0x297]], 0, {"model": (24, 12)}),
     ],
     "gTileset_GenericBuilding2": [
         ([[0x2E9], [0x2F0]], 30),
@@ -77,8 +93,9 @@ ROOM_OBJECTS = {
         ([[0x331], [0x32F]], 30), ([[0x32E], [0x32F]], 30),
     ],
     "gTileset_PokemonCenter": [
-        # the corner plant (leaves on the wall row's foot, pot below)
-        ([[0x28D], [0x294]], 30),
+        # the corner plant: its leaves' tips on the wall's top row, its
+        # leaves over the wall, its pot - the wall keyed out behind it
+        ([[0x2D3], [0x28D], [0x294]], 30),
         # upstairs: the red counter's front row, its end
         ([[0x2E9, 0x2E9, 0x2F8]], 10), ([[0x2F9]], 10),
         # One Island: the glass booth of the cable club
@@ -93,26 +110,28 @@ ROOM_OBJECTS = {
         # the Indigo Plateau's counter running down the west wall
         ([[0x338], [0x331], [0x2B5], [0x2BD]], 12),
         ([[0x362]], 30), ([[0x32F]], 30),
-        # the counter, nurse's gap and all
-        # the counter: its front row, and its arms back to the wall
-        ([[0x2B9, 0x2BC, 0x2BC, 0x298, 0x2BC, 0x2BC, 0x2BD]], 8),
-        ([[0x2B1]], 8), ([[0x2B5]], 8),
-        # behind it, against the wall: the healing machine, the box on its
-        # desk, the PC - boxes, the wall plain behind them
-        ([[0x2AA, 0x2AB], [0x2B2, 0x2B3]], 0, {"model": (22, 12)}),
-        ([[0x2AC], [0x2B4]], 0, {"model": (16, 10)}),
+        # the counter, top and front, nurse's gap and all
+        ([[0x2B1, 0x2B2, 0x2B3, 0x290, 0x363, 0x2B4, 0x2B5],
+          [0x2B9, 0x2BC, 0x2BC, 0x298, 0x2BC, 0x2BC, 0x2BD]], 8),
+        # on it, against the wall: the healing machine and the box - low
+        # boxes standing on its top, seen from above like it (their drawn
+        # top their top), the counter and the plain wall keyed out
+        ([[0x2AA, 0x2AB], [0x2B2, 0x2B3]], 10, {"on": (8, [0x28C, 0x290])}),
+        ([[0x2AC], [0x2B4]], 10, {"on": (8, [0x28C, 0x290])}),
+        # beside it on the floor, the PC: a box, its screen the front
         ([[0x062], [0x295]], 0, {"model": (26, 12)}),
+        # the green shelf against the west wall: a cabinet standing out of it
+        ([[0x2C9, 0x2CA], [0x2CB, 0x2CC], [0x2CD, 0x2CE]], 0, {"model": (30, 10)}),
         ([[0x29C, 0x29D], [0x2A4, 0x2A5]], 12),           # the table
         ([[0x2F5]], 8), ([[0x2FD]], 8),                   # its stools
     ],
     "gTileset_Mart": [
-        # the shelves, drawn front on: their cap the top, run back so a
-        # shelf is a cabinet and not a sheet
-        # drawn front on: cards, as tall as drawn
-        # the shelves and the cooler, boxes: front the drawing, a deep top
-        ([[0x296, 0x297], [0x29E, 0x29F], [0x2A6, 0x2A7], [0x2AE, 0x2AF]], 0, {"model": (46, 16)}),
-        ([[0x296], [0x29E], [0x2A6], [0x2AE]], 0, {"model": (46, 16)}),
-        ([[0x295], [0x29D], [0x2A5], [0x2AD]], 0, {"model": (42, 14)}),
+        # the shelves: long and low, running back - seen from above, their
+        # end the front, the goods on their top
+        ([[0x296, 0x297], [0x29E, 0x29F], [0x2A6, 0x2A7], [0x2AE, 0x2AF]], 16),
+        ([[0x296], [0x29E], [0x2A6], [0x2AE]], 16),
+        # the counter's arm running back to the wall: the L's long side
+        ([[0x295], [0x29D], [0x2A5], [0x2AD]], 16),
         # seen from above: low boxes, the glass their front
         # (solid: their glass is the floor's blue, the mask would take it)
         ([[0x2A8, 0x2A9, 0x2AA], [0x2B0, 0x2B1, 0x2B2]], 16, {"solid": True}),   # the counter
@@ -467,9 +486,10 @@ def match_objects(room):
             opt = spec[2] if len(spec) > 2 else {}
             specs.append((cells, h, opt.get("xrep"), opt.get("yrep"), opt.get("depth", 0),
                           opt.get("rows"), opt.get("crown", 0), opt.get("solid", False),
-                          opt.get("model")))
+                          opt.get("model"), opt))
     specs.sort(key=lambda s: -sum(1 for row in s[0] for c in row if c is not None))
-    for base, h, xrep, yrep, depth, only, crown, solid, model in specs:
+    for base, h, xrep, yrep, depth, only, crown, solid, model, opt in specs:
+        seated = "on" in opt
         reps = range(max(room.w, room.h), 0, -1) if (xrep is not None or yrep is not None) else (1,)
         for y in range(room.h):
             for x in range(room.w):
@@ -481,7 +501,7 @@ def match_objects(room):
                     part = only or rows       # the rows that are the object
                     here = {(x + i, y + j) for j in range(part) for i in range(cols)
                             if cells[j][i] is not None}
-                    if here & taken:
+                    if here & taken and not seated:
                         continue
                     if all(room.m(x + i, y + j) == cells[j][i] for j in range(rows) for i in range(cols)
                            if cells[j][i] is not None):
@@ -492,8 +512,9 @@ def match_objects(room):
                         # nearly as tall as drawn: a card, exactly
                         drawn = (y + part - min(c[1] for c in here)) * 16
                         hh = drawn if drawn - 4 <= h < drawn and not model else h
-                        found.append((here, x, x + cols, y + part, hh, here, depth, solid, model))
-                        taken |= here
+                        found.append((here, x, x + cols, y + part, hh, here, depth, solid, model, opt))
+                        if not seated:
+                            taken |= here
                         break
     return found, taken
 
@@ -502,6 +523,7 @@ def match_objects(room):
 # object standing against the wall covers it (the healing machine), and to
 # square off the bevelled corners of a room.
 PLAIN_WALL = {
+    "gTileset_Building": [0x020, 0x028],
     "gTileset_PokemonCenter": [0x284, 0x28C],
     "gTileset_Mart": [0x287, 0x28F],
 }
@@ -666,17 +688,40 @@ def object_mask(room, cells, all_cells):
     # also the colours of the floor beside it the object itself never draws
     own = {rgb for rgb, up in img.values() if up}
     loose = near - own
+    # where it stands in the wall (a plant in the corner), the plain wall:
+    # what it draws at that very place, and its colours the object's cells
+    # below the wall never draw
+    below = {img[((cx - x0) * 16 + i, (cy - y0) * 16 + j)][0] for (cx, cy) in cells
+             if (cx, cy) not in room.wall_art for j in range(16) for i in range(16)}
+    wall_px = {}
+    for c in cells:
+        if c in room.wall_art:
+            wim = room.L.metatile_image(room.wall_art[c]).convert("RGB").load()
+            pxs = [wim[i, j] for j in range(16) for i in range(16)]
+            wall_px[c] = (pxs, set(pxs) - own - below)
     gone = set()
     todo = [p for p in img if (p[0] % 16 == 0 and (x0 + p[0] // 16 - 1, y0 + p[1] // 16) not in cells)
             or (p[0] % 16 == 15 and (x0 + p[0] // 16 + 1, y0 + p[1] // 16) not in cells)
             or (p[1] % 16 == 0 and (x0 + p[0] // 16, y0 + p[1] // 16 - 1) not in cells)
             or (p[1] % 16 == 15 and (x0 + p[0] // 16, y0 + p[1] // 16 + 1) not in cells)]
+    # a cell whose lower layer is floor alone: all of that is floor
+    for (cx, cy) in cells:
+        if low_is_floor(room, cx, cy, all_cells):
+            for j in range(16):
+                for i in range(16):
+                    q = ((cx - x0) * 16 + i, (cy - y0) * 16 + j)
+                    if not img[q][1]:
+                        gone.add(q)
     while todo:
         q = todo.pop()
         if q in gone or q not in img:
             continue
         rgb, upper = img[q]
-        if upper or (rgb not in room.floor_px[(q[1] % 16) * 16 + q[0] % 16] and rgb not in loose):
+        pos = (q[1] % 16) * 16 + q[0] % 16
+        w = wall_px.get((x0 + q[0] // 16, y0 + q[1] // 16))
+        if w and (rgb == w[0][pos] or rgb in w[1]):
+            pass
+        elif upper or (rgb not in room.floor_px[pos] and rgb not in loose):
             continue
         gone.add(q)
         todo += [(q[0] + 1, q[1]), (q[0] - 1, q[1]), (q[0], q[1] + 1), (q[0], q[1] - 1)]
@@ -787,13 +832,120 @@ def overlays(room, place_art):
                         if not any(any(r) for r in art):
                             continue
                         sx, sy = place_art(art)
-                        rows.append((cy, cx, ybot - top, FLAG_OVERLAY, 0, lift, 0, 0, 0, ybot, top, 0, 0,
-                                     sx, sy, 0, 0, 0))
+                        rows.append(row(y=cy, x=cx, h=ybot - top, flags=FLAG_OVERLAY, lift=lift,
+                                        ybot=ybot, top=top, sx=sx, sy=sy))
     return rows
 
 
 FLAG_WEST, FLAG_EAST, FLAG_NO_GROUND, FLAG_BARE, FLAG_ATLAS = 1, 2, 4, 8, 16
 FLAG_MODEL, FLAG_FLAT, FLAG_OVERLAY = 32, 64, 128
+
+ROW_FIELDS = ("y", "x", "h", "flags", "depth", "lift", "cap", "inw", "ine", "ybot", "top",
+              "tw", "te", "sx", "sy", "ground", "ssx", "ssy", "tsx", "tsy")
+
+
+def row(**kw):
+    return tuple(kw.get(f, 0) for f in ROW_FIELDS)
+
+
+def pixels(room, m):
+    """The metatile's 256 pixels, row by row, cached."""
+    cache = room.__dict__.setdefault("_px", {})
+    if m not in cache:
+        im = room.L.metatile_image(m).convert("RGB").load()
+        cache[m] = [im[i, j] for j in range(16) for i in range(16)]
+    return cache[m]
+
+
+def low_is_floor(room, x, y, skip):
+    """True when the cell's lower layer is floor alone - a plain pattern of
+    a few colours, all of them drawn by one floor cell round it (a chair
+    drawn on the upper layer over a rug's middle): the thing is its upper
+    layer, that floor lies under it."""
+    cache = room.__dict__.setdefault("_lowfloor", {})
+    if (x, y) not in cache:
+        lo = layer(room.ts, room.entries(room.m(x, y)), 0)
+        own = {lo[j][i][0] for j in range(16) for i in range(16)}
+        hit = False
+        if len(own) <= 4:
+            for dy in range(-2, 3):
+                for dx in range(-2, 3):
+                    nx, ny = x + dx, y + dy
+                    if (dx, dy) != (0, 0) and 0 <= nx < room.w and 0 <= ny < room.h                             and (nx, ny) not in skip and not room.void(nx, ny):
+                        nl = layer(room.ts, room.entries(room.m(nx, ny)), 0)
+                        if own <= {nl[j][i][0] for j in range(16) for i in range(16)}:
+                            hit = True
+        cache[(x, y)] = hit
+    return cache[(x, y)]
+
+
+def ground_for(room, x, y, skip, art=None):
+    """The floor under a piece's cell (art: its drawing there, None where the
+    floor shows): its own lower layer when that is floor; else of the cells
+    round it, the one the floor showing in it matches best; drawn over
+    whole, the one beside it on its own row (a television on a rug's edge).
+    Returns (metatile, bare, sure): not sure, drawn over whole - the piece's
+    other cells on that row know better (the wood round a bed's middle)."""
+    if low_is_floor(room, x, y, skip):
+        return room.m(x, y), True, True
+    import collections
+    freq = room.__dict__.get("_freq")
+    if freq is None:
+        freq = room._freq = collections.Counter(room.m(i, j) for j in range(room.h) for i in range(room.w))
+    full = pixels(room, room.m(x, y))
+    shown = [k for k in range(256) if art is None or art[k // 16][k % 16] is None]
+    best = None
+    row_best = None
+    for dy in range(-3, 4):
+        for dx in range(-3, 4):
+            nx, ny = x + dx, y + dy
+            if (dx, dy) == (0, 0) or not (0 <= nx < room.w and 0 <= ny < room.h)                     or (nx, ny) in skip or room.void(nx, ny):
+                continue
+            c = room.m(nx, ny)
+            d = max(abs(dx), abs(dy))
+            if dy == 0 and (row_best is None or d < row_best[0]):
+                row_best = (d, c)
+            cp = pixels(room, c)
+            seen = sum(1 for k in shown if full[k] == cp[k])
+            # matching alike (the wood showing by a bed matches a rug's edge
+            # drawn on wood too): the floor the room is most made of
+            score = (seen, freq[c], dy == 0, -d)
+            if best is None or score > best[0]:
+                best = (score, c, seen)
+    if best and best[2] >= 16:
+        return best[1], False, True
+    if row_best:
+        return row_best[1], False, False
+    return floor_near(room, x, y, skip), False, False
+
+
+def seated_mask(room, cells, first, bases):
+    """A thing standing on another piece: its drawing less what is drawn
+    there without it, pixel for pixel - bases, one metatile a row (the
+    plain wall behind, the counter's top under it)."""
+    out = {}
+    for (cx, cy) in cells:
+        own = pixels(room, room.m(cx, cy))
+        base = pixels(room, bases[min(cy - first, len(bases) - 1)])
+        out[(cx, cy)] = [[None if own[j * 16 + i] == base[j * 16 + i] else own[j * 16 + i] + (255,)
+                          for i in range(16)] for j in range(16)]
+    return out
+
+
+def top_art(masks, cells, cx, top_px, ybot_px):
+    """A box's top over column cx: each pixel column's first rows of the
+    drawing, stretched back - opaque wherever the column is drawn at all."""
+    def px(i, r):
+        art = masks.get((cx, r // 16))
+        return art[r % 16][i] if art else None
+    art = [[None] * 16 for _ in range(16)]
+    for i in range(16):
+        t = next((r for r in range(top_px, ybot_px) if px(i, r)), None)
+        if t is None:
+            continue
+        for k in range(16):
+            art[k][i] = px(i, t + min(2, k * 3 // 16)) or px(i, t)
+    return art if any(any(r) for r in art) else None
 
 
 def build(root, place_art):
@@ -814,7 +966,8 @@ def build(root, place_art):
                     for i in range(16):
                         room.floor_px[j * 16 + i].add(im[i, j])
         objects, taken = match_objects(room)
-        wall = walls(room, taken)
+        seated = set().union(*[o[0] for o in objects if "on" in o[9]]) if objects else set()
+        wall = walls(room, taken | seated)
         for w in wall:
             taken |= w[0]
         pieces = [(o, "object") for o in objects] + [(w, "wall") for w in wall]
@@ -834,8 +987,7 @@ def build(root, place_art):
                         continue
                     if x in (0, room.w - 1) or (x > 0 and room.void(x - 1, y)) \
                             or (x + 1 < room.w and room.void(x + 1, y)):
-                        rows.append((y, x, 0, FLAG_FLAT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                     floor_near(room, x, y, all_cells), 0, 0))
+                        rows.append(row(y=y, x=x, flags=FLAG_FLAT, ground=floor_near(room, x, y, all_cells)))
         for piece, kind in pieces:
             wall = kind == "wall"
             cells, x0, x1, ybot, h = piece[:5]
@@ -843,6 +995,8 @@ def build(root, place_art):
             depth = piece[6] if len(piece) > 6 else 0
             solid = len(piece) > 7 and piece[7]
             model = piece[8] if len(piece) > 8 else None
+            opt = piece[9] if len(piece) > 9 else {}
+            on = opt.get("on")
             first = min(cy for _, cy in cells)
             masks = {}
             if kind == "object":
@@ -850,19 +1004,42 @@ def build(root, place_art):
                     for (x, y) in cells:
                         im = room.L.metatile_image(room.m(x, y)).convert("RGB").load()
                         masks[(x, y)] = [[im[i, j] + (255,) for i in range(16)] for j in range(16)]
+                elif on:
+                    masks = seated_mask(room, cells, first, on[1])
                 else:
                     masks = object_mask(room, cells, all_cells)
-            top_px = 0
+            # split: the last row's pixels from `cut` down are a thing of
+            # their own in front of it (the SNES before the television)
+            whole = dict(masks)
+            under = {}
+            if opt.get("split") and masks:
+                cut = opt["split"][0]
+                last = max(cy for _, cy in cells)
+                for c in [c for c in cells if c[1] == last]:
+                    art = masks[c]
+                    under[c] = [r if j >= cut else [None] * 16 for j, r in enumerate(art)]
+                    masks[c] = [r if j < cut else [None] * 16 for j, r in enumerate(art)]
+            # it stands where its drawing ends, not at its cells' foot
+            top_px, ybot_px = 0, ybot * 16
             if masks:
                 opaque = [cy * 16 + j for (cx, cy), art in masks.items() for j in range(16) if any(art[j])]
-                top_px = min(opaque) if opaque else first * 16
-            card = not model and h >= ybot * 16 - top_px - 4
+                if opaque:
+                    top_px, ybot_px = min(opaque), max(opaque) + 1
+                else:
+                    top_px = first * 16
+            card = not model and h >= ybot_px - top_px - 4
             ss = (0, 0)
             if kind == "object" and not card:
                 side = side_art(list(masks.values()))
                 if side:
                     ss = place_art(side)
             mh, mdepth = (model if model else (h, depth))
+            tops = {}
+            if model and masks:
+                for cx in sorted({c[0] for c in cells}):
+                    art = top_art(masks, cells, cx, top_px, ybot_px)
+                    if art:
+                        tops[cx] = place_art(art)
             # one plane per side: the piece's outermost drawn column on each
             # edge, not each cell's own (stepped, a bed's sides came apart)
             edge_w, edge_e = {}, {}
@@ -875,6 +1052,7 @@ def build(root, place_art):
                         edge_w[cx] = min(edge_w.get(cx, 16), used[0])
                     if (cx + 1, cy) not in group:
                         edge_e[cx] = min(edge_e.get(cx, 16), 15 - used[-1])
+            unsure, known = [], {}
             for (x, y) in sorted(cells, key=lambda c: (c[1], c[0])):
                 m = room.m(x, y)
                 e = room.entries(m)
@@ -884,6 +1062,8 @@ def build(root, place_art):
                 inw = ine = 0
                 if kind == "object":
                     art = masks[(x, y)]
+                    if not any(any(r) for r in art):
+                        continue                # nothing of it drawn here
                     sx, sy = place_art(art)
                     cap = next((j for j in range(16) if any(art[j][i] for i in range(16))), 0)
                     # its sides where its drawing ends, not at the cell's edge:
@@ -898,39 +1078,72 @@ def build(root, place_art):
                 # a model's side reaches only as high as its drawing does at
                 # that edge: taller, its inside showed over a rounded top
                 tw = te = 0
-                if model and masks:
+                if kind == "object" and masks:
                     colcells = sorted(c for c in cells if c[0] == x)
-                    def edge_top(i):
+
+                    def edge_top(cols):
+                        # the edge's few columns: an outline a pixel in from
+                        # the one before it does not end the side short
                         for (cx, cy) in colcells:
                             for j in range(16):
-                                if masks[(cx, cy)][j][i]:
+                                if any(masks[(cx, cy)][j][i] for i in cols):
                                     return cy * 16 + j
                         return top_px
-                    tw, te = edge_top(inw), edge_top(15 - ine)
+                    tw = edge_top(range(inw, min(16, inw + 4)))
+                    te = edge_top(range(max(0, 12 - ine), 16 - ine))
                 if (x - 1, y) not in group:
                     flags |= FLAG_WEST
                 if (x + 1, y) not in group:
                     flags |= FLAG_EAST
                 if model:
                     flags |= FLAG_MODEL
-                if wall:
+                if on:
+                    flags |= FLAG_OVERLAY
+                    ground = 0
+                elif wall:
                     flags |= FLAG_NO_GROUND
                     ground = 0
-                elif kind == "object" and lower_is_floor(room, m):
-                    flags |= FLAG_BARE
-                    ground = m
                 elif kind == "object":
-                    ground = floor_near(room, x, y, all_cells)
+                    ground, bare, sure = ground_for(room, x, y, all_cells,
+                                                    whole.get((x, y)) if not solid else None)
+                    if bare:
+                        flags |= FLAG_BARE
+                    if not sure:
+                        unsure.append((len(rows), y))
+                    elif not bare:
+                        known.setdefault(y, []).append(ground)
                 elif upper:
                     flags |= FLAG_BARE
                     ground = m
                 else:
                     ground = floor_near(room, x, y, all_cells)
-                rows.append((y, x, mh if model else h, flags, mdepth if (model or y == first) else 0,
-                             0, cap, inw, ine, ybot * 16, top_px, tw, te, sx, sy, ground, ss[0], ss[1]))
+                ts = tops.get(x, (0, 0))
+                rows.append(row(y=y, x=x, h=mh if model else h, flags=flags,
+                                depth=mdepth if (model or y == first) else 0,
+                                lift=on[0] if on else 0, cap=cap, inw=inw, ine=ine,
+                                ybot=ybot_px, top=top_px, tw=tw, te=te, sx=sx, sy=sy,
+                                ground=ground, ssx=ss[0], ssy=ss[1], tsx=ts[0], tsy=ts[1]))
+            # a cell drawn over whole: the floor its row's other cells found
+            for k, y in unsure:
+                if known.get(y):
+                    g = max(set(known[y]), key=known[y].count)
+                    rows[k] = rows[k][:15] + (g,) + rows[k][16:]
+            # the thing split off in front: a low piece of its own, on the
+            # cells' own floor
+            if under:
+                opaque = [cy * 16 + j for (cx, cy), art in under.items() for j in range(16) if any(art[j])]
+                if opaque:
+                    utop, ubot = min(opaque), max(opaque) + 1
+                    for (x, y), art in sorted(under.items(), key=lambda kv: (kv[0][1], kv[0][0])):
+                        if any(any(r) for r in art):
+                            sx, sy = place_art(art)
+                            rows.append(row(y=y, x=x, h=opt["split"][1], flags=FLAG_OVERLAY,
+                                            ybot=ubot, top=utop, sx=sx, sy=sy))
         rows += overlays(room, place_art)
         if rows:
-            rows.sort(key=lambda r: (r[0], r[1], 1 if r[3] & FLAG_OVERLAY else 0))
+            # a cell's own piece first, its wall before what stands in it
+            rows.sort(key=lambda r: (r[0], r[1], 1 if r[3] & FLAG_OVERLAY else 0,
+                                     0 if r[3] & FLAG_ATLAS else 1))
             out.append((index, lid, rows))
     return out
 
@@ -956,12 +1169,13 @@ def write_table(rooms, path):
               "    unsigned char y, x, h, flags, depth, lift, cap;",
               "    unsigned char inw, ine;     /* its sides this far in from the cell's edges */",
               "    unsigned short ybot, top;   /* pixels from the room's top */",
-              "    unsigned short tw, te;      /* a model: its drawing's first row at each edge */",
+              "    unsigned short tw, te;      /* its drawing's first row at each edge */",
               "    unsigned short sx, sy, ground, ssx, ssy;   /* ss: its sides' art, 0 none */",
+              "    unsigned short tsx, tsy;    /* a model's top art, 0 none */",
               "} sRoomCells[] = {"]
     for index, lid, rows in rooms:
         for r in rows:
-            lines.append("    { %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, 0x%03X, %d, %d }," % r)
+            lines.append("    { %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, 0x%03X, %d, %d, %d, %d }," % r)
     lines += ["};", "", "#endif", ""]
     with open(path, "w", encoding="utf-8", newline="\n") as f:
         f.write("\n".join(lines))
