@@ -250,16 +250,19 @@ def relief_of(layout):
     return out
 
 
-# Indoors nothing says what is a wall's face and what a table's top: the
-# drawing is stood up. Every blocked cell rises straight up from the floor
-# south of it - a wall, a shelf, a counter's front stands as drawn - to
-# ROOM_CAP; its sides drop steeply to the floor beside it; and what has no
-# floor south of it (the black round the room, its south wall) stays down,
-# where it would hide the room from the camera.
+# A cave: its blocked cells stand up from the floor south of them - a wall,
+# a rock, a ledge's face stands as drawn - to ROOM_CAP; its sides drop
+# steeply to the floor beside it; and what has no floor south of it (the
+# rock south of the cave) stays down, where it would hide the cave from the
+# camera. The map's elevations say which floor is up a level: a plateau
+# (elevation 4 over the floor's 3) stands LEVEL higher, its stairs a ramp
+# down to the floor, its rim's top flush with it.
 ROOM_CAP = 48
 FURNITURE_CAP = 16
-SIDE_STEEP = 4      # a piece of furniture's sides: at 45 degrees a table was a tent
+LEVEL = 16          # a plateau one elevation up
+SIDE_STEEP = 4      # a mass's sides: at 45 degrees a rock was a tent
 VOID_SHARE = 0.85   # of a cell's pixels black: the filler round the room
+FLOOR_ELEVATION = 3
 
 
 def interior_relief(layout):
@@ -278,22 +281,90 @@ def interior_relief(layout):
              for x in range(W)] for y in range(H)]
     if not any(k == 1 for row in kind for k in row):
         return {}
+    # walkable cells drawn as the rock round the cave (out of reach, past its
+    # walls) are that rock: the drawing the map's blocked edge is made of
+    import collections
+    edge = collections.Counter(layout.metatile(x, y) for y in range(H) for x in range(W)
+                               if (x in (0, W - 1) or y in (0, H - 1)) and kind[y][x] == 1)
+    total = sum(edge.values())
+    filler = {m for m, n in edge.items() if total and n >= 0.25 * total}
+    for y in range(H):
+        for x in range(W):
+            if kind[y][x] == 0 and layout.metatile(x, y) in filler:
+                kind[y][x] = 1
+
+    # a blocked cell drawn over the floor - the floor showing between its
+    # stones - is a rock, a cell tall, however it joins the walls; a wall's
+    # face is drawn solid
+    floors = collections.Counter(layout.metatile(x, y) for y in range(H) for x in range(W)
+                                 if kind[y][x] == 0)
+    floor_cols = set()
+    for m, _ in floors.most_common(1):
+        px = layout.metatile_image(m).convert("RGB").load()
+        floor_cols |= {px[i, j] for j in range(16) for i in range(16)}
+    rock_of = {}
+
+    def rockish(x, y):
+        m = layout.metatile(x, y)
+        if m not in rock_of:
+            px = layout.metatile_image(m).convert("RGB").load()
+            n = sum(1 for j in range(16) for i in range(16) if px[i, j] in floor_cols)
+            # (a wall's bevelled corner shows a wedge of floor, more than this)
+            rock_of[m] = 0.12 * 256 <= n <= 0.35 * 256
+        return rock_of[m]
+
+    def near4(x, y):
+        return [(nx, ny) for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1))
+                if 0 <= nx < W and 0 <= ny < H]
+
+    # each floor cell's height from its elevation, at its north and south
+    # edges; a cell between levels (elevation 0: stairs, a puddle) a ramp
+    # from the floor north of it to the one south, or level with its floor
+    floor_n = [[None] * W for _ in range(H)]
+    floor_s = [[None] * W for _ in range(H)]
+    for y in range(H):
+        for x in range(W):
+            e = layout.elevation(x, y)
+            if kind[y][x] == 0 and e >= FLOOR_ELEVATION:
+                floor_n[y][x] = floor_s[y][x] = LEVEL * (e - FLOOR_ELEVATION)
+    for y in range(H):
+        for x in range(W):
+            if kind[y][x] != 0 or floor_n[y][x] is not None:
+                continue
+            north = floor_s[y - 1][x] if y > 0 and kind[y - 1][x] == 0 else None
+            south = floor_n[y + 1][x] if y + 1 < H and kind[y + 1][x] == 0 else None
+            if north is not None and south is not None and north != south:
+                floor_n[y][x], floor_s[y][x] = north, south
+            else:
+                near = [v for v in (north, south) if v is not None]
+                near += [floor_n[y][n] for n in (x - 1, x + 1)
+                         if 0 <= n < W and kind[y][n] == 0 and floor_n[y][n] is not None]
+                floor_n[y][x] = floor_s[y][x] = min(near) if near else 0
+
+    def floor_at(cx, p):
+        cy = p // 16
+        return floor_n[cy][cx] + (floor_s[cy][cx] - floor_n[cy][cx]) * (p % 16 + 1) / 16.0
+
+    # along each lattice column from the south: the height climbed from the
+    # last floor (None: blocked with no floor south of it yet)
     rows_px = H * 16
     up = {}
     for i in range(W * STEP + 1):
-        px = min(i * STEP, W * 16 - 1)
-        cx = px // 16
-        climb = None    # None: not standing on a floor
+        cx = min(i * STEP, W * 16 - 1) // 16
+        climb = None
         at = [0] * (rows_px + 1)
         for p in range(rows_px - 1, -1, -1):
             k = kind[p // 16][cx]
             if k == 0:
-                climb = 0
+                climb = floor_at(cx, p)
+                at[p] = climb
             elif k == 2:
                 climb = None
-            elif climb is not None:
-                climb += 1
-            at[p] = climb if (k == 1 and climb is not None) else 0
+                at[p] = 0
+            else:
+                if climb is not None:
+                    climb += 1
+                at[p] = climb
         for j in range(H * STEP + 1):
             up[(i, j)] = at[min(j * STEP, rows_px - 1)] if j * STEP < rows_px else 0
 
@@ -308,10 +379,13 @@ def interior_relief(layout):
                     best = min(best, d)
         return best
 
-    # Walls are what reaches the black round the room (or its edge); a mass
-    # standing free on the floor - a shelf, a gravestone, a counter - is one
-    # cell tall at most, its upper rows its top seen from above.
+    # Walls are what reaches the black round the cave (or the map's edge); a
+    # mass standing free on the floor - a rock - is one cell tall at most
+    # over its floor, its upper rows its top seen from above; the rim of a
+    # plateau is as tall as the plateau.
     cap = [[ROOM_CAP] * W for _ in range(H)]
+    base = [[0] * W for _ in range(H)]
+    wallcell = [[False] * W for _ in range(H)]
     seen = set()
     for y in range(H):
         for x in range(W):
@@ -323,29 +397,85 @@ def interior_relief(layout):
                 cx, cy = todo.pop()
                 group.append((cx, cy))
                 for nx, ny in ((cx - 1, cy), (cx + 1, cy), (cx, cy - 1), (cx, cy + 1)):
-                    if ny < 0 or (0 <= nx < W and 0 <= ny < H and kind[ny][nx] == 2):
+                    if not (0 <= nx < W and 0 <= ny < H) or kind[ny][nx] == 2:
                         wall = True
-                    elif not (0 <= nx < W and 0 <= ny < H):
-                        continue
                     elif kind[ny][nx] == 1 and (nx, ny) not in seen:
                         seen.add((nx, ny))
                         todo.append((nx, ny))
-            if not wall:
-                for cx, cy in group:
-                    cap[cy][cx] = FURNITURE_CAP
-    out = {}
+            for cx, cy in group:
+                wallcell[cy][cx] = wall and not rockish(cx, cy)
+                beside = [floor_n[ny][nx] for nx, ny in near4(cx, cy) if kind[ny][nx] == 0]
+                base[cy][cx] = max(beside) if beside else 0
+                cap[cy][cx] = max(ROOM_CAP, base[cy][cx] + FURNITURE_CAP) if wallcell[cy][cx] \
+                    else base[cy][cx] + FURNITURE_CAP
+                # a rim between a plateau and the floor below: flush with it
+                if beside and min(beside) < max(beside):
+                    cap[cy][cx] = min(cap[cy][cx], max(beside))
+    # blocked with no floor south: a rock with floor beside it (the rocks
+    # along the cave's south wall) stands a cell tall; the rock south of the
+    # cave stays down; the rock beside it, whose column never meets a floor,
+    # is the walls' mass
+    open_col = [any(kind[y][x] == 0 for y in range(H)) for x in range(W)]
+    for key, v in list(up.items()):
+        if v is None:
+            cx = min(key[0] * STEP, W * 16 - 1) // 16
+            cy = min(key[1] * STEP, rows_px - 1) // 16
+            if cy > 0 and kind[cy - 1][cx] == 0:
+                up[key] = base[cy][cx] + FURNITURE_CAP
+                cap[cy][cx] = min(cap[cy][cx], base[cy][cx] + FURNITURE_CAP)
+            elif any(kind[ny][nx] == 0 for nx, ny in near4(cx, cy)) and not wallcell[cy][cx]:
+                up[key] = base[cy][cx] + FURNITURE_CAP
+                cap[cy][cx] = min(cap[cy][cx], base[cy][cx] + FURNITURE_CAP)
+            elif any(kind[ny][nx] == 0 for nx, ny in near4(cx, cy)):
+                up[key] = cap[cy][cx]       # a wall east or west of the floor
+            else:
+                up[key] = 0 if open_col[cx] else ROOM_CAP
+    # the wall over a puddle at its foot rose from the puddle, short of the
+    # wall beside it: a wall stands as tall as its neighbours a cell across
+    dil = {}
+    for (i, j), v in up.items():
+        cx = min(i * STEP, W * 16 - 1) // 16
+        cy = min(j * STEP, rows_px - 1) // 16
+        if j * STEP < rows_px and kind[cy][cx] == 1 and wallcell[cy][cx]:
+            best = v
+            for d in range(-STEP, STEP + 1):
+                n = (i + d, j)
+                if n in up:
+                    ncx = min(n[0] * STEP, W * 16 - 1) // 16
+                    if kind[cy][ncx] == 1 and wallcell[cy][ncx]:
+                        best = max(best, up[n])
+            dil[(i, j)] = best
+    up.update(dil)
+    # every cell's say at each lattice point it touches; a point shared by
+    # two cells takes the lower (a plateau's edge where no rim divides it
+    # from the floor below steps down there, and leaves no crack)
     lattice = {}
+    say = {}
     for y in range(H):
         for x in range(W):
-            if kind[y][x] != 1:
+            if kind[y][x] == 2:
                 continue
-            grid = []
             for c in range(SIDE):
                 for a in range(SIDE):
                     key = (x * (SIDE - 1) + a, y * (SIDE - 1) + c)
-                    if key not in lattice:
-                        lattice[key] = int(min(cap[y][x], up[key], SIDE_STEEP * side(*key)))
-                    grid.append(lattice[key])
+                    if kind[y][x] == 0:
+                        v = floor_n[y][x] + (floor_s[y][x] - floor_n[y][x]) * c / (SIDE - 1)
+                    else:
+                        if key not in lattice:
+                            # a wall's cell stands whole, its face at its
+                            # edge (the shared point takes the floor's
+                            # height): a sheer step as drawn, not a ramp
+                            sides = INF if wallcell[y][x] else base[y][x] + SIDE_STEEP * side(*key)
+                            lattice[key] = min(cap[y][x], up[key], sides)
+                        v = lattice[key]
+                    say[key] = min(say.get(key, v), v)
+    out = {}
+    for y in range(H):
+        for x in range(W):
+            if kind[y][x] == 2:
+                continue
+            grid = [int(round(say[(x * (SIDE - 1) + a, y * (SIDE - 1) + c)]))
+                    for c in range(SIDE) for a in range(SIDE)]
             if any(grid):
                 out[(x, y)] = grid
     return out
