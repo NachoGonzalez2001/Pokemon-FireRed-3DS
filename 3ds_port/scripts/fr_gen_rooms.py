@@ -50,9 +50,11 @@ ROOM_OBJECTS = {
         ([[0x12E], [0x136]], 30),
         # against the back wall, standing out of it, the wall plain behind:
         # the bookshelf, the drawers, the glass cupboard - cabinets
-        ([[0x02B, 0x02C], [0x033, 0x034], [0x03B, 0x03C]], 0, {"model": (30, 12)}),
-        ([[0x030], [0x038]], 0, {"model": (22, 12)}),
-        ([[0x02E, 0x02F], [0x036, 0x037], [0x03E, 0x03F]], 0, {"model": (30, 12)}),
+        # (roof: the drawing's first rows are its top, not its front - as
+        # tall as its front is drawn, no lid stood up over the books)
+        ([[0x02B, 0x02C], [0x033, 0x034], [0x03B, 0x03C]], 0, {"model": (0, 12), "roof": 12}),
+        ([[0x030], [0x038]], 0, {"model": (0, 10), "roof": 8}),
+        ([[0x02E, 0x02F], [0x036, 0x037], [0x03E, 0x03F]], 0, {"model": (0, 12), "roof": 11}),
         # the kitchen counter, sink and stove: seen from above, its front low
         ([[0x031, 0x032], [0x039, 0x03A]], 12),
         # a television on its stand against the wall: its top, its front
@@ -121,7 +123,7 @@ ROOM_OBJECTS = {
         # beside it on the floor, the PC: a box, its screen the front
         ([[0x062], [0x295]], 0, {"model": (26, 12)}),
         # the green shelf against the west wall: a cabinet standing out of it
-        ([[0x2C9, 0x2CA], [0x2CB, 0x2CC], [0x2CD, 0x2CE]], 0, {"model": (30, 10)}),
+        ([[0x2C9, 0x2CA], [0x2CB, 0x2CC], [0x2CD, 0x2CE]], 0, {"model": (0, 12), "roof": 12}),
         ([[0x29C, 0x29D], [0x2A4, 0x2A5]], 12),           # the table
         ([[0x2F5]], 8), ([[0x2FD]], 8),                   # its stools
     ],
@@ -134,8 +136,9 @@ ROOM_OBJECTS = {
         ([[0x295], [0x29D], [0x2A5], [0x2AD]], 16),
         # seen from above: low boxes, the glass their front
         # (solid: their glass is the floor's blue, the mask would take it)
-        ([[0x2A8, 0x2A9, 0x2AA], [0x2B0, 0x2B1, 0x2B2]], 16, {"solid": True}),   # the counter
-        ([[0x2B7, 0x2BC], [0x2C1, 0x2C2]], 16, {"solid": True}),                  # the low counter
+        # the counters running across, drawn front on: stood up, cards
+        ([[0x2A8, 0x2A9, 0x2AA], [0x2B0, 0x2B1, 0x2B2]], 32),
+        ([[0x2B7, 0x2BC], [0x2C1, 0x2C2]], 32),
         ([[0x2B6]], 16),                                          # the plant
     ],
     "gTileset_SilphCo": [
@@ -796,10 +799,14 @@ def side_art(art_cells):
 # ROOM_OVERLAYS: small things standing on a piece, the piece not theirs - the
 # flowers on the Pokemon Center's counter. (cells, lift, base metatiles): the
 # art is what the cells draw in colours the base metatiles never use.
+FLOWER_POT = {(82, 148, 197), (255, 255, 255), (106, 197, 106), (213, 197, 106), (172, 148, 65)}
 ROOM_OVERLAYS = {
     "gTileset_PokemonCenter": [
-        ([[0x2B1], [0x2B9]], 8, [0x2A9, 0x2BC, 0x2B2]),
-        ([[0x2B5], [0x2BD]], 8, [0x2AD, 0x2BC, 0x2B4]),
+        # (a set of colours instead of bases: the thing is drawn in those
+        # alone - the counter's red shows through the petals, its white is
+        # theirs too)
+        ([[0x2B1], [0x2B9]], 8, FLOWER_POT),
+        ([[0x2B5], [0x2BD]], 8, FLOWER_POT),
     ],
 }
 
@@ -809,7 +816,8 @@ def overlays(room, place_art):
     for ts in (room.L.primary, room.L.secondary):
         for cells, lift, bases in ROOM_OVERLAYS.get(ts, ()):
             base_cols = set()
-            for b in bases:
+            keep = bases if isinstance(bases, set) else None
+            for b in ([] if keep else bases):
                 im = room.L.metatile_image(b).convert("RGB").load()
                 base_cols |= {im[i, j] for j in range(16) for i in range(16)}
             R, C = len(cells), len(cells[0])
@@ -821,7 +829,8 @@ def overlays(room, place_art):
                     for j in range(R):
                         for i in range(C):
                             im = room.L.metatile_image(cells[j][i]).convert("RGB").load()
-                            arts[(x + i, y + j)] = [[None if im[a, b] in base_cols else im[a, b] + (255,)
+                            arts[(x + i, y + j)] = [[None if (im[a, b] not in keep if keep else im[a, b] in base_cols)
+                                                     else im[a, b] + (255,)
                                                      for a in range(16)] for b in range(16)]
                     opaque = [cy * 16 + b for (cx, cy), art in arts.items()
                               for b in range(16) if any(art[b])]
@@ -932,9 +941,10 @@ def seated_mask(room, cells, first, bases):
     return out
 
 
-def top_art(masks, cells, cx, top_px, ybot_px):
+def top_art(masks, cells, cx, top_px, ybot_px, roof=0):
     """A box's top over column cx: each pixel column's first rows of the
-    drawing, stretched back - opaque wherever the column is drawn at all."""
+    drawing, stretched back - opaque wherever the column is drawn at all;
+    with a roof, those roof rows themselves (its drawn top)."""
     def px(i, r):
         art = masks.get((cx, r // 16))
         return art[r % 16][i] if art else None
@@ -944,7 +954,10 @@ def top_art(masks, cells, cx, top_px, ybot_px):
         if t is None:
             continue
         for k in range(16):
-            art[k][i] = px(i, t + min(2, k * 3 // 16)) or px(i, t)
+            if roof:
+                art[k][i] = px(i, top_px + k * roof // 16) or px(i, t)
+            else:
+                art[k][i] = px(i, t + min(2, k * 3 // 16)) or px(i, t)
     return art if any(any(r) for r in art) else None
 
 
@@ -985,6 +998,8 @@ def build(root, place_art):
                 for x in range(room.w):
                     if (x, y) in all_cells or not room.part_black(x, y):
                         continue
+                    if y + 1 >= room.h or room.void(x, y + 1):
+                        continue                # the exit under the mat, not a corner
                     if x in (0, room.w - 1) or (x > 0 and room.void(x - 1, y)) \
                             or (x + 1 < room.w and room.void(x + 1, y)):
                         rows.append(row(y=y, x=x, flags=FLAG_FLAT, ground=floor_near(room, x, y, all_cells)))
@@ -1027,6 +1042,7 @@ def build(root, place_art):
                     top_px, ybot_px = min(opaque), max(opaque) + 1
                 else:
                     top_px = first * 16
+            roof = opt.get("roof", 0)
             card = not model and h >= ybot_px - top_px - 4
             ss = (0, 0)
             if kind == "object" and not card:
@@ -1037,9 +1053,13 @@ def build(root, place_art):
             tops = {}
             if model and masks:
                 for cx in sorted({c[0] for c in cells}):
-                    art = top_art(masks, cells, cx, top_px, ybot_px)
+                    art = top_art(masks, cells, cx, top_px, ybot_px, roof)
                     if art:
                         tops[cx] = place_art(art)
+            if model and roof:
+                # its front from below its drawn top, a pixel a pixel high
+                top_px += roof
+                mh = ybot_px - top_px
             # one plane per side: the piece's outermost drawn column on each
             # edge, not each cell's own (stepped, a bed's sides came apart)
             edge_w, edge_e = {}, {}

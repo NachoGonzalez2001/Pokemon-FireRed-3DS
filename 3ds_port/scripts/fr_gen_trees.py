@@ -69,7 +69,12 @@ MB_JUMP_SOUTH = 0x3B
 TIP_FENCES = {0x0D6: 0x010, 0x0D7: 0x011}
 # A town's own props that use none of General's tiles
 # the stone fence; the pens' sign
-EXTRA_PROPS = {"gTileset_FuchsiaCity": [0x28E, 0x28F, 0x296]}
+EXTRA_PROPS = {"gTileset_FuchsiaCity": [0x28E, 0x28F, 0x296],
+               # the grey statues by Victory Road and the League: base, head
+               "gTileset_IndigoPlateau": [0x29F, 0x2EF, 0x2B6, 0x2B7]}
+# the ground under a prop whose own lower layer is not what it stands on (the
+# statues' pedestals draw an orange slab under them)
+PROP_GROUND = {"gTileset_IndigoPlateau": {0x29F: 0x010, 0x2EF: 0x010}}
 # A town's grey fences drawn on the lower layer over grass: keyed off the
 # grass, the cell's ground plain grass (Fuchsia's by the pond)
 LOWER_FENCES = {"gTileset_FuchsiaCity": {0x336: 0x010, 0x337: 0x010, 0x33F: 0x010}}
@@ -229,6 +234,8 @@ def build_props(root, ts, metatile, image):
         tiles = fr_art.Tilesets("gTileset_General", name)
         for i in found:
             place(tiles, len(sets), 0x280 + i, sec[i], local)
+            if 0x280 + i in PROP_GROUND.get(name, {}) and out and out[-1][1] == 0x280 + i:
+                out[-1][6] = PROP_GROUND[name][0x280 + i]
         for i in blocks:
             place(tiles, len(sets), 0x280 + i, sec[i], local, block=True)
         for m, ground in lower.items():

@@ -1375,6 +1375,46 @@ LEAGUE_EXACT = [(2, 65, 66, 104), (110, 65, 174, 104), (0, 58, 176, 65), (66, 64
                 (0, 4, 176, 56)]
 
 
+def league_gate(art):
+    """The Pokemon League's front gate on Route 22 (cells 4..12 x 0..6), the
+    League's own build in nine cells, 144 x 112:
+
+        rows  0-49   the roof's ribs, the same on every row
+        rows 50-56   the eave
+        rows 57-95   facade: windows, the pines planted along it
+        x 53..90:    the entrance - a canopy over it (its dome drawn on rows
+                     59..77) on two pillars (x 55..57, 86..88, down to row
+                     105), the doors in the facade behind
+        x 48..95, rows 96..111: the white steps before it
+    """
+    front_z, back_z = 96, 0
+    wall_top = front_z - 57
+    wood = Tile(3, 72, 12, 80, top=wall_top)
+    walls = Prism(
+        "walls", 0, 144,
+        [(front_z, 0), (front_z, wall_top), (back_z, wall_top), (back_z, 0)],
+        edges={0: Proj(57, 96), 2: wood}, skip=(1, 3),
+        caps=[Band(0, wall_top + 1, wood, front_z)])
+    roof = flat_roof("roof", 0, 144, front_z, back_z, wall_top, (50, 57),
+                     Strip((1, 50), repeat=(10, 14)), Tile(8, 50, 16, 57))
+    # the canopy slopes up to the facade: its top is the dome as drawn
+    dome = Tile(60, 62, 70, 66)
+    canopy = Prism("canopy", 53, 91, [(106, 25), (106, 28), (96, 37), (96, 25)],
+                   edges={0: Proj(), 1: Proj()}, skip=(2, 3),
+                   caps=[Band(25, 38, dome, 106)])
+    post = Tile(55, 85, 58, 95)
+    pillars = [Prism(name, x0, x0 + 3, [(106, 0), (106, 25), (103, 25), (103, 0)],
+                     edges={0: Proj()}, skip=(1, 2, 3), caps=[Band(0, 26, post, 106)])
+               for name, x0 in (("pillar_w", 55), ("pillar_e", 86))]
+    steps = Prism("steps", 48, 96, [(112, 0), (112, 2), (96, 2), (96, 0)],
+                  edges={0: Proj(), 1: Proj()}, skip=(2, 3),
+                  caps=[Band(0, 3, Tile(50, 100, 60, 104), 112)])
+    return [walls, roof, canopy] + pillars + [steps], art
+
+
+LEAGUE_GATE_EXACT = [(3, 57, 53, 96), (91, 57, 141, 96), (0, 50, 144, 57), (0, 4, 144, 48)]
+
+
 # ── Sevii Islands ──────────────────────────────────────────────────────────
 
 def sevii_house(art):
@@ -1854,6 +1894,14 @@ SPECS.append({
     "ground": [GRASS, 0x008, 0x009, 0x010, 0x001, 0x004],
     "parts": pokemon_league,
     "exact": LEAGUE_EXACT,
+})
+SPECS.append({
+    "name": "league_gate",
+    "layout": "LAYOUT_ROUTE22",
+    "rect": (4, 0, 9, 7),
+    "ground": [GRASS, 0x008, 0x009, 0x010, 0x001, 0x004, 0x005],
+    "parts": league_gate,
+    "exact": LEAGUE_GATE_EXACT,
 })
 
 # every copy, found by its drawing (the islands draw them with three tilesets,
