@@ -30,7 +30,20 @@ import fr_map_render
 X = {"xrep": 1}          # its middle column repeats: as long as it is drawn
 Y0 = {"yrep": 0}         # its first row repeats
 
+SILPH_CURB = {(123, 123, 123), (213, 213, 213), (255, 255, 255), (180, 180, 164)}
+SILPH_POND = {(98, 139, 189), (123, 164, 189)}
+ROOF_RAIL = {(57, 106, 82), (90, 205, 115), (41, 156, 98)}
+
+DECK_RAIL = {(82, 82, 106), (131, 131, 213), (98, 98, 172), (148, 148, 172)}
+HARBOR_RAIL = {(82, 82, 106), (106, 205, 164), (57, 156, 115), (180, 189, 189), (148, 156, 156), (106, 115, 115)}
+
 ROOM_OBJECTS = {
+    # rocks in the sea round the S.S. Anne (General's own, an indoor map)
+    "gTileset_General": [
+        ([[0x110, 0x111], [0x118, 0x119]], 32), ([[0x1CB, 0x1CC], [0x1D3, 0x1D4]], 32),
+    ],
+    # the Power Plant's rubble
+    "gTileset_PowerPlant": [([[0x2B6]], 12), ([[0x2B5]], 12), ([[0x2E2]], 12)],
     "gTileset_Building": [
         # the GenericBuilding1 houses' tables and pots
         ([[0x0C8, 0x0C9], [0x0D0, 0x0D1]], 10), ([[0x0C6]], 14), ([[0x0C7]], 14),
@@ -156,12 +169,31 @@ ROOM_OBJECTS = {
         ([[0x320, 0x321, 0x322]], 10), ([[0x099]], 12),
         ([[0x310, 0x311], [0x310, 0x311], [0x318, 0x319]], 14),
         ([[0x310, 0x311], [0x318, 0x319]], 14),
+        # the small desks: their top, its edge, the drawers in front
+        ([[0x36D, 0x36E, 0x36F], [0x323, 0x324, 0x325], [0x375, 0x376, 0x377]], 12, X),
+        ([[0x36D, 0x36F], [0x323, 0x325], [0x375, 0x377]], 12),
+        # the lobby's ponds: the white curb round them, low; the fountain's
+        # spray standing over the water
+        ([[0x3DE], [0x3DF]], 24, {"drop": SILPH_POND}),
+    ] + [([[m]], 4, {"keep": SILPH_CURB}) for m in (0x3CE, 0x3CC, 0x3CF, 0x3D2, 0x3D3, 0x3C7, 0x3C6, 0x3D0,
+                                                     0x3D1, 0x3CA)] + [
         # desks with their computers
         ([[0x2BB, 0x2B9, 0x2C4], [0x2C3, 0x2B9, 0x2BA]], 12),
         ([[0x2BB, 0x2B9, 0x2BA], [0x2C3, 0x2B9, 0x2C4]], 12),
         ([[0x2B8, 0x2B9, 0x2C4]], 12), ([[0x2B8, 0x2B9, 0x2BA]], 12),
     ],
     "gTileset_SSAnne": [
+        # the deck: its round tables, the barrels stacked by the cabin
+        ([[0x377]], 14),
+        ([[0x3AE], [0x396]], 16), ([[0x3B3], [0x38F], [0x396]], 16),
+        ([[0x387], [0x397]], 16), ([[0x387], [0x38F], [0x397]], 16),
+    ] + [
+        # its railing, the rail and posts alone (the sea and the hull stay)
+        ([[m]], 16, {"keep": DECK_RAIL}) for m in (0x35B, 0x35C, 0x3B0, 0x3B1, 0x3B2, 0x3B4, 0x376, 0x359,
+                                                   0x35A, 0x360, 0x361, 0x369, 0x36A, 0x374, 0x373)
+    ] + [
+        ([[0x36C], [0x374]], 16, {"keep": DECK_RAIL}), ([[0x36B], [0x373]], 16, {"keep": DECK_RAIL}),
+        ([[0x37F], [0x374]], 16, {"keep": DECK_RAIL}), ([[0x37E], [0x374]], 16, {"keep": DECK_RAIL}),
         ([[0x289]], 14), ([[0x28A]], 14), ([[0x333]], 16), ([[0x302]], 24, {"depth": 8}),
         ([[0x338, 0x339], [0x340, 0x341]], 10), ([[0x342, 0x343, 0x344], [0x34A, 0x34B, 0x34C]], 12),
         ([[0x329], [0x331]], 10), ([[0x309], [0x311]], 10),
@@ -208,8 +240,24 @@ ROOM_OBJECTS = {
         ([[0x320, 0x321], [0x328, 0x329]], 28, {"depth": 10}),
         ([[0x300, 0x301, 0x302]], 12), ([[0x31F, 0x31F], [0x327, 0x327]], 24, {"depth": 8}),
         ([[0x34B, 0x34C], [0x353, 0x354]], 24, {"depth": 8}),
+        # the roof: its drink machines, boxes
+        ([[0x325], [0x32D]], 0, {"model": (28, 12)}),
+        # the elevator's hut and the tower beside it, the roof light on top
+        ([[0x32E, 0x32F, 0x32F], [0x336, 0x337, 0x337], [0x33D, 0x33C, 0x33E], [0x345, 0x344, 0x346]], 32),
+        ([[0x32F, 0x34F], [0x336, 0x33F], [0x336, 0x33F], [0x336, 0x33F], [0x336, 0x33F], [0x336, 0x33F],
+          [0x336, 0x33F], [0x33D, 0x347]], 16),
+        # the green railing round it: front and back rails, the posts down
+        # its sides (the green alone: the sky and the floor behind it stay)
+        ([[0x339], [0x341]], 16, {"keep": ROOF_RAIL}), ([[0x33A], [0x341]], 16, {"keep": ROOF_RAIL}),
+        ([[0x342], [0x341]], 16, {"keep": ROOF_RAIL}), ([[0x349], [0x341]], 16, {"keep": ROOF_RAIL}),
+        ([[0x34A], [0x341]], 16, {"keep": ROOF_RAIL}),
+        ([[0x338], [0x340]], 16, {"keep": ROOF_RAIL}), ([[0x35D], [0x351]], 16, {"keep": ROOF_RAIL}),
+        ([[0x350], [0x358]], 16, {"keep": ROOF_RAIL}), ([[0x352], [0x35A]], 16, {"keep": ROOF_RAIL}),
     ],
     "gTileset_Museum": [
+        # the tall glass case, and the fossil's table
+        ([[0x293], [0x2A7], [0x2AF], [0x2B7]], 40),
+        ([[0x2B8, 0x2B9], [0x2C0, 0x2C1], [0x2C8, 0x2C9]], 16),
         ([[0x2F9, 0x2FA], [0x2FB, 0x2FC]], 10), ([[0x2CC], [0x2D4]], 24),
         ([[0x28B, 0x28C, 0x28D, 0x28E]], 14, {"crown": 1}),             # display cases
         ([[0x2D0, 0x2D1, 0x2D2, 0x2D3], [0x2E0, 0x2E1, 0x2E2, 0x2E3]], 24, {"crown": 1}),
@@ -237,6 +285,8 @@ ROOM_OBJECTS = {
         ([[0x370], [0x378]], 30), ([[0x371], [0x379]], 30),
     ],
     "gTileset_PokemonMansion": [
+        # the rubble on the broken floor
+        ([[0x2CB]], 12), ([[0x2CC]], 12),
         ([[0x313]], 24), ([[0x323]], 24), ([[0x361]], 24), ([[0x324]], 16), ([[0x31C]], 24), ([[0x32C]], 24),
     ],
     "gTileset_Condominiums": [
@@ -287,6 +337,8 @@ ROOM_OBJECTS = {
         ([[0x29E]], 16),
     ],
     "gTileset_IslandHarbor": [
+        # the railing along the quay (its posts and rail, not the quay)
+        ([[0x28D]], 16, {"keep": HARBOR_RAIL}), ([[0x2A5]], 16, {"keep": HARBOR_RAIL}),
         ([[0x2AD]], 16),
     ],
 }
@@ -356,6 +408,9 @@ INNER_WALLS = {
 WALL_ROWS = 2
 # rooms whose back wall is drawn taller
 WALL_ROWS_BY = {"gTileset_PokemonLeague": 3}           # a room's back wall, from its top
+# the wall goes on past its rows while it is drawn with these (the elevators'
+# third row, their buttons)
+WALL_MORE = {"gTileset_SilphCo": {0x2F8, 0x2FB, 0x2FC}}
 VOID_SHARE = 0.85
 INDOOR = ("MAP_TYPE_INDOOR",)
 
@@ -557,6 +612,13 @@ def walls(room, taken):
             elif (x, y) in taken or not room.L.collision(x, y) or corner:
                 break
             cells.append((x, y))
+        more = WALL_MORE.get(room.L.secondary, set()) | WALL_MORE.get(room.L.primary, set())
+        while cells and len(cells) == rows and more:
+            y = cells[-1][1] + 1
+            if y >= room.h or (x, y) in taken or room.m(x, y) not in more or not room.L.collision(x, y):
+                break
+            cells.append((x, y))
+            rows += 1
         if cells:
             out.append((set(cells), x, x + 1, y0 + len(cells), len(cells) * 16))
     return out
@@ -868,9 +930,9 @@ def pixels(room, m):
 
 def low_is_floor(room, x, y, skip):
     """True when the cell's lower layer is floor alone - a plain pattern of
-    a few colours, all of them drawn by one floor cell round it (a chair
-    drawn on the upper layer over a rug's middle): the thing is its upper
-    layer, that floor lies under it."""
+    a few colours, all of them drawn by one walkable floor cell round it (a
+    chair drawn on the upper layer over a rug's middle): the thing is its
+    upper layer, that floor lies under it."""
     cache = room.__dict__.setdefault("_lowfloor", {})
     if (x, y) not in cache:
         lo = layer(room.ts, room.entries(room.m(x, y)), 0)
@@ -880,10 +942,11 @@ def low_is_floor(room, x, y, skip):
             for dy in range(-2, 3):
                 for dx in range(-2, 3):
                     nx, ny = x + dx, y + dy
-                    if (dx, dy) != (0, 0) and 0 <= nx < room.w and 0 <= ny < room.h                             and (nx, ny) not in skip and not room.void(nx, ny):
-                        nl = layer(room.ts, room.entries(room.m(nx, ny)), 0)
-                        if own <= {nl[j][i][0] for j in range(16) for i in range(16)}:
-                            hit = True
+                    if (dx, dy) == (0, 0) or not (0 <= nx < room.w and 0 <= ny < room.h)                             or (nx, ny) in skip or room.void(nx, ny) or room.L.collision(nx, ny):
+                        continue
+                    nl = layer(room.ts, room.entries(room.m(nx, ny)), 0)
+                    if own <= {nl[j][i][0] for j in range(16) for i in range(16)}:
+                        hit = True
         cache[(x, y)] = hit
     return cache[(x, y)]
 
@@ -911,6 +974,10 @@ def ground_for(room, x, y, skip, art=None):
             if (dx, dy) == (0, 0) or not (0 <= nx < room.w and 0 <= ny < room.h)                     or (nx, ny) in skip or room.void(nx, ny):
                 continue
             c = room.m(nx, ny)
+            # a cell with something drawn over it (a phone, a plant) is not
+            # the floor, whatever it shows round it
+            if has_upper(room, c) and room.L.collision(nx, ny):
+                continue
             d = max(abs(dx), abs(dy))
             if dy == 0 and (row_best is None or d < row_best[0]):
                 row_best = (d, c)
@@ -986,7 +1053,7 @@ def build(root, place_art):
         pieces = [(o, "object") for o in objects] + [(w, "wall") for w in wall]
         for pt in partitions(room, taken, INNER_WALLS):
             taken |= pt[0]
-            pieces.append((pt, "wall"))
+            pieces.append((pt, "inner"))
         for pt in partitions(room, taken):
             taken |= pt[0]
             pieces.append((pt, "auto"))
@@ -1004,7 +1071,10 @@ def build(root, place_art):
                             or (x + 1 < room.w and room.void(x + 1, y)):
                         rows.append(row(y=y, x=x, flags=FLAG_FLAT, ground=floor_near(room, x, y, all_cells)))
         for piece, kind in pieces:
-            wall = kind == "wall"
+            # an inner wall stands as the back wall does, but on the floor
+            # (seen past its edge, the room's floor and not the black)
+            inner = kind == "inner"
+            wall = kind in ("wall", "inner")
             cells, x0, x1, ybot, h = piece[:5]
             group = piece[5] if len(piece) > 5 else cells
             depth = piece[6] if len(piece) > 6 else 0
@@ -1021,6 +1091,15 @@ def build(root, place_art):
                         masks[(x, y)] = [[im[i, j] + (255,) for i in range(16)] for j in range(16)]
                 elif on:
                     masks = seated_mask(room, cells, first, on[1])
+                elif opt.get("keep") or opt.get("drop"):
+                    # drawn in these colours alone (a curb round a pond), or
+                    # without these (a fountain's spray over its water)
+                    keep, drop = opt.get("keep"), opt.get("drop")
+                    for (x, y) in cells:
+                        im = room.L.metatile_image(room.m(x, y)).convert("RGB").load()
+                        masks[(x, y)] = [[im[i, j] + (255,) if (keep is None or im[i, j] in keep)
+                                          and (drop is None or im[i, j] not in drop) else None
+                                          for i in range(16)] for j in range(16)]
                 else:
                     masks = object_mask(room, cells, all_cells)
             # split: the last row's pixels from `cut` down are a thing of
@@ -1120,6 +1199,8 @@ def build(root, place_art):
                 if on:
                     flags |= FLAG_OVERLAY
                     ground = 0
+                elif inner:
+                    ground = floor_near(room, x, y, all_cells)
                 elif wall:
                     flags |= FLAG_NO_GROUND
                     ground = 0
@@ -1132,7 +1213,7 @@ def build(root, place_art):
                         unsure.append((len(rows), y))
                     elif not bare:
                         known.setdefault(y, []).append(ground)
-                elif upper:
+                elif upper and low_is_floor(room, x, y, all_cells):
                     flags |= FLAG_BARE
                     ground = m
                 else:
