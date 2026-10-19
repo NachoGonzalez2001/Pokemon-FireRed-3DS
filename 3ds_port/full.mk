@@ -73,7 +73,7 @@ FULL_DATA_OBJS += build/root/3ds_song_blob.o
 BACKEND_SRCS := src/3ds_assets.c src/3ds_map_loader.c src/3ds_compat.c
 BACKEND_SRCS += src/3ds_game_full.c src/3ds_game_bridge.c src/3ds_script_loader.c
 # The bottom screen: FireRed's own touch UI (the Emerald one drives Emerald's menus).
-BACKEND_SRCS += src/fr_bottom_ui.c
+BACKEND_SRCS += src/fr_bottom_ui.c src/fr_extras.c
 # The frame profiler times the engine's own routines through linker wrappers.
 BACKEND_SRCS += src/3ds_prof_wrap.c
 PROF_WRAPPED := RunTasks AnimateSprites BuildOamBuffer ProcessDma3Requests \
