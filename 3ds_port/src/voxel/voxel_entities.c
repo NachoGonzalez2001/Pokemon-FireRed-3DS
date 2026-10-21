@@ -172,9 +172,22 @@ static float GetMovementProgress(const struct ObjectEvent *obj, const struct Spr
     return t;
 }
 
+/* field_player_avatar.c (PORT_BRIDGE): free movement's player, this many
+ * pixels off the middle of its tile. */
+bool8 PlayerGetFreeOffset(s16 *dx, s16 *dy);
+
 static bool GetObjectWorldPos(const struct ObjectEvent *obj, const struct Sprite *sprite,
                               float *outX, float *outZ)
 {
+    s16 freeX, freeY;
+
+    if (obj->isPlayer && PlayerGetFreeOffset(&freeX, &freeY))
+    {
+        *outX = (float)(obj->currentCoords.x - MAP_OFFSET) + freeX / VOXEL_PIXELS_PER_TILE;
+        *outZ = (float)(obj->currentCoords.y - MAP_OFFSET) + freeY / VOXEL_PIXELS_PER_TILE;
+        return true;
+    }
+
     float prevX = (float)(obj->previousCoords.x - MAP_OFFSET);
     float prevZ = (float)(obj->previousCoords.y - MAP_OFFSET);
     float curX = (float)(obj->currentCoords.x - MAP_OFFSET);

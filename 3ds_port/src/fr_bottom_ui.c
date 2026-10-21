@@ -70,7 +70,10 @@ u8 Port_GetRegionMapPlayer(s16 *x, s16 *y);
 uint32_t CtrGame_Frames(void);
 #ifdef CTR_INPUT_SCRIPT
 bool CtrScript_Touch(u16 *x, u16 *y);
+bool CtrScript_Stick(s16 *x, s16 *y);
 #endif
+/* settings.txt: the player walks freely (field_player_avatar.c) */
+#define FREE_MOVE_KEY "free_move"
 
 /* start_menu.c's STARTMENU_* */
 enum { MENU_POKEDEX, MENU_POKEMON, MENU_BAG, MENU_PLAYER, MENU_SAVE, MENU_OPTION, MENU_COUNT };
@@ -109,7 +112,7 @@ enum { SCR_MAP, SCR_OPTIONS };
  * the extras (3ds_extras.h). It replaces the game's option menu. */
 enum {
     OPT_TEXT_SPEED, OPT_BATTLE_SCENE, OPT_BATTLE_STYLE, OPT_SOUND, OPT_BUTTON_MODE, OPT_FRAME,
-    OPT_RUN, OPT_VOXEL, OPT_VOXEL_ANGLE, OPT_VOXEL_ZOOM, OPT_VOXEL_BLUR, OPT_VOXEL_BATTLE,
+    OPT_RUN, OPT_FREE_MOVE, OPT_VOXEL, OPT_VOXEL_ANGLE, OPT_VOXEL_ZOOM, OPT_VOXEL_BLUR, OPT_VOXEL_BATTLE,
     OPT_COUNT
 };
 #define OPT_MAX_ROWS 16
@@ -948,6 +951,7 @@ static u8 OptionGet(int row)
     case OPT_BUTTON_MODE:  return gSaveBlock2Ptr->optionsButtonMode;
     case OPT_FRAME:        return gSaveBlock2Ptr->optionsWindowFrameType;
     case OPT_RUN:          return CtrSettings_RunAlways();
+    case OPT_FREE_MOVE:    return CtrSettings_GetInt(FREE_MOVE_KEY, 0) != 0;
     case OPT_VOXEL:        return CtrSettings_Voxel();
     case OPT_VOXEL_ANGLE:  return CtrSettings_VoxelPitch();
     case OPT_VOXEL_ZOOM:   return CtrSettings_VoxelZoom();
@@ -970,6 +974,7 @@ static void OptionSet(int row, u8 value)
     case OPT_BUTTON_MODE:  gSaveBlock2Ptr->optionsButtonMode = value; break;
     case OPT_FRAME:        gSaveBlock2Ptr->optionsWindowFrameType = value; break;
     case OPT_RUN:          CtrSettings_SetRunAlways(value); break;
+    case OPT_FREE_MOVE:    CtrSettings_SetInt(FREE_MOVE_KEY, value); break;
     case OPT_VOXEL:        CtrSettings_SetVoxel(value); break;
     case OPT_VOXEL_ANGLE:
     case OPT_VOXEL_ZOOM:   break; /* stepped, see OptionStep */
@@ -1005,6 +1010,7 @@ static const u8 *OptionName(int row)
     case OPT_BUTTON_MODE:  return gText_ButtonMode;
     case OPT_FRAME:        return gText_Frame;
     case OPT_RUN:          return Ascii("RUN ALWAYS");
+    case OPT_FREE_MOVE:    return Ascii("FREE MOVE");
     case OPT_VOXEL:        return Ascii("3D WORLD");
     case OPT_VOXEL_ANGLE:  return Ascii("3D CAMERA ANGLE");
     case OPT_VOXEL_ZOOM:   return Ascii("3D ZOOM");
@@ -1070,7 +1076,7 @@ static u8 RowKind(const OptRow *r)
     if (r->opt >= 0)
         switch (r->opt)
         {
-        case OPT_BATTLE_SCENE: case OPT_RUN: case OPT_VOXEL: case OPT_VOXEL_BLUR: case OPT_VOXEL_BATTLE:
+        case OPT_BATTLE_SCENE: case OPT_RUN: case OPT_FREE_MOVE: case OPT_VOXEL: case OPT_VOXEL_BLUR: case OPT_VOXEL_BATTLE:
             return ROW_TOGGLE;
         default:
             return ROW_STEP;
@@ -1890,6 +1896,37 @@ u8 CtrPlayer_StickDiagonal(void)
     case CTR_KEY_UP | CTR_KEY_RIGHT:   return DIR_NORTHEAST;
     }
     return 0;
+}
+
+/* field_player_avatar.c: free movement (the options screen's FREE MOVE). */
+bool8 CtrPlayer_FreeMove(void)
+{
+    return CtrSettings_GetInt(FREE_MOVE_KEY, 0) != 0;
+}
+
+/* The circle pad, when it is what steers (not the D-pad) and out of its
+ * middle: +y up. */
+bool8 CtrPlayer_FreeStick(s16 *x, s16 *y)
+{
+    const CtrInput *input = CtrInput_Get();
+    int sx = input->circleX, sy = input->circleY;
+
+#ifdef CTR_INPUT_SCRIPT
+    {
+        s16 tx, ty;
+
+        if (CtrScript_Stick(&tx, &ty))
+        {
+            sx = tx;
+            sy = ty;
+        }
+    }
+#endif
+    if ((input->physicalHeld & CTR_KEY_DPAD) || sx * sx + sy * sy < CTR_CIRCLE_LEAVE * CTR_CIRCLE_LEAVE)
+        return FALSE;
+    *x = sx;
+    *y = sy;
+    return TRUE;
 }
 
 /* field_player_avatar.c: running without B (the options screen's RUN). */

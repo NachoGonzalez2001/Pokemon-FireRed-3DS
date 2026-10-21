@@ -770,6 +770,25 @@ void CtrGame_WaitFrame(void)
                          (unsigned long)sFrames, lastX, lastY, player->facingDirection,
                          player->movementDirection);
         }
+        /* and every few frames, free movement's offset off the tile's middle */
+        if (player->active && sFrames % 8 == 0)
+        {
+            static s16 lastOx = -999, lastOy = -999;
+            bool8 ObjectEventGetSpriteOffset(struct ObjectEvent *, s16 *, s16 *);
+            s16 ox = 0, oy = 0;
+
+            if (!ObjectEventGetSpriteOffset((struct ObjectEvent *)player, &ox, &oy))
+                ox = oy = 99;
+            if (ox != lastOx || oy != lastOy)
+            {
+                lastOx = ox;
+                lastOy = oy;
+                CtrLog_Write(CTR_LOG_GAME, "free frame=%lu x=%d y=%d off=%d,%d cam=%d,%d action=%u tts=%u",
+                             (unsigned long)sFrames, player->currentCoords.x, player->currentCoords.y, ox, oy,
+                             gSaveBlock1Ptr->pos.x, gSaveBlock1Ptr->pos.y, player->movementActionId,
+                             gPlayerAvatar.tileTransitionState);
+            }
+        }
     }
 #endif
 }

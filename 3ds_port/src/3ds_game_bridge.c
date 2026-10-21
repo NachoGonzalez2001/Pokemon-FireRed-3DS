@@ -63,9 +63,11 @@ void CtrEmu_EndVBlank(void)
  * starting a comment. The presses are held over the real keys.
  *     <frame> TOUCH <x> <y> [frames held]
  * touches the bottom screen at (x, y).
+ *     <frame> STICK <x> <y> [frames held]
+ * holds the circle pad at (x, y), -156..156 with +y up.
  */
 #define MAX_SCRIPT_PRESSES 2048
-static struct { u32 frame, length; u16 keys, touchX, touchY; bool touch; } sScript[MAX_SCRIPT_PRESSES];
+static struct { u32 frame, length; u16 keys, touchX, touchY; bool touch, stick; s16 stickX, stickY; } sScript[MAX_SCRIPT_PRESSES];
 static unsigned sScriptCount;
 static bool sScriptLoaded;
 uint32_t CtrGame_Frames(void);
@@ -99,15 +101,28 @@ static void LoadInputScript(void)
         int fields;
 
         unsigned touchX, touchY;
+        int stickX, stickY;
 
         if (line[0] == '#')
             continue;
+        if (sscanf(line, "%lu STICK %d %d %lu", &frame, &stickX, &stickY, &length) >= 3)
+        {
+            memset(&sScript[sScriptCount], 0, sizeof(sScript[0]));
+            sScript[sScriptCount].frame = frame;
+            sScript[sScriptCount].length = length;
+            sScript[sScriptCount].stick = true;
+            sScript[sScriptCount].stickX = stickX;
+            sScript[sScriptCount].stickY = stickY;
+            ++sScriptCount;
+            continue;
+        }
         if (sscanf(line, "%lu TOUCH %u %u %lu", &frame, &touchX, &touchY, &length) >= 3)
         {
             sScript[sScriptCount].frame = frame;
             sScript[sScriptCount].length = length;
             sScript[sScriptCount].keys = 0;
             sScript[sScriptCount].touch = true;
+            sScript[sScriptCount].stick = false;
             sScript[sScriptCount].touchX = touchX;
             sScript[sScriptCount].touchY = touchY;
             ++sScriptCount;
@@ -124,6 +139,7 @@ static void LoadInputScript(void)
         sScript[sScriptCount].length = length;
         sScript[sScriptCount].keys = keys;
         sScript[sScriptCount].touch = false;
+        sScript[sScriptCount].stick = false;
         ++sScriptCount;
     }
     fclose(file);
@@ -141,6 +157,23 @@ static u16 ScriptedKeys(void)
         if (now >= sScript[i].frame && now < sScript[i].frame + sScript[i].length)
             keys |= sScript[i].keys;
     return keys;
+}
+
+/* The scripted circle pad this frame (fr_bottom_ui.c), +y up. */
+bool CtrScript_Stick(s16 *x, s16 *y)
+{
+    u32 now = CtrGame_Frames();
+
+    if (!sScriptLoaded)
+        LoadInputScript();
+    for (unsigned i = 0; i < sScriptCount; ++i)
+        if (sScript[i].stick && now >= sScript[i].frame && now < sScript[i].frame + sScript[i].length)
+        {
+            *x = sScript[i].stickX;
+            *y = sScript[i].stickY;
+            return true;
+        }
+    return false;
 }
 
 /* A scripted touch on the bottom screen this frame (fr_bottom_ui.c). */
@@ -167,6 +200,14 @@ u16 Platform_GetKeyInput(void)
     u16 held = input->held;
 #ifdef CTR_INPUT_SCRIPT
     held |= ScriptedKeys();
+    {
+        s16 x, y;
+
+        /* the scripted stick's way, as the real one's (3ds_input_decode.c) */
+        if (!(held & (DPAD_UP | DPAD_DOWN | DPAD_LEFT | DPAD_RIGHT)) && CtrScript_Stick(&x, &y))
+            held |= (x < 0 ? -x : x) > (y < 0 ? -y : y) ? (x < 0 ? DPAD_LEFT : DPAD_RIGHT)
+                                                        : (y < 0 ? DPAD_DOWN : DPAD_UP);
+    }
 #endif
 
     /* Y is the 3DS's own SELECT: the registered item, as the bottom screen's
