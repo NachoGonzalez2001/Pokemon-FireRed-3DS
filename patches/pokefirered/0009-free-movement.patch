@@ -315,26 +315,29 @@ index a0afdb910e34bf00eae1169420136527899258af..ff98ce444dfb57a4ef393982cadd3dbf
  
      }
 diff --git a/src/field_player_avatar.c b/src/field_player_avatar.c
-index d722da38a64d7d805063da5a1a4fea6bdc8b9ea3..4ccb49129fc1015e0aa05e5d2680162363e19329 100644
+index d722da38a64d7d805063da5a1a4fea6bdc8b9ea3..5ab43beafd533206317c64dc8e95686bb2a2f486 100644
 --- a/src/field_player_avatar.c
 +++ b/src/field_player_avatar.c
-@@ -13,9 +13,15 @@
+@@ -13,10 +13,15 @@
  #include "field_effect_helpers.h"
  #include "field_player_avatar.h"
  #ifdef PORT_BRIDGE
 +#include <math.h>
  bool8 CtrPlayer_RunAlways(void);
- u8 CtrPlayer_StickDiagonal(void);
+-u8 CtrPlayer_StickDiagonal(void);
+-static bool8 TryMovePlayerDiagonally(u16 heldKeys, u8 *direction);
+-static void PlayerSetAnimId(u8 movementActionId, u8 copyableMovement);
 +bool8 CtrPlayer_FreeMove(void);
 +bool8 CtrPlayer_FreeStick(s16 *x, s16 *y);
- static bool8 TryMovePlayerDiagonally(u16 heldKeys, u8 *direction);
++bool8 MetatileBehavior_IsArrowWarp(u8 metatileBehavior);
++u8 GetRunningDirectionAnimNum(u8 direction);
 +static bool8 TryMovePlayerFreely(u16 heldKeys, u8 *direction);
 +static bool8 PlayerCanMoveFreely(struct ObjectEvent *player);
 +static void PlayerFreeMoveFinishStep(void);
- static void PlayerSetAnimId(u8 movementActionId, u8 copyableMovement);
  #endif
  #include "help_system.h"
-@@ -155,6 +161,18 @@ void player_step(u8 direction, u16 newKeys, u16 heldKeys)
+ #include "metatile_behavior.h"
+@@ -155,6 +160,18 @@ void player_step(u8 direction, u16 newKeys, u16 heldKeys)
              DoPlayerAvatarTransition();
              if (!TryDoMetatileBehaviorForcedMovement())
              {
@@ -353,20 +356,68 @@ index d722da38a64d7d805063da5a1a4fea6bdc8b9ea3..4ccb49129fc1015e0aa05e5d26801623
                  MovePlayerAvatarUsingKeypadInput(direction, newKeys, heldKeys);
                  PlayerAllowForcedMovementIfMovingSameDirection();
              }
-@@ -462,6 +480,8 @@ void MovePlayerNotOnBike(u8 direction, u16 heldKeys)
+@@ -460,52 +477,17 @@ static void (*const sPlayerNotOnBikeFuncs[])(u8, u16) = {
+ void MovePlayerNotOnBike(u8 direction, u16 heldKeys)
+ {
  #ifdef PORT_BRIDGE
-     // The 3DS's circle pad (or two arms of the D-pad) held at a diagonal:
-     // a diagonal step, where both ways round it are open ground.
+-    // The 3DS's circle pad (or two arms of the D-pad) held at a diagonal:
+-    // a diagonal step, where both ways round it are open ground.
+-    if (direction != DIR_NONE && TryMovePlayerDiagonally(heldKeys, &direction))
++    // The 3DS options' FREE MOVE: any way the circle pad points. Without
++    // it, the game's own four ways.
 +    if (direction != DIR_NONE && TryMovePlayerFreely(heldKeys, &direction))
-+        return;
-     if (direction != DIR_NONE && TryMovePlayerDiagonally(heldKeys, &direction))
          return;
  #endif
-@@ -582,6 +602,287 @@ static bool8 TryMovePlayerDiagonally(u16 heldKeys, u8 *cardinal)
-     }
-     return TRUE;
+     sPlayerNotOnBikeFuncs[CheckMovementInputNotOnBike(direction)](direction, heldKeys);
  }
-+
+ 
+ #ifdef PORT_BRIDGE
+-static const u8 sWalkDiagonalMovementActions[] = {
+-    [DIR_SOUTHWEST - DIR_SOUTHWEST] = MOVEMENT_ACTION_WALK_NORMAL_DIAGONAL_DOWN_LEFT,
+-    [DIR_SOUTHEAST - DIR_SOUTHWEST] = MOVEMENT_ACTION_WALK_NORMAL_DIAGONAL_DOWN_RIGHT,
+-    [DIR_NORTHWEST - DIR_SOUTHWEST] = MOVEMENT_ACTION_WALK_NORMAL_DIAGONAL_UP_LEFT,
+-    [DIR_NORTHEAST - DIR_SOUTHWEST] = MOVEMENT_ACTION_WALK_NORMAL_DIAGONAL_UP_RIGHT,
+-};
+-
+-static const u8 sRunDiagonalMovementActions[] = {
+-    [DIR_SOUTHWEST - DIR_SOUTHWEST] = MOVEMENT_ACTION_PLAYER_RUN_DIAGONAL_DOWN_LEFT,
+-    [DIR_SOUTHEAST - DIR_SOUTHWEST] = MOVEMENT_ACTION_PLAYER_RUN_DIAGONAL_DOWN_RIGHT,
+-    [DIR_NORTHWEST - DIR_SOUTHWEST] = MOVEMENT_ACTION_PLAYER_RUN_DIAGONAL_UP_LEFT,
+-    [DIR_NORTHEAST - DIR_SOUTHWEST] = MOVEMENT_ACTION_PLAYER_RUN_DIAGONAL_UP_RIGHT,
+-};
+-
+-static u8 PlayerDiagonalInput(u16 heldKeys)
+-{
+-    u8 vertical = 0, horizontal = 0;
+-
+-    if (heldKeys & DPAD_UP)
+-        vertical = DIR_NORTH;
+-    else if (heldKeys & DPAD_DOWN)
+-        vertical = DIR_SOUTH;
+-    if (heldKeys & DPAD_LEFT)
+-        horizontal = DIR_WEST;
+-    else if (heldKeys & DPAD_RIGHT)
+-        horizontal = DIR_EAST;
+-    if (vertical && horizontal)
+-    {
+-        if (vertical == DIR_NORTH)
+-            return horizontal == DIR_WEST ? DIR_NORTHWEST : DIR_NORTHEAST;
+-        return horizontal == DIR_WEST ? DIR_SOUTHWEST : DIR_SOUTHEAST;
+-    }
+-    return CtrPlayer_StickDiagonal();
+-}
+-
+ // Plain ground: nothing a step onto it does but stand there.
+-static bool8 IsPlainForDiagonalStep(s16 x, s16 y)
++static bool8 IsPlainForFreeMove(s16 x, s16 y)
+ {
+     u8 behavior = MapGridGetMetatileBehaviorAt(x, y);
+ 
+@@ -520,66 +502,284 @@ static bool8 IsPlainForDiagonalStep(s16 x, s16 y)
+         && !MetatileBehavior_IsIce_2(behavior);
+ }
+ 
+-static bool8 IsOpenForDiagonalStep(struct ObjectEvent *player, s16 x, s16 y, u8 direction)
 +// Free movement (the 3DS options' FREE MOVE): the player walks any way the
 +// circle pad points, at its pace, a pixel at a time instead of a tile.
 +//
@@ -409,7 +460,8 @@ index d722da38a64d7d805063da5a1a4fea6bdc8b9ea3..4ccb49129fc1015e0aa05e5d26801623
 +
 +// Back onto its tile's middle, walking, if it is off it and standing.
 +void PlayerFreeMoveSettle(void)
-+{
+ {
+-    return GetCollisionAtCoords(player, x, y, direction) == COLLISION_NONE
 +    struct ObjectEvent *player = &gObjectEvents[gPlayerAvatar.objectEventId];
 +    s16 dx, dy;
 +
@@ -430,15 +482,16 @@ index d722da38a64d7d805063da5a1a4fea6bdc8b9ea3..4ccb49129fc1015e0aa05e5d26801623
 +        && !(gPlayerAvatar.flags & (PLAYER_AVATAR_FLAG_SURFING | PLAYER_AVATAR_FLAG_UNDERWATER
 +                                    | PLAYER_AVATAR_FLAG_MACH_BIKE | PLAYER_AVATAR_FLAG_ACRO_BIKE
 +                                    | PLAYER_AVATAR_FLAG_FORCED))
-+        && IsPlainForDiagonalStep(player->currentCoords.x, player->currentCoords.y);
++        && IsPlainForFreeMove(player->currentCoords.x, player->currentCoords.y);
 +}
 +
 +// A tile the player's box may go onto, going `direction`.
 +static bool8 IsOpenForFreeMove(struct ObjectEvent *player, s16 x, s16 y, u8 direction)
 +{
 +    return GetCollisionAtCoordsFree(player, x, y, direction) == COLLISION_NONE
-+        && GetLedgeJumpDirection(x, y, direction) == DIR_NONE
-+        && IsPlainForDiagonalStep(x, y);
+         && GetLedgeJumpDirection(x, y, direction) == DIR_NONE
+-        && IsPlainForDiagonalStep(x, y);
++        && IsPlainForFreeMove(x, y);
 +}
 +
 +// The way the player faces, moving (vx, vy): the way it faced while that is
@@ -511,13 +564,24 @@ index d722da38a64d7d805063da5a1a4fea6bdc8b9ea3..4ccb49129fc1015e0aa05e5d26801623
 +    sprite->x += dx;
 +    sprite->y += dy;
 +    FreeMoveTryEnterTile(player);
-+}
-+
+ }
+ 
+-// A diagonal step where it fits; where it does not, `direction` becomes the
+-// one of its two arms that is open (sliding along a wall), the input's own
+-// first if both are.
+-static bool8 TryMovePlayerDiagonally(u16 heldKeys, u8 *cardinal)
 +// The frame after a tile's change is a step's end (UpdatePlayerAvatarTransitionState).
 +static void PlayerFreeMoveFinishStep(void)
-+{
-+    struct ObjectEvent *player = &gObjectEvents[gPlayerAvatar.objectEventId];
-+
+ {
+     struct ObjectEvent *player = &gObjectEvents[gPlayerAvatar.objectEventId];
+-    u8 direction, vertical, horizontal;
+-    s16 x, y, dx, dy;
+-    bool8 run;
+ 
+-    if (QL_IS_PLAYBACK_STATE || (gPlayerAvatar.flags & PLAYER_AVATAR_FLAG_SURFING))
+-        return FALSE;
+-    direction = PlayerDiagonalInput(heldKeys);
+-    if (direction < DIR_SOUTHWEST || direction > DIR_NORTHEAST)
 +    if (!sFreeStepPending)
 +        return;
 +    sFreeStepPending = FALSE;
@@ -537,7 +601,28 @@ index d722da38a64d7d805063da5a1a4fea6bdc8b9ea3..4ccb49129fc1015e0aa05e5d26801623
 +
 +    *assist = 0;
 +    if (!ObjectEventGetSpriteOffset(player, &ox, &oy))
-+        return FALSE;
+         return FALSE;
+-    vertical = (direction == DIR_NORTHWEST || direction == DIR_NORTHEAST) ? DIR_NORTH : DIR_SOUTH;
+-    horizontal = (direction == DIR_SOUTHWEST || direction == DIR_NORTHWEST) ? DIR_WEST : DIR_EAST;
+-    dx = horizontal == DIR_WEST ? -1 : 1;
+-    dy = vertical == DIR_NORTH ? -1 : 1;
+-    x = player->currentCoords.x;
+-    y = player->currentCoords.y;
+-    // both ways round the corner open, the corner itself plain: never a
+-    // corner cut through a wall, a ledge, a door or the water's edge
+-    if (!IsPlainForDiagonalStep(x, y)
+-     || !IsOpenForDiagonalStep(player, x + dx, y, horizontal)
+-     || !IsOpenForDiagonalStep(player, x, y + dy, vertical)
+-     || !IsOpenForDiagonalStep(player, x + dx, y + dy, vertical)
+-     || !IsOpenForDiagonalStep(player, x + dx, y + dy, horizontal))
+-    {
+-        bool8 verticalOpen = GetCollisionAtCoords(player, x, y + dy, vertical) == COLLISION_NONE;
+-        bool8 horizontalOpen = GetCollisionAtCoords(player, x + dx, y, horizontal) == COLLISION_NONE;
+-
+-        if (*cardinal == vertical && !verticalOpen && horizontalOpen)
+-            *cardinal = horizontal;
+-        else if (*cardinal == horizontal && !horizontalOpen && verticalOpen)
+-            *cardinal = vertical;
 +    along = horizontal ? ox : oy;
 +    across = horizontal ? oy : ox;
 +    // the box only reaches a new row of tiles as it leaves the middle
@@ -580,15 +665,15 @@ index d722da38a64d7d805063da5a1a4fea6bdc8b9ea3..4ccb49129fc1015e0aa05e5d26801623
 +    if (v == 0)
 +    {
 +        *carry = 0;
-+        return FALSE;
-+    }
+         return FALSE;
+     }
 +    *carry = total - pixels * 256;
 +    if (pixels == 0)
 +        return TRUE;
 +    for (; pixels != 0; pixels -= sign)
 +    {
 +        s16 assist;
-+
+ 
 +        if (FreeMoveStep(player, sprite, horizontal, sign, &assist))
 +        {
 +            moved = TRUE;
@@ -619,25 +704,30 @@ index d722da38a64d7d805063da5a1a4fea6bdc8b9ea3..4ccb49129fc1015e0aa05e5d26801623
 +    FreeMoveInput(heldKeys, &vx, &vy);
 +    if (vx == 0 && vy == 0)
 +        return FALSE;
-+    if (CtrPlayer_RunAlways())
-+        heldKeys ^= B_BUTTON;
-+    run = (heldKeys & B_BUTTON) && FlagGet(FLAG_SYS_B_DASH)
-+       && !IsRunningDisallowed(player->currentMetatileBehavior);
-+    if (run)
-+    {
+     if (CtrPlayer_RunAlways())
+         heldKeys ^= B_BUTTON;
+     run = (heldKeys & B_BUTTON) && FlagGet(FLAG_SYS_B_DASH)
+        && !IsRunningDisallowed(player->currentMetatileBehavior);
+-    gPlayerAvatar.runningState = MOVING;
+     if (run)
+     {
+-        PlayerSetAnimId(sRunDiagonalMovementActions[direction - DIR_SOUTHWEST], 0);
+-        gPlayerAvatar.flags |= PLAYER_AVATAR_FLAG_DASH;
 +        vx *= 2;
 +        vy *= 2;
-+    }
+     }
+-    else
 +    facing = FreeMoveFacing(player->facingDirection, vx, vy);
 +    movedX = FreeMoveAxis(player, sprite, TRUE, vx, vy, &sFreeCarryX);
 +    movedY = FreeMoveAxis(player, sprite, FALSE, vy, vx, &sFreeCarryY);
 +    if (!movedX && !movedY)
-+    {
+     {
+-        PlayerSetAnimId(sWalkDiagonalMovementActions[direction - DIR_SOUTHWEST], 0);
 +        // up against it on the middle of the tile: the game's own step
 +        // (the ledge, the door, the bump)
 +        *direction = facing;
 +        return FALSE;
-+    }
+     }
 +    sFreeMoved = TRUE;
 +    gPlayerAvatar.runningState = MOVING;
 +    SetObjectEventDirection(player, facing);
@@ -645,12 +735,10 @@ index d722da38a64d7d805063da5a1a4fea6bdc8b9ea3..4ccb49129fc1015e0aa05e5d26801623
 +    sprite->animPaused = FALSE;
 +    if (run)
 +        gPlayerAvatar.flags |= PLAYER_AVATAR_FLAG_DASH;
-+    return TRUE;
-+}
+     return TRUE;
+ }
  #endif
- 
- static u8 CheckMovementInputNotOnBike(u8 direction)
-@@ -882,6 +1183,17 @@ static void PlayerAvatarTransition_ReturnToField(struct ObjectEvent * playerObjE
+@@ -882,6 +1082,17 @@ static void PlayerAvatarTransition_ReturnToField(struct ObjectEvent * playerObjE
  void UpdatePlayerAvatarTransitionState(void)
  {
      gPlayerAvatar.tileTransitionState = T_NOT_MOVING;
@@ -668,7 +756,7 @@ index d722da38a64d7d805063da5a1a4fea6bdc8b9ea3..4ccb49129fc1015e0aa05e5d26801623
      if (PlayerIsAnimActive())
      {
          if (!PlayerCheckIfAnimFinishedOrInactive())
-@@ -895,6 +1207,9 @@ void UpdatePlayerAvatarTransitionState(void)
+@@ -895,6 +1106,9 @@ void UpdatePlayerAvatarTransitionState(void)
                  gPlayerAvatar.tileTransitionState = T_TILE_CENTER;
          }
      }
@@ -678,7 +766,7 @@ index d722da38a64d7d805063da5a1a4fea6bdc8b9ea3..4ccb49129fc1015e0aa05e5d26801623
  }
  
  static bool8 PlayerAnimIsMultiFrameStationary(void)
-@@ -1431,6 +1746,12 @@ void InitPlayerAvatar(s16 x, s16 y, u8 direction, u8 gender)
+@@ -1431,6 +1645,12 @@ void InitPlayerAvatar(s16 x, s16 y, u8 direction, u8 gender)
      u8 objectEventId;
      struct ObjectEvent *objectEvent;
  
