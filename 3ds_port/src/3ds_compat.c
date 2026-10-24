@@ -223,24 +223,11 @@ u16 Port_FontProbe_CompareNormalLatinGlyph(u16 glyphId)
  * The directory is created by CtrFs_Init, which runs before the game starts.
  */
 
-#define CTR_SAVE_PATH CTR_DATA_DIR "emerald3ds.sav"
-/* Where earlier builds kept the save; moved once on first start. */
-#define CTR_OLD_SAVE_PATH "sdmc:/3ds/pokeemerald/pokeemerald.sav"
+/* Builds before the FireRed name kept it in sdmc:/3ds/emerald3ds/: see
+ * CtrFs_MigrateLegacy (3ds_fs.c). */
+#define CTR_SAVE_PATH CTR_DATA_DIR "firered3ds.sav"
 
 static bool sSaveAvailable;
-
-static void MigrateOldSave(void)
-{
-    FILE *probe = fopen(CTR_SAVE_PATH, "rb");
-
-    if (probe != NULL)
-    {
-        fclose(probe);
-        return;
-    }
-    if (rename(CTR_OLD_SAVE_PATH, CTR_SAVE_PATH) == 0)
-        CtrLog_Write(CTR_LOG_FS, "save moved from %s", CTR_OLD_SAVE_PATH);
-}
 
 void Port_SaveInit(void)
 {
@@ -251,7 +238,6 @@ void Port_SaveInit(void)
     memset(FLASH_BASE, 0xFF, sizeof(FLASH_BASE));
     sSaveAvailable = false;
 
-    MigrateOldSave();
     file = fopen(CTR_SAVE_PATH, "rb");
     if (file == NULL)
     {
@@ -279,7 +265,7 @@ void Port_SaveInit(void)
         return;
     }
 
-    /* A short file still holds whole sectors; Emerald recovers the older slot. */
+    /* A short file still holds whole sectors; the game recovers the older slot. */
     sSaveAvailable = true;
     CtrLog_Write(CTR_LOG_FS, "save loaded: %s (%ld bytes)", CTR_SAVE_PATH, size);
 }

@@ -38,7 +38,7 @@
 
 extern u8 __ctr_script_blob[], __ctr_script_blob_end[];
 extern u8 __ctr_song_blob[], __ctr_song_blob_end[];
-/* The game's linked read-only data, reserved NOLOAD by emerald3ds.ld.in. */
+/* The game's linked read-only data, reserved NOLOAD by firered3ds.ld.in. */
 extern u8 __ctr_gamedata[], __ctr_gamedata_end[];
 void AgbMain(void);
 

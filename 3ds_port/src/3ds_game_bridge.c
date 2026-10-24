@@ -57,7 +57,7 @@ void CtrEmu_EndVBlank(void)
 #ifdef CTR_INPUT_SCRIPT
 /*
  * Test input, for driving the game without anyone at the keys:
- * sdmc:/3ds/emerald3ds/keys.txt, one press per line,
+ * sdmc:/3ds/firered3ds/keys.txt, one press per line,
  *     <frame> <BUTTON>[+<BUTTON>...] [frames held, default 4]
  * with BUTTON one of A B SELECT START RIGHT LEFT UP DOWN R L, and '#'
  * starting a comment. The presses are held over the real keys.
@@ -87,7 +87,7 @@ static u16 ScriptButton(const char *name)
 
 static void LoadInputScript(void)
 {
-    FILE *file = fopen("sdmc:/3ds/emerald3ds/keys.txt", "r");
+    FILE *file = fopen("sdmc:/3ds/firered3ds/keys.txt", "r");
     char line[128];
 
     sScriptLoaded = true;

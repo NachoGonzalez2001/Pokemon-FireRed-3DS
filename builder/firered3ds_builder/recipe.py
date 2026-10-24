@@ -65,7 +65,7 @@ class Recipe:
     @classmethod
     def from_bytes(cls, data: bytes) -> "Recipe":
         if data[:8] != MAGIC:
-            raise RecipeError("not a Pokémon Emerald 3Ds Dual Screen recipe")
+            raise RecipeError("not a Pokémon FireRed 3DS recipe")
         (size,) = struct.unpack_from("<I", data, 8)
         meta = json.loads(lzma.decompress(data[12:12 + size]))
         if meta.get("schema") != SCHEMA:
@@ -88,7 +88,7 @@ def recipe_rom_sha1(path: Path) -> str:
     with open(path, "rb") as f:
         head = f.read(12)
         if head[:8] != MAGIC:
-            raise RecipeError("not a Pokémon Emerald 3Ds Dual Screen recipe")
+            raise RecipeError("not a Pokémon FireRed 3DS recipe")
         (size,) = struct.unpack_from("<I", head, 8)
         meta = json.loads(lzma.decompress(f.read(size)))
     return meta["rom_sha1"]

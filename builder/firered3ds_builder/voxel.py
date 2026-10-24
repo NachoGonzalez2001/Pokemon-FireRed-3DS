@@ -66,9 +66,9 @@ def script_command(script: Path, args: list[str]) -> list[str]:
     """How to run one bundled script: through this very executable when frozen."""
     if getattr(sys, "frozen", False):
         exe = Path(sys.executable)
-        console = exe.with_name("emerald3ds-builder-cli" + exe.suffix)
+        console = exe.with_name("firered3ds-builder-cli" + exe.suffix)
         return [str(console if console.exists() else exe), "--run-script", str(script)] + args
-    return [sys.executable, "-B", "-m", "emerald3ds_builder", "--run-script", str(script)] + args
+    return [sys.executable, "-B", "-m", "firered3ds_builder", "--run-script", str(script)] + args
 
 
 def run_step_subprocess(script: Path, args: list[str], cwd: Path) -> None:

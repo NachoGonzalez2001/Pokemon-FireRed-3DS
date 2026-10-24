@@ -3,8 +3,8 @@
 The website runs this package under Pyodide in a Web Worker, with the
 release's WebPayload unpacked into the in-memory file system:
 
-    from emerald3ds_builder.web import run_web_build
-    result = run_web_build("/rom/rom.gba", "/payload", "/out/emerald3ds.pak",
+    from firered3ds_builder.web import run_web_build
+    result = run_web_build("/rom/rom.gba", "/payload", "/out/firered3ds.pak",
                            progress, "/web-manifest.json")
 
 It is the desktop build (`build.build_pack`) with two differences only: the
@@ -47,7 +47,7 @@ def supported_sha1s(manifest: dict | None) -> tuple[str, ...]:
 
 def build_pack_for_web(rom_path, payload_path, output_path, progress_callback=None,
                        manifest_path=None) -> dict:
-    """ROM -> emerald3ds.pak with in-process generators.
+    """ROM -> firered3ds.pak with in-process generators.
 
     progress_callback(stage, fraction, message): stage is one of "rom", "data",
     "scenery", "verify"; fraction is the overall position (0..1)."""

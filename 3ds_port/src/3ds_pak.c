@@ -1,4 +1,4 @@
-/* emerald3ds.pak parsing; see include/3ds_pak.h. */
+/* firered3ds.pak parsing; see include/3ds_pak.h. */
 
 #include <string.h>
 

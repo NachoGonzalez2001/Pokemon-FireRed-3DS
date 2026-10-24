@@ -1,4 +1,4 @@
-"""emerald3ds.pak: the single data pack the console reads game data from.
+"""firered3ds.pak: the single data pack the console reads game data from.
 
 Layout (all integers little endian):
 
@@ -148,7 +148,7 @@ class PakReader:
     def _load(self) -> None:
         head = self._file.read(HEADER.size)
         if len(head) != HEADER.size or head[:8] != MAGIC:
-            raise PakError("not a Pokémon Emerald 3Ds Dual Screen data pack")
+            raise PakError("not a Pokémon FireRed 3DS data pack")
         if zlib.crc32(head[:60]) & 0xFFFFFFFF != struct.unpack_from("<I", head, 60)[0]:
             raise PakError("header CRC mismatch")
         (_, self.schema, self.abi, self.rom_sha1, count, index_offset, self.data_offset,

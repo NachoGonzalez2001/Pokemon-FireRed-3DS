@@ -10,7 +10,7 @@ from pathlib import Path
 
 from .errors import BuilderError
 
-APP_DIR = Path("3ds") / "emerald3ds"
+APP_DIR = Path("3ds") / "firered3ds"
 
 
 def find_sd_cards() -> list[Path]:
@@ -35,7 +35,7 @@ def find_sd_cards() -> list[Path]:
 
 
 def install(sd_root: Path, files: dict[str, Path], progress=None) -> Path:
-    """Copy `files` ({name: source}) into <sd_root>/3ds/emerald3ds/.
+    """Copy `files` ({name: source}) into <sd_root>/3ds/firered3ds/.
 
     Each file is written under a temporary name first and renamed into place,
     so a card pulled out mid-copy never holds a half-written pack."""

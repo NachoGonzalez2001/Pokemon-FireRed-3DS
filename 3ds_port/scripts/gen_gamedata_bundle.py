@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Move the game's linked read-only data out of the executable.
 
-The linker script (emerald3ds.ld.in) gathers the .rodata of every game
+The linker script (firered3ds.ld.in) gathers the .rodata of every game
 translation unit into one output section, .gamedata. The build links twice
 with the same objects and the same layout: once with the section's contents
 (the image, build/gamedata_image.elf) and once with the section reserved as

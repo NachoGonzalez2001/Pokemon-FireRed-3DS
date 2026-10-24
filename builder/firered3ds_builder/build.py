@@ -17,8 +17,8 @@ from .rom import Rom, load_rom
 from .voxel import run_generators
 from .vtree import build_tree
 
-RECIPE_NAME = "emerald3ds.recipe"
-EXECUTABLE_NAMES = ("Emerald3DS.3dsx", "Emerald3DS.smdh")
+RECIPE_NAME = "firered3ds.recipe"
+EXECUTABLE_NAMES = ("FireRed3DS.3dsx", "FireRed3DS.smdh")
 
 
 def default_payload() -> Path:
@@ -97,7 +97,7 @@ class Progress:
 
 def build_pack(rom_path: Path, payload: Payload, out_pak: Path, progress=None,
                keep_workdir: bool = False, runner: str = "subprocess", rom: Rom | None = None) -> dict:
-    """Generate emerald3ds.pak from the ROM. Returns a summary.
+    """Generate firered3ds.pak from the ROM. Returns a summary.
 
     `runner` picks how the voxel generators run (see voxel.py); `rom` lets a
     caller that already holds the checked ROM in memory skip reading it again.
@@ -134,7 +134,7 @@ def build_pack(rom_path: Path, payload: Payload, out_pak: Path, progress=None,
     timings.append(("extract", time.perf_counter() - start))
 
     if recipe.generated:
-        work = Path(tempfile.mkdtemp(prefix="emerald3ds-"))
+        work = Path(tempfile.mkdtemp(prefix="firered3ds-"))
         try:
             report(0.5, "Preparing the 3D scenery inputs")
             start = time.perf_counter()

@@ -1,7 +1,7 @@
 /*
  * Game data backends: RomFS, loose files on the SD card, or one data pack.
  * See include/3ds_data.h for the contract and docs/ASSET_PIPELINE.md for the
- * pack format, which builder/emerald3ds_builder/pak.py writes.
+ * pack format, which builder/firered3ds_builder/pak.py writes.
  */
 
 #define _GNU_SOURCE
@@ -24,23 +24,14 @@
 
 #define ENGINE_ABI_PATH "engine/abi.bin"
 
-/* The ROM the data pack must come from: the one of the game's compiled
- * language, never another locale's data. */
-#if GAME_LANGUAGE == LANGUAGE_SPANISH
+/* The ROM the data pack must come from: Pokemon FireRed (USA) rev 1, the
+ * one the port is built from (upstream.lock). */
 static const uint8_t sSupportedRomSha1[20] = {
-    0xfe, 0x15, 0x58, 0xa3, 0xdc, 0xb0, 0x36, 0x0a, 0xb5, 0x58,
-    0x96, 0x9e, 0x09, 0xb6, 0x90, 0x88, 0x8b, 0x84, 0x6d, 0xd9,
+    0xdd, 0x59, 0x45, 0xdb, 0x9b, 0x93, 0x07, 0x50, 0xcb, 0x39,
+    0xd0, 0x0c, 0x84, 0xda, 0x85, 0x71, 0xfe, 0xbf, 0x41, 0x7f,
 };
-#define SUPPORTED_ROM_DETAIL "Usa la ROM de Pokemon Esmeralda\n" \
-                             "(Espana, BPES) con este cliente."
-#else
-static const uint8_t sSupportedRomSha1[20] = {
-    0xf3, 0xae, 0x08, 0x81, 0x81, 0xbf, 0x58, 0x3e, 0x55, 0xda,
-    0xf9, 0x62, 0xa9, 0x2b, 0xb4, 0x6f, 0x4f, 0x1d, 0x07, 0xb7,
-};
-#define SUPPORTED_ROM_DETAIL "Only Pokemon Emerald (USA, Europe) is\n" \
+#define SUPPORTED_ROM_DETAIL "Only Pokemon FireRed (USA, Rev 1) is\n" \
                              "supported. Run the builder with that ROM."
-#endif
 
 typedef struct
 {
@@ -104,9 +95,9 @@ static bool OpenPak(void)
     {
         SetError("The game data pack was not found.",
                  "Run the builder that came with this\n"
-                 "release with your own Pokemon Emerald\n"
+                 "release with your own Pokemon FireRed\n"
                  "ROM and install the data pack to:\n\n"
-                 "  /3ds/emerald3ds/emerald3ds.pak");
+                 "  /3ds/firered3ds/firered3ds.pak");
         return false;
     }
     setvbuf(sPak, NULL, _IOFBF, 64 * 1024);
@@ -118,7 +109,7 @@ static bool OpenPak(void)
         break;
     case CTR_PAK_BAD_MAGIC:
         SetError("This is not a game data pack.",
-                 "/3ds/emerald3ds/emerald3ds.pak is not a\n"
+                 "/3ds/firered3ds/firered3ds.pak is not a\n"
                  "data pack. Run the builder again.");
         goto fail;
     case CTR_PAK_BAD_SCHEMA:
@@ -180,7 +171,7 @@ bool CtrData_Init(void)
 
     ReadEngineAbi();
     mkdir("sdmc:/3ds", 0777);
-    mkdir("sdmc:/3ds/emerald3ds", 0777);
+    mkdir("sdmc:/3ds/firered3ds", 0777);
     if (choice == 0)
     {
         if (FileExists(CTR_DATA_LOOSE_MARKER))

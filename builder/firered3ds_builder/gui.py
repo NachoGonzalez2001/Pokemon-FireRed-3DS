@@ -15,7 +15,7 @@ from .errors import BuilderError
 from .install import APP_DIR, find_sd_cards, install
 from .rom import load_rom
 
-TITLE = "Pokémon Emerald 3Ds Dual Screen Builder"
+TITLE = "Pokémon FireRed 3DS Builder"
 
 
 class App:
@@ -29,7 +29,7 @@ class App:
         frame = ttk.Frame(root, padding=16)
         frame.grid(sticky="nsew")
 
-        ttk.Label(frame, text="Pokemon Emerald ROM (your own cartridge dump)").grid(
+        ttk.Label(frame, text="Pokemon FireRed ROM (your own cartridge dump)").grid(
             row=0, column=0, columnspan=2, sticky="w")
         self.rom = tk.StringVar()
         ttk.Entry(frame, textvariable=self.rom, width=56).grid(row=1, column=0, sticky="we")
@@ -64,7 +64,7 @@ class App:
 
     # -- inputs -------------------------------------------------------------
     def pick_rom(self):
-        path = filedialog.askopenfilename(title="Pokemon Emerald ROM",
+        path = filedialog.askopenfilename(title="Pokemon FireRed ROM",
                                           filetypes=[("GBA ROM", "*.gba *.zip"), ("All files", "*.*")])
         if path:
             self.rom.set(path)
@@ -113,7 +113,7 @@ class App:
             messagebox.showwarning(TITLE, "Choose the ROM and the destination first.")
             return
         dest = Path(sd) / APP_DIR
-        if not messagebox.askokcancel(TITLE, "Pokémon Emerald 3Ds Dual Screen will be installed to:\n\n%s\n\nContinue?" % dest):
+        if not messagebox.askokcancel(TITLE, "Pokémon FireRed 3DS will be installed to:\n\n%s\n\nContinue?" % dest):
             return
         self.busy = True
         self.button.state(["disabled"])
@@ -124,11 +124,11 @@ class App:
             self.events.put(("progress", fraction, message))
         try:
             self.payload.check()
-            with tempfile.TemporaryDirectory(prefix="emerald3ds-") as tmp:
-                pak_path = Path(tmp) / "emerald3ds.pak"
+            with tempfile.TemporaryDirectory(prefix="firered3ds-") as tmp:
+                pak_path = Path(tmp) / "firered3ds.pak"
                 info = build_pack(rom, self.payload, pak_path, lambda f, m: progress(f * 0.9, m))
                 files = {exe.name: exe for exe in info["payload"].executables()}
-                files["emerald3ds.pak"] = pak_path
+                files["firered3ds.pak"] = pak_path
                 dest = install(sd, files, lambda f: progress(0.9 + 0.1 * f, "Copying to the SD card"))
             self.events.put(("done", str(dest)))
         except BuilderError as exc:
@@ -145,7 +145,7 @@ class App:
                     self.step.config(text=event[2])
                 elif event[0] == "done":
                     self.finish()
-                    messagebox.showinfo(TITLE, "Done. Pokémon Emerald 3Ds Dual Screen is installed in\n%s\n\n"
+                    messagebox.showinfo(TITLE, "Done. Pokémon FireRed 3DS is installed in\n%s\n\n"
                                                "Start it from the Homebrew Launcher." % event[1])
                 elif event[0] == "error":
                     self.finish()

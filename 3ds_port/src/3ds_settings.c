@@ -1,6 +1,6 @@
 /*
  * The port's own settings, kept on the SD card next to the save
- * (sdmc:/3ds/emerald3ds/settings.txt) and written as soon as one changes.
+ * (sdmc:/3ds/firered3ds/settings.txt) and written as soon as one changes.
  *
  * They are not part of the game's save: the GBA save block has no room for
  * them, and a setting that only sticks once the game is saved is not what a

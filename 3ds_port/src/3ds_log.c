@@ -192,7 +192,7 @@ void CtrLog_Init(void)
     setvbuf(stdout, NULL, _IONBF, 0);
     setvbuf(stderr, NULL, _IONBF, 0);
     mkdir("sdmc:/3ds", 0777);
-    mkdir("sdmc:/3ds/emerald3ds", 0777);
+    mkdir("sdmc:/3ds/firered3ds", 0777);
     LightLock_Init(&sLock);
     LightLock_Init(&sDrainLock);
     LightLock_Init(&sConsoleLock);
@@ -201,18 +201,18 @@ void CtrLog_Init(void)
     sQuit = false;
     /* One session per file: the last one is kept as port-prev.log, so the log
      * never grows without bound and a crash is still readable after relaunch. */
-    /* No log file unless sdmc:/3ds/emerald3ds/debug.txt exists: players never
+    /* No log file unless sdmc:/3ds/firered3ds/debug.txt exists: players never
      * pay for SD writes; to diagnose, create that file (any content). */
     sFile = NULL;
     {
-        FILE *marker = fopen("sdmc:/3ds/emerald3ds/debug.txt", "r");
+        FILE *marker = fopen("sdmc:/3ds/firered3ds/debug.txt", "r");
 
         if (marker != NULL)
         {
             fclose(marker);
-            remove("sdmc:/3ds/emerald3ds/port-prev.log");
-            rename("sdmc:/3ds/emerald3ds/port.log", "sdmc:/3ds/emerald3ds/port-prev.log");
-            sFile = fopen("sdmc:/3ds/emerald3ds/port.log", "w");
+            remove("sdmc:/3ds/firered3ds/port-prev.log");
+            rename("sdmc:/3ds/firered3ds/port.log", "sdmc:/3ds/firered3ds/port-prev.log");
+            sFile = fopen("sdmc:/3ds/firered3ds/port.log", "w");
         }
     }
     if (sFile)

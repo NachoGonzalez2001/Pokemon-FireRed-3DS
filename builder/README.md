@@ -1,21 +1,26 @@
-# Pokémon Emerald 3Ds Dual Screen Builder
+# Pokémon FireRed 3DS Builder
 
-Turns the player's own Pokémon Emerald (USA, Europe) or Pokémon Esmeralda
-(Spain) ROM into `emerald3ds.pak` and installs the game on an SD card, in that
-ROM's language.
+Turns the player's own Pokémon FireRed (USA, Rev 1) ROM into `firered3ds.pak`
+and installs the game on an SD card.
+
+Status: carried over from the Emerald port's builder and renamed. The ROM
+check, names and install paths are FireRed's; the recipe and the voxel
+generators it runs are not yet made for FireRed, so a FireRed release payload
+does not exist yet (`tools/build_web_payload.py` is not in this repository
+either, which two tests need).
 
 Release users get a standalone Windows executable (no Python needed). From
 source (any OS, Python 3.11+ and Pillow):
 
 ```
-python -m emerald3ds_builder                          # window
-python -m emerald3ds_builder --payload DIR build --rom ROM --output OUT
-python -m emerald3ds_builder --payload DIR install --rom ROM --sd /media/me/3DS
-python -m emerald3ds_builder --payload DIR verify --pak FILE
-python -m emerald3ds_builder detect
+python -m firered3ds_builder                          # window
+python -m firered3ds_builder --payload DIR build --rom ROM --output OUT
+python -m firered3ds_builder --payload DIR install --rom ROM --sd /media/me/3DS
+python -m firered3ds_builder --payload DIR verify --pak FILE
+python -m firered3ds_builder detect
 ```
 
-`DIR` is a release's `payload/` folder (executable, `emerald3ds.recipe`,
+`DIR` is a release's `payload/` folder (executable, `firered3ds.recipe`,
 `voxelgen/`); by default the builder looks next to itself.
 
 | Module | Role |
@@ -37,7 +42,7 @@ temporary files are removed even when a step fails.
 ## Web builder
 
 The website runs this same package in the browser (Pyodide, in a Web Worker)
-from the release's `Emerald3DS-WebPayload.zip`, through
+from the release's `FireRed3DS-WebPayload.zip`, through
 `web.run_web_build(rom, payload, out_pak, progress, manifest)`. The only
 difference with the desktop build is that the voxel generators run in-process
 (`voxel.run_step_inprocess`): each script gets fresh sibling modules, argv,

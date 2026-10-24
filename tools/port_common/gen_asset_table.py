@@ -25,7 +25,7 @@ ROOT = Path(__file__).resolve().parents[2]
 PORT_DIR = ROOT / "3ds_port"
 # Optional: a separate decomp build tree to take generated assets from when the
 # main tree has not generated them.
-BUILD_EMERALD = ROOT / "build-emerald"
+BUILD_FALLBACK = ROOT / "build-firered"
 MAP_FILE = PORT_DIR / "build" / "firered3ds.map"
 FS_DIR = PORT_DIR / "romfs"
 URI_PREFIX = ""
@@ -222,7 +222,7 @@ def generate_missing(incbins) -> None:
     """Generate every missing asset with one parallel make, not one per file."""
     missing = sorted({rel for _, _, paths, _ in incbins for rel in paths
                       if rel.startswith(GENERATE_ON_DEMAND_PREFIXES) and not (ROOT / rel).exists()
-                      and not (BUILD_EMERALD / rel).exists()})
+                      and not (BUILD_FALLBACK / rel).exists()})
     if not missing:
         return
     print(f"gen_asset_table: generating {len(missing)} missing assets", flush=True)
@@ -245,7 +245,7 @@ def ensure_asset(rel: str) -> Path | None:
         if src.exists():
             return src
 
-    fallback = BUILD_EMERALD / rel
+    fallback = BUILD_FALLBACK / rel
     if fallback.exists():
         return fallback
 

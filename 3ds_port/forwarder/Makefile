@@ -1,7 +1,7 @@
-# HOME Menu forwarder: a small CIA that starts sdmc:/3ds/emerald3ds/Emerald3DS.3dsx
+# HOME Menu forwarder: a small CIA that starts sdmc:/3ds/firered3ds/FireRed3DS.3dsx
 # through Luma3DS's hb:ldr, so updates only replace the 3DSX.
 #
-#   make -C 3ds_port/forwarder            -> dist/Emerald3DS-Forwarder.cia
+#   make -C 3ds_port/forwarder            -> dist/FireRed3DS-Forwarder.cia
 #
 # Needs devkitARM + libctru, makerom and bannertool (on PATH, in ../tools-bin,
 # or given as MAKEROM= / BANNERTOOL=).
@@ -21,12 +21,12 @@ MAKEROM ?= $(firstword $(wildcard $(TOOLS_BIN)/makerom$(EXE)) makerom)
 BANNERTOOL ?= $(firstword $(wildcard $(TOOLS_BIN)/bannertool$(EXE)) bannertool)
 
 ART := ../assets/artwork
-APP_TITLE := Pokemon Emerald 3Ds Dual Screen
-APP_SHORT := Emerald 3Ds Dual Screen
-APP_AUTHOR := ZallaxDev
+APP_TITLE := Pokemon FireRed 3DS
+APP_SHORT := FireRed 3DS
+APP_AUTHOR := pokefirered-3ds
 # Shown by FBI and the HOME Menu; bump with the forwarder, not with the game.
 APP_VERSION ?= 1.0.0
-CIA := dist/Emerald3DS-Forwarder.cia
+CIA := dist/FireRed3DS-Forwarder.cia
 
 all: $(CIA)
 

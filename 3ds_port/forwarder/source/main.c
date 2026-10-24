@@ -1,6 +1,6 @@
-// HOME Menu forwarder for Pokémon Emerald 3Ds Dual Screen.
+// HOME Menu forwarder for Pokémon FireRed 3DS.
 //
-// Installed once as a CIA, it starts sdmc:/3ds/emerald3ds/Emerald3DS.3dsx, so
+// Installed once as a CIA, it starts sdmc:/3ds/firered3ds/FireRed3DS.3dsx, so
 // updating the game only ever replaces the 3DSX. It asks Luma3DS's hb:ldr to
 // load that file, makes its own title the one Luma loads 3DSX files through
 // (no Homebrew Launcher title has to be installed) and restarts itself, so Luma
@@ -12,10 +12,10 @@
 #include <string.h>
 #include <sys/stat.h>
 
-#define TARGET_SD_PATH "/3ds/emerald3ds/Emerald3DS.3dsx"
+#define TARGET_SD_PATH "/3ds/firered3ds/FireRed3DS.3dsx"
 #define TARGET_ARGV0   "sdmc:" TARGET_SD_PATH
-#define RESTORE_ARG    "emerald3ds-forwarder:hbldr-tid="
-#define FORWARDER_TID  0x000400000E3D5200ULL
+#define RESTORE_ARG    "firered3ds-forwarder:hbldr-tid="
+#define FORWARDER_TID  0x000400000F4ED300ULL
 
 // Luma3DS shared config page (private layout, stable since v10).
 typedef struct {
@@ -126,7 +126,7 @@ int main(void)
     {
         gfxInitDefault();
         consoleInit(GFX_TOP, NULL);
-        printf("\n Pokemon Emerald 3Ds Dual Screen\n\n");
+        printf("\n Pokemon FireRed 3DS\n\n");
         printf(" %s\n", why);
         if (res != -1)
             printf("\n Error 0x%08lX\n", (unsigned long)res);

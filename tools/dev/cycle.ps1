@@ -7,12 +7,12 @@ $boot = python "$P\tools\bootstrap.py" --dir C:\fr3ds\upstream 2>&1
 if ($LASTEXITCODE -ne 0) { $boot; "bootstrap failed: not building"; exit 1 }
 $boot | Select-Object -Last 1
 # Every frame dump from a previous run is stale
-Remove-Item "$env:APPDATA\Azahar\sdmc\3ds\emerald3ds\frame_*.raw" -ErrorAction SilentlyContinue
+Remove-Item "$env:APPDATA\Azahar\sdmc\3ds\firered3ds\frame_*.raw" -ErrorAction SilentlyContinue
 $env:MSYSTEM = 'MSYS'
 & C:\devkitPro\msys2\usr\bin\bash.exe -l "$P\tools\dkp.sh" /c/fr3ds bash "$scratch/mk.sh" all all -j4
 if ($LASTEXITCODE -ne 0) { "build failed: not running"; exit 1 }
 if (-not (Test-Path C:\fr3ds\upstream\3ds_port\firered3ds.3dsx)) { "no 3dsx"; exit 1 }
-$sd = "$env:APPDATA\Azahar\sdmc\3ds\emerald3ds"
+$sd = "$env:APPDATA\Azahar\sdmc\3ds\firered3ds"
 Remove-Item "$sd\port.log" -ErrorAction SilentlyContinue
 & "$P\3ds_port\scripts\emu\run.ps1" -App C:\fr3ds\upstream\3ds_port\firered3ds.3dsx -Out "$P\build\$Shot.png" -Wait $Wait -Keys $Keys -Keep
 Get-Process azahar -ErrorAction SilentlyContinue | ForEach-Object { $_.CloseMainWindow() | Out-Null }

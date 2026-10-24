@@ -6,7 +6,7 @@ import zlib
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "builder"))
-from emerald3ds_builder import pak  # noqa: E402
+from firered3ds_builder import pak  # noqa: E402
 
 FILES = [
     ("maps/layouts.bin", bytes(range(256)) * 3),

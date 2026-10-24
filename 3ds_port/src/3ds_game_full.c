@@ -357,7 +357,7 @@ void CtrGame_VBlank(void)
         FILE *file;
         const u16 *regs = (const u16 *)REG_BASE;
 
-        snprintf(name, sizeof(name), "sdmc:/3ds/emerald3ds/frame_%04lu.raw", (unsigned long)sFrames);
+        snprintf(name, sizeof(name), "sdmc:/3ds/firered3ds/frame_%04lu.raw", (unsigned long)sFrames);
         file = fopen(name, "wb");
 
         if (file)
@@ -371,12 +371,12 @@ void CtrGame_VBlank(void)
             /* the bottom screen's canvas beside it (fr_bottom_ui.c) */
             extern void CtrBottom_Dump(const char *path);
 
-            snprintf(name, sizeof(name), "sdmc:/3ds/emerald3ds/bottom_%04lu.raw", (unsigned long)sFrames);
+            snprintf(name, sizeof(name), "sdmc:/3ds/firered3ds/bottom_%04lu.raw", (unsigned long)sFrames);
             CtrBottom_Dump(name);
 #if CTR_VOXEL_ENABLED
             if (gPortUiPixels != NULL)
             {
-                snprintf(name, sizeof(name), "sdmc:/3ds/emerald3ds/ui_%04lu.raw", (unsigned long)sFrames);
+                snprintf(name, sizeof(name), "sdmc:/3ds/firered3ds/ui_%04lu.raw", (unsigned long)sFrames);
                 file = fopen(name, "wb");
                 if (file)
                 {
@@ -526,7 +526,7 @@ static void DebugWarp(void)
  * announced anyway after a while. tour_start.txt, when present, is the stop
  * to begin from.
  */
-#define TOUR_DIR "sdmc:/3ds/emerald3ds/"
+#define TOUR_DIR "sdmc:/3ds/firered3ds/"
 /* The overworld's 3D status (ctr_voxel.c): "on" once it draws the map; a
  * heavy map shows the 2D picture while it loads. */
 extern const char *CtrVoxel_Status(void);

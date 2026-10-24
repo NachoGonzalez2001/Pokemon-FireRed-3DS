@@ -4,7 +4,7 @@
 	obtain one at https://mozilla.org/MPL/2.0/.
 --------------------------------------------------------------------------------*/
 /*
-	Emerald3DS: devkitARM's 3dsx.ld with two additions. The game's own
+	FireRed3DS: devkitARM's 3dsx.ld with two additions. The game's own
 	variables lead .data and .bss, between __ctr_game_* symbols (for the soft
 	reset, see .data). The read-only data of
 	the game translation units (build/root/src, build/root/data) leaves .rodata

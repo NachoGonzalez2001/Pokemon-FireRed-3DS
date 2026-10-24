@@ -1,8 +1,9 @@
 """Recognise the player's ROM.
 
-Clean English (BPEE) and Spanish (BPES) Pokémon Emerald dumps are recognised
-(16 MiB, by SHA-1). Building still requires a recipe and executable made for
-the same ROM. A trimmed dump (trailing 0xFF removed) is padded back before it is checked; a .zip holding a single .gba is
+A clean Pokémon FireRed (USA) rev 1 dump (BPRE, 16 MiB, by SHA-1) is
+recognised: the revision the port is built from. Building still requires a
+recipe and executable made for the same ROM. A trimmed dump (trailing 0xFF
+removed) is padded back before it is checked; a .zip holding a single .gba is
 opened directly. The ROM is only ever read into memory: it is never copied,
 written or sent anywhere.
 """
@@ -17,22 +18,21 @@ from pathlib import Path
 
 from .errors import BuilderError
 
-SUPPORTED_SHA1 = "f3ae088181bf583e55daf962a92bb46f4f1d07b7"
-SPANISH_SHA1 = "fe1558a3dcb0360ab558969e09b690888b846dd9"
+SUPPORTED_SHA1 = "dd5945db9b930750cb39d00c84da8571feebf417"
 # Fingerprints: libretro-database/metadat/no-intro/Nintendo - Game Boy Advance.dat
-ROM_PROFILES = {"BPEE": SUPPORTED_SHA1, "BPES": SPANISH_SHA1}
+ROM_PROFILES = {"BPRE": SUPPORTED_SHA1}
 ROM_SIZE = 16 * 1024 * 1024
 KNOWN_CODES = {
-    "BPEE": "Pokemon Emerald (USA, Europe)",
-    "BPEJ": "Pokemon Emerald (Japan)",
-    "BPES": "Pokemon Emerald (Spain)",
-    "BPED": "Pokemon Emerald (Germany)",
-    "BPEF": "Pokemon Emerald (France)",
-    "BPEI": "Pokemon Emerald (Italy)",
+    "BPRE": "Pokemon FireRed (USA, Rev 1)",
+    "BPRJ": "Pokemon FireRed (Japan)",
+    "BPRS": "Pokemon FireRed (Spain)",
+    "BPRD": "Pokemon FireRed (Germany)",
+    "BPRF": "Pokemon FireRed (France)",
+    "BPRI": "Pokemon FireRed (Italy)",
+    "BPGE": "Pokemon LeafGreen",
+    "BPEE": "Pokemon Emerald",
     "AXVE": "Pokemon Ruby",
     "AXPE": "Pokemon Sapphire",
-    "BPRE": "Pokemon FireRed",
-    "BPGE": "Pokemon LeafGreen",
 }
 
 
@@ -79,7 +79,7 @@ def check_rom_bytes(data: bytes, source: Path, supported: tuple[str, ...] | None
     if supported is None:
         supported = tuple(ROM_PROFILES.values())
     if sha1 not in supported:
-        codes = [c for c, s in ROM_PROFILES.items() if s in supported] or ["BPEE"]
+        codes = [c for c, s in ROM_PROFILES.items() if s in supported] or ["BPRE"]
         names = " or ".join(KNOWN_CODES[c] for c in codes)
         what = KNOWN_CODES.get(code)
         if what and code not in codes:

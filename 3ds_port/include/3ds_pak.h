@@ -2,8 +2,8 @@
 #define CTR_PAK_H
 
 /*
- * emerald3ds.pak parsing, free of any SDK so the host tests can run it.
- * The format is documented in builder/emerald3ds_builder/pak.py, which writes
+ * firered3ds.pak parsing, free of any SDK so the host tests can run it.
+ * The format is documented in builder/firered3ds_builder/pak.py, which writes
  * it; 3ds_data.c does the file I/O around these functions.
  */
 

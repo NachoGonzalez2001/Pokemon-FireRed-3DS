@@ -61,6 +61,9 @@ void CtrPlatform_SleepUs(unsigned microseconds);
 /* The frame profiler's report and reset, at present (3ds_prof.c). */
 void CtrProf_EndFrame(float workMs, float waitMs, uint64_t frame);
 
+/* Before anything opens the data folder: what builds before the FireRed name
+ * kept in sdmc:/3ds/emerald3ds/, copied once into sdmc:/3ds/firered3ds/. */
+void CtrFs_MigrateLegacy(void);
 bool CtrFs_Init(void);
 void CtrFs_Shutdown(void);
 FILE *CtrFs_OpenAsset(const char *relativePath);

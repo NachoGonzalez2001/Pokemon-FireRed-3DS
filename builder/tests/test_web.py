@@ -1,5 +1,5 @@
 """Tests for the web builder's side of the builder: in-process generators, the
-web entry point, web-manifest.json and Emerald3DS-WebPayload.zip. Synthetic
+web entry point, web-manifest.json and FireRed3DS-WebPayload.zip. Synthetic
 data only: no ROM is needed and none may ever be committed.
 
 Run: python -m unittest discover -s builder/tests
@@ -22,8 +22,8 @@ sys.path.insert(0, str(HERE.parents[2] / "tools"))
 
 import build_web_payload  # noqa: E402
 import release_audit  # noqa: E402
-from emerald3ds_builder import pak, voxel, web, webmanifest  # noqa: E402
-from emerald3ds_builder.errors import BuilderError  # noqa: E402
+from firered3ds_builder import pak, voxel, web, webmanifest  # noqa: E402
+from firered3ds_builder.errors import BuilderError  # noqa: E402
 
 # Two generators shaped like the real ones: ROOT from __file__, a sibling module
 # holding state, argparse --output. The second one depends on the first's output.
@@ -163,7 +163,7 @@ class SyntheticPayloadMixin:
 class WebBuildTests(SyntheticPayloadMixin, unittest.TestCase):
     def build(self, rom: Path, manifest: Path | None = None) -> dict:
         stages = []
-        out = self.tmp / "out" / "emerald3ds.pak"
+        out = self.tmp / "out" / "firered3ds.pak"
         result = json.loads(web.run_web_build(str(rom), str(self.unpacked / "payload"), str(out),
                                               lambda *a: stages.append(a),
                                               str(manifest or self.unpacked / "web-manifest.json")))
@@ -250,8 +250,8 @@ class ManifestTests(SyntheticPayloadMixin, unittest.TestCase):
         manifest = webmanifest.validate(self.manifest())
         self.assertEqual(manifest["schemaVersion"], webmanifest.SCHEMA_VERSION)
         self.assertIsNone(manifest["assets"]["ciaForwarder"])
-        self.assertEqual(manifest["assets"]["threeDsx"]["releaseAsset"], "Emerald3DS.3dsx")
-        self.assertEqual(manifest["install"]["files"], ["Emerald3DS.3dsx", "Emerald3DS.smdh", "emerald3ds.pak"])
+        self.assertEqual(manifest["assets"]["threeDsx"]["releaseAsset"], "FireRed3DS.3dsx")
+        self.assertEqual(manifest["install"]["files"], ["FireRed3DS.3dsx", "FireRed3DS.smdh", "firered3ds.pak"])
         # the manifest attached next to the ZIP is the one inside it
         self.assertEqual(json.loads(self.synthetic["manifest"].read_text()), manifest)
 
@@ -263,7 +263,7 @@ class ManifestTests(SyntheticPayloadMixin, unittest.TestCase):
             "roms": lambda m: m.update(supportedRoms=[]),
             "cia missing": lambda m: m["assets"].pop("ciaForwarder"),
             "unsafe path": lambda m: m["files"][0].update(path="../etc/passwd"),
-            "pak listed": lambda m: m["files"].append({"path": "payload/emerald3ds.pak", "sha256": "0" * 64,
+            "pak listed": lambda m: m["files"].append({"path": "payload/firered3ds.pak", "sha256": "0" * 64,
                                                        "size": 1}),
             "hash": lambda m: m["assets"]["smdh"].update(sha256="abc"),
         }
@@ -278,8 +278,8 @@ class ManifestTests(SyntheticPayloadMixin, unittest.TestCase):
         manifest = self.manifest()
         self.assertEqual(len(manifest["supportedRoms"]), 1)
         [variant] = manifest["variants"]
-        self.assertEqual(variant["assets"]["threeDsx"]["path"], "payload/es/Emerald3DS.3dsx")
-        self.assertEqual(variant["assets"]["threeDsx"]["releaseAsset"], "Emerald3DS-es.3dsx")
+        self.assertEqual(variant["assets"]["threeDsx"]["path"], "payload/es/FireRed3DS.3dsx")
+        self.assertEqual(variant["assets"]["threeDsx"]["releaseAsset"], "FireRed3DS-es.3dsx")
         shas = [v["rom"]["sha1"] for v in webmanifest.rom_variants(manifest)]
         self.assertEqual(shas, [manifest["supportedRoms"][0]["sha1"], variant["rom"]["sha1"]])
 
@@ -299,9 +299,9 @@ class ManifestTests(SyntheticPayloadMixin, unittest.TestCase):
 
     def test_cia_forwarder_is_described_when_present(self):
         files = build_web_payload.collect(self.synthetic["payload"])
-        manifest = build_web_payload.make_manifest(files, "1.0.0", "v1.0.0", "Emerald3DS-Forwarder.cia")
-        self.assertEqual(manifest["assets"]["ciaForwarder"]["releaseAsset"], "Emerald3DS-Forwarder.cia")
-        self.assertEqual(manifest["assets"]["ciaForwarder"]["target"], "sdmc:/3ds/emerald3ds/Emerald3DS.3dsx")
+        manifest = build_web_payload.make_manifest(files, "1.0.0", "v1.0.0", "FireRed3DS-Forwarder.cia")
+        self.assertEqual(manifest["assets"]["ciaForwarder"]["releaseAsset"], "FireRed3DS-Forwarder.cia")
+        self.assertEqual(manifest["assets"]["ciaForwarder"]["target"], "sdmc:/3ds/firered3ds/FireRed3DS.3dsx")
 
 
 class WebPayloadContentsTests(SyntheticPayloadMixin, unittest.TestCase):
@@ -312,8 +312,8 @@ class WebPayloadContentsTests(SyntheticPayloadMixin, unittest.TestCase):
     def test_layout(self):
         names = self.names()
         self.assertIn("web-manifest.json", names)
-        for required in ("payload/Emerald3DS.3dsx", "payload/Emerald3DS.smdh", "payload/emerald3ds.recipe",
-                         "python/emerald3ds_builder/web.py", "python/emerald3ds_builder/voxel.py",
+        for required in ("payload/FireRed3DS.3dsx", "payload/FireRed3DS.smdh", "payload/firered3ds.recipe",
+                         "python/firered3ds_builder/web.py", "python/firered3ds_builder/voxel.py",
                          "licenses/LICENSE-PORT.md"):
             self.assertIn(required, names)
         self.assertTrue(all(n == "web-manifest.json" or n.startswith(("payload/", "python/", "licenses/"))
@@ -322,7 +322,7 @@ class WebPayloadContentsTests(SyntheticPayloadMixin, unittest.TestCase):
     def test_no_rom_no_pack_no_desktop_modules(self):
         names = self.names()
         self.assertFalse([n for n in names if n.lower().endswith((".gba", ".agb", ".pak", ".sav", ".pyc"))])
-        self.assertNotIn("python/emerald3ds_builder/gui.py", names)
+        self.assertNotIn("python/firered3ds_builder/gui.py", names)
         rom = self.synthetic["rom"].read_bytes()
         with zipfile.ZipFile(self.synthetic["zip"]) as zf:
             for name in names:
@@ -345,10 +345,10 @@ class WebPayloadContentsTests(SyntheticPayloadMixin, unittest.TestCase):
         with zipfile.ZipFile(self.synthetic["zip"]) as src, zipfile.ZipFile(bad, "w") as dst:
             for name in src.namelist():
                 data = src.read(name)
-                if name == "payload/Emerald3DS.smdh":
+                if name == "payload/FireRed3DS.smdh":
                     data += b"!"
                 dst.writestr(name, data)
-            dst.writestr("payload/emerald3ds.pak", pak.MAGIC + b"\0" * 56)
+            dst.writestr("payload/firered3ds.pak", pak.MAGIC + b"\0" * 56)
         entries = release_audit.zip_files(bad)
         rules = {f.rule for f in release_audit.audit_web_payload(entries)}
         self.assertIn("web-payload-hash-mismatch", rules)
@@ -360,7 +360,7 @@ class WebPayloadContentsTests(SyntheticPayloadMixin, unittest.TestCase):
     def test_release_audit_requires_the_manifest(self):
         bad = self.tmp / "nomanifest.zip"
         with zipfile.ZipFile(bad, "w") as dst:
-            dst.writestr("payload/Emerald3DS.3dsx", b"x")
+            dst.writestr("payload/FireRed3DS.3dsx", b"x")
         rules = {f.rule for f in release_audit.audit_web_payload(release_audit.zip_files(bad))}
         self.assertEqual(rules, {"web-manifest-missing"})
 

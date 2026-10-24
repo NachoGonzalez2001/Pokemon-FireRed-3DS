@@ -60,7 +60,7 @@ void __system_allocateHeaps(void)
  * the "selected" title when this process exits. A 3DSX loaded by hb:ldr may
  * write the shared page.
  */
-#define FORWARDER_RESTORE_ARG "emerald3ds-forwarder:hbldr-tid="
+#define FORWARDER_RESTORE_ARG "firered3ds-forwarder:hbldr-tid="
 
 extern int __system_argc;
 extern char **__system_argv;

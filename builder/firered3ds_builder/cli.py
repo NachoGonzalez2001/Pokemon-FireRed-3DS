@@ -1,9 +1,9 @@
 """Command line: the same build the window runs, for scripts, CI and Linux/macOS.
 
-    emerald3ds-builder build   --rom ROM --output DIR
-    emerald3ds-builder install --rom ROM --sd E:\\
-    emerald3ds-builder verify  --pak FILE
-    emerald3ds-builder detect
+    firered3ds-builder build   --rom ROM --output DIR
+    firered3ds-builder install --rom ROM --sd E:\\
+    firered3ds-builder verify  --pak FILE
+    firered3ds-builder detect
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ def cmd_build(args) -> int:
     payload = Payload(args.payload)
     out_dir = Path(args.output) / APP_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
-    info = build_pack(Path(args.rom), payload, out_dir / "emerald3ds.pak", _progress, args.keep_workdir)
+    info = build_pack(Path(args.rom), payload, out_dir / "firered3ds.pak", _progress, args.keep_workdir)
     print("Times (%s): %s" % (info["rom"], ", ".join("%s %.1f s" % t for t in info["timings"])))
     for exe in info["payload"].executables():
         if exe.exists():
@@ -47,11 +47,11 @@ def cmd_install(args) -> int:
     payload = Payload(args.payload)
     payload.check()
     sd = Path(args.sd)
-    with tempfile.TemporaryDirectory(prefix="emerald3ds-") as tmp:
-        pak_path = Path(tmp) / "emerald3ds.pak"
+    with tempfile.TemporaryDirectory(prefix="firered3ds-") as tmp:
+        pak_path = Path(tmp) / "firered3ds.pak"
         info = build_pack(Path(args.rom), payload, pak_path, _progress)
         files = {exe.name: exe for exe in info["payload"].executables()}
-        files["emerald3ds.pak"] = pak_path
+        files["firered3ds.pak"] = pak_path
         dest = install(sd, files, lambda f: _progress(f, "Copying to the SD card"))
     print("Installed to %s" % dest)
     return 0
@@ -84,13 +84,13 @@ def cmd_detect(args) -> int:
 
 
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(prog="emerald3ds-builder", description=__doc__,
+    ap = argparse.ArgumentParser(prog="firered3ds-builder", description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--version", action="version", version=__version__)
     ap.add_argument("--payload", type=Path, default=default_payload(),
                     help="folder with the release payload (default: next to the builder)")
     sub = ap.add_subparsers(dest="cmd", required=True)
-    b = sub.add_parser("build", help="write 3ds/emerald3ds/ into a folder")
+    b = sub.add_parser("build", help="write 3ds/firered3ds/ into a folder")
     b.add_argument("--rom", required=True)
     b.add_argument("--output", required=True)
     b.add_argument("--keep-workdir", action="store_true", help=argparse.SUPPRESS)

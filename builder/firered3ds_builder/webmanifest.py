@@ -1,14 +1,14 @@
 """web-manifest.json: the contract between a release and the web builder.
 
-Every release carries `Emerald3DS-WebPayload.zip`, and next to it the same
+Every release carries `FireRed3DS-WebPayload.zip`, and next to it the same
 `web-manifest.json` as a separate small asset so the website can read a
 release's capabilities without downloading the payload. Layout of the ZIP:
 
     web-manifest.json
-    payload/Emerald3DS.3dsx, payload/Emerald3DS.smdh, payload/emerald3ds.recipe
+    payload/FireRed3DS.3dsx, payload/FireRed3DS.smdh, payload/firered3ds.recipe
     payload/<lang>/...            other languages: their own executable and recipe
     payload/voxelgen/...          the generator scripts (as in the Windows ZIP)
-    python/emerald3ds_builder/... this package, without the desktop window
+    python/firered3ds_builder/... this package, without the desktop window
     licenses/...
 
 It never holds a ROM, a data pack or anything extracted from the game.
@@ -31,13 +31,13 @@ from __future__ import annotations
 import re
 
 SCHEMA_VERSION = 1
-KIND = "emerald3ds-web-payload"
+KIND = "firered3ds-web-payload"
 MANIFEST_NAME = "web-manifest.json"
-PAYLOAD_NAME = "Emerald3DS-WebPayload.zip"
-ENTRYPOINT = {"pythonPath": "python", "module": "emerald3ds_builder.web",
+PAYLOAD_NAME = "FireRed3DS-WebPayload.zip"
+ENTRYPOINT = {"pythonPath": "python", "module": "firered3ds_builder.web",
               "function": "run_web_build", "apiVersion": 1}
-INSTALL_DIR = "3ds/emerald3ds"
-INSTALL_FILES = ["Emerald3DS.3dsx", "Emerald3DS.smdh", "emerald3ds.pak"]
+INSTALL_DIR = "3ds/firered3ds"
+INSTALL_FILES = ["FireRed3DS.3dsx", "FireRed3DS.smdh", "firered3ds.pak"]
 # Files that may never be inside a web payload, whatever their name says.
 FORBIDDEN_SUFFIXES = (".gba", ".agb", ".pak", ".sav", ".pyc", ".pyo")
 

@@ -66,6 +66,7 @@ bool CtrPlatform_Init(void)
     /* A New 3DS runs the application core at 804 MHz with its L2 cache when
      * asked; an Old 3DS ignores this. */
     osSetSpeedupEnable(true);
+    CtrFs_MigrateLegacy();
     CtrLog_Init();
     sInitialized = true;
     atexit(CtrPlatform_Shutdown);
@@ -276,7 +277,7 @@ void CtrPlatform_Diagnostic(uint32_t frames, uint32_t aPresses, uint32_t checks)
     const CtrVoxelStats *voxel = CtrVoxel_GetStats();
     char text[1020];
     snprintf(text, sizeof(text),
-        "Pokemon Emerald 3Ds Dual Screen\n"
+        "Pokemon FireRed 3DS\n"
         "FPS: %5.1f FRAME: %-10lu\n"
         "Frame:%6.2f Work:%6.2f ms\n"
         "Peak:%6.2f Slow:%-8lu\n"
@@ -352,7 +353,7 @@ void CtrPlatform_ShowDataError(const char *title, const char *detail)
     consoleInit(GFX_TOP, &console);
     consoleSelect(&console);
     consoleClear();
-    printf("\x1b[2;2HPokemon Emerald 3Ds Dual Screen\n\n\x1b[31m %s\x1b[0m\n\n", title);
+    printf("\x1b[2;2HPokemon FireRed 3DS\n\n\x1b[31m %s\x1b[0m\n\n", title);
     for (const char *line = detail; line && *line;)
     {
         const char *end = strchr(line, '\n');

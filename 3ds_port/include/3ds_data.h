@@ -10,10 +10,10 @@
  *
  *   romfs  the executable's own RomFS, in a development build that embeds
  *          its data;
- *   loose  sdmc:/3ds/emerald3ds/devdata/<path>, for iterating on one
+ *   loose  sdmc:/3ds/firered3ds/devdata/<path>, for iterating on one
  *          generated file without rebuilding anything else;
- *   pak    sdmc:/3ds/emerald3ds/emerald3ds.pak, the single data pack the
- *          Pokemon Emerald 3Ds Dual Screen Builder generates from the player's own ROM.
+ *   pak    sdmc:/3ds/firered3ds/firered3ds.pak, the single data pack the
+ *          Pokemon FireRed 3DS Builder generates from the player's own ROM.
  *
  * Files that only describe the executable (asset index, relocation tables,
  * shaders, the engine ABI) are not game data and are always read from the
@@ -26,14 +26,14 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#define CTR_DATA_DIR "sdmc:/3ds/emerald3ds/"
-#define CTR_DATA_PAK_PATH CTR_DATA_DIR "emerald3ds.pak"
+#define CTR_DATA_DIR "sdmc:/3ds/firered3ds/"
+#define CTR_DATA_PAK_PATH CTR_DATA_DIR "firered3ds.pak"
 #define CTR_DATA_LOOSE_DIR CTR_DATA_DIR "devdata/"
-#define CTR_DATA_LOOSE_MARKER CTR_DATA_LOOSE_DIR ".emerald3ds-dev"
+#define CTR_DATA_LOOSE_MARKER CTR_DATA_LOOSE_DIR ".firered3ds-dev"
 /* Present in the RomFS of a build that embeds its game data. */
 #define CTR_DATA_EMBEDDED_MARKER "romfs:/data.embedded"
 
-/* Pack format, see docs/ASSET_PIPELINE.md and builder/emerald3ds_builder/pak.py. */
+/* Pack format, see docs/ASSET_PIPELINE.md and builder/firered3ds_builder/pak.py. */
 #define CTR_PAK_MAGIC "EM3DPAK"
 #define CTR_PAK_SCHEMA 1
 

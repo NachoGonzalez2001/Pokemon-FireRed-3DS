@@ -3,16 +3,16 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "emerald3ds-builder"
+name = "firered3ds-builder"
 version = "0.3.1"
-description = "Builds the Pokémon Emerald 3Ds Dual Screen data pack from the player's own Pokémon Emerald ROM"
+description = "Builds the Pokémon FireRed 3DS data pack from the player's own Pokémon FireRed ROM"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = ["Pillow>=10"]
 license = {text = "See LICENSE-PORT.md in the repository"}
 
 [project.scripts]
-emerald3ds-builder = "emerald3ds_builder.__main__:main"
+firered3ds-builder = "firered3ds_builder.__main__:main"
 
 [tool.setuptools]
-packages = ["emerald3ds_builder"]
+packages = ["firered3ds_builder"]

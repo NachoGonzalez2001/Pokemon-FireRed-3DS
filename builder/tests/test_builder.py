@@ -15,10 +15,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from emerald3ds_builder import pak, recipe as rcp, rom as romlib, vtree  # noqa: E402
-from emerald3ds_builder.build import Payload, build_pack
-from emerald3ds_builder.errors import BuilderError  # noqa: E402
-from emerald3ds_builder.install import install  # noqa: E402
+from firered3ds_builder import pak, recipe as rcp, rom as romlib, vtree  # noqa: E402
+from firered3ds_builder.build import Payload, build_pack
+from firered3ds_builder.errors import BuilderError  # noqa: E402
+from firered3ds_builder.install import install  # noqa: E402
 
 
 def lz77_literal(data: bytes) -> bytes:
@@ -112,43 +112,35 @@ class RomTests(unittest.TestCase):
 
     def test_wrong_rom_is_rejected_with_its_name(self):
         data = bytearray(b"\xff" * romlib.ROM_SIZE)
-        data[0xA0:0xB0] = b"POKEMON FIREBPRE"
-        with tempfile.TemporaryDirectory() as tmp:
-            with self.assertRaises(BuilderError) as ctx:
-                romlib.load_rom(self._write(tmp, bytes(data)))
-            self.assertIn("FireRed", ctx.exception.message)
-
-    def test_modified_emerald_is_rejected(self):
-        data = bytearray(b"\xff" * romlib.ROM_SIZE)
         data[0xA0:0xB0] = b"POKEMON EMERBPEE"
         with tempfile.TemporaryDirectory() as tmp:
             with self.assertRaises(BuilderError) as ctx:
                 romlib.load_rom(self._write(tmp, bytes(data)))
-            self.assertIn("not an unmodified", ctx.exception.message)
+            self.assertIn("Emerald", ctx.exception.message)
 
-    def test_modified_spanish_emerald_is_rejected(self):
+    def test_modified_firered_is_rejected(self):
         data = bytearray(b"\xff" * romlib.ROM_SIZE)
-        data[0xA0:0xB0] = b"POKEMON EMERBPES"
+        data[0xA0:0xB0] = b"POKEMON FIREBPRE"
         with tempfile.TemporaryDirectory() as tmp:
             with self.assertRaises(BuilderError) as ctx:
                 romlib.load_rom(self._write(tmp, bytes(data)))
-            self.assertIn(romlib.SPANISH_SHA1, str(ctx.exception))
+            self.assertIn("not an unmodified", ctx.exception.message)
+            self.assertIn(romlib.SUPPORTED_SHA1, str(ctx.exception))
 
-    def test_each_region_requires_its_exact_hash_even_when_trimmed_or_zipped(self):
+    def test_requires_the_exact_hash_even_when_trimmed_or_zipped(self):
         # Synthetic fixtures substitute the known clean hash, not the validation.
-        for code in ("BPEE", "BPES"):
-            data = bytearray(b"\xff" * romlib.ROM_SIZE)
-            data[0xA0:0xB0] = b"POKEMON EMER" + code.encode()
-            sha = hashlib.sha1(data).hexdigest()
-            with tempfile.TemporaryDirectory() as tmp, patch.dict(romlib.ROM_PROFILES, {code: sha}):
-                full = self._write(tmp, data)
-                trimmed = self._write(tmp, data[:0xC0], "trimmed.gba")
-                zipped = Path(tmp) / "game.zip"
-                with zipfile.ZipFile(zipped, "w") as zf:
-                    zf.writestr("game.gba", data[:0xC0])
-                for path in (full, trimmed, zipped):
-                    loaded = romlib.load_rom(path)
-                    self.assertEqual((loaded.code, loaded.sha1, loaded.data), (code, sha, data))
+        data = bytearray(b"\xff" * romlib.ROM_SIZE)
+        data[0xA0:0xB0] = b"POKEMON FIREBPRE"
+        sha = hashlib.sha1(data).hexdigest()
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(romlib.ROM_PROFILES, {"BPRE": sha}):
+            full = self._write(tmp, data)
+            trimmed = self._write(tmp, data[:0xC0], "trimmed.gba")
+            zipped = Path(tmp) / "game.zip"
+            with zipfile.ZipFile(zipped, "w") as zf:
+                zf.writestr("game.gba", data[:0xC0])
+            for path in (full, trimmed, zipped):
+                loaded = romlib.load_rom(path)
+                self.assertEqual((loaded.code, loaded.sha1, loaded.data), ("BPRE", sha, data))
 
     def test_zip_must_hold_one_rom(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -158,35 +150,6 @@ class RomTests(unittest.TestCase):
                 zf.writestr("b.gba", b"2")
             with self.assertRaises(BuilderError):
                 romlib.load_rom(path)
-
-
-class RegionalBuildTests(unittest.TestCase):
-    def test_matching_spanish_recipe_builds_and_english_recipe_is_rejected(self):
-        data = bytearray(b"\xff" * romlib.ROM_SIZE)
-        data[0xA0:0xB0] = b"POKEMON EMERBPES"
-        data[0x200:0x204] = b"TEST"
-        sha = hashlib.sha1(data).hexdigest()
-        crc = zlib.crc32(b"TEST") & 0xFFFFFFFF
-        abi = pak.engine_abi([("game/test.bin", 4, crc)])
-        with tempfile.TemporaryDirectory() as tmp, patch.dict(romlib.ROM_PROFILES, {"BPES": sha}):
-            root = Path(tmp)
-            source = root / "spanish.gba"
-            source.write_bytes(data)
-            recipe = rcp.Recipe(engine_abi=abi, rom_sha1=romlib.SUPPORTED_SHA1, release="test",
-                                entries=[{"path": "game/test.bin", "size": 4, "crc": crc,
-                                          "ops": [["C", 0x200, 4]]}])
-            recipe.save(root / "emerald3ds.recipe")
-            output = root / "output.pak"
-            with self.assertRaises(BuilderError) as ctx:
-                build_pack(source, Payload(root), output)
-            self.assertIn("BPES", str(ctx.exception))
-            self.assertFalse(output.exists())
-            recipe.rom_sha1 = sha
-            recipe.save(root / "emerald3ds.recipe")
-            build_pack(source, Payload(root), output)
-            with pak.PakReader(output) as reader:
-                self.assertEqual(reader.read("game/test.bin"), b"TEST")
-                self.assertEqual(reader.rom_sha1, bytes.fromhex(sha))
 
 
 class VariantPayloadTests(unittest.TestCase):
@@ -219,9 +182,9 @@ class InstallTests(unittest.TestCase):
             src.write_bytes(b"x" * 1000)
             sd = Path(tmp) / "sd"
             sd.mkdir()
-            dest = install(sd, {"Emerald3DS.3dsx": src, "emerald3ds.pak": src})
-            self.assertEqual(sorted(p.name for p in dest.iterdir()), ["Emerald3DS.3dsx", "emerald3ds.pak"])
-            self.assertEqual(dest, sd / "3ds" / "emerald3ds")
+            dest = install(sd, {"FireRed3DS.3dsx": src, "firered3ds.pak": src})
+            self.assertEqual(sorted(p.name for p in dest.iterdir()), ["FireRed3DS.3dsx", "firered3ds.pak"])
+            self.assertEqual(dest, sd / "3ds" / "firered3ds")
 
 
 class VtreeTests(unittest.TestCase):

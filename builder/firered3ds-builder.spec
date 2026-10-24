@@ -3,7 +3,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 a = Analysis(
-    ["emerald3ds-builder.py"],
+    ["firered3ds-builder.py"],
     pathex=["."],
     binaries=[],
     datas=[],
@@ -20,8 +20,8 @@ a = Analysis(
 pyz = PYZ(a.pure)
 # The window, and a console twin for the command line and for running the
 # bundled generator scripts (a windowed executable has no stdout).
-gui = EXE(pyz, a.scripts, [], exclude_binaries=True, name="Emerald3DS-Builder",
+gui = EXE(pyz, a.scripts, [], exclude_binaries=True, name="FireRed3DS-Builder",
           debug=False, strip=False, upx=False, console=False)
-cli = EXE(pyz, a.scripts, [], exclude_binaries=True, name="emerald3ds-builder-cli",
+cli = EXE(pyz, a.scripts, [], exclude_binaries=True, name="firered3ds-builder-cli",
           debug=False, strip=False, upx=False, console=True)
-coll = COLLECT(gui, cli, a.binaries, a.datas, strip=False, upx=False, name="Emerald3DS-Builder")
+coll = COLLECT(gui, cli, a.binaries, a.datas, strip=False, upx=False, name="FireRed3DS-Builder")

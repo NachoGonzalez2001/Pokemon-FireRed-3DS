@@ -225,7 +225,7 @@ void CtrAudio_Queue(const int32_t *interleaved, int frames)
         static unsigned dumped;
 
         if (dumped == 0)
-            dump = fopen("sdmc:/3ds/emerald3ds/audio.raw", "wb");
+            dump = fopen("sdmc:/3ds/firered3ds/audio.raw", "wb");
         if (dump && dumped >= 600 && dumped < 2400)
             fwrite(out, sizeof(int16_t), (size_t)frames * 2, dump);
         if (dump && ++dumped == 2400)

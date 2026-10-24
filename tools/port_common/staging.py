@@ -10,7 +10,7 @@ file live there:
 * game data is everything derived from the game: graphics, maps, scripts,
   songs, linked tables, voxel data. A development build may embed it in its
   RomFS; a release never does, and the player's builder produces it as
-  emerald3ds.pak from their own ROM.
+  firered3ds.pak from their own ROM.
 
 Commands:
 
@@ -33,7 +33,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "builder"))
-from emerald3ds_builder import pak  # noqa: E402
+from firered3ds_builder import pak  # noqa: E402
 
 ENGINE_PATTERNS = [
     "boot.txt",
@@ -128,7 +128,7 @@ def cmd_devdata(args) -> None:
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(path, dst)
         count += 1
-    (args.out / ".emerald3ds-dev").write_text("abi %08x\n" % abi, encoding="ascii")
+    (args.out / ".firered3ds-dev").write_text("abi %08x\n" % abi, encoding="ascii")
     print("staging: %d changed data files -> %s (ABI %08x)" % (count, args.out, abi))
 
 
