@@ -57,6 +57,8 @@ def keep_lf(tree: Path) -> None:
 
 OVERLAY_EXCLUDES = ["/3ds_port/", "/builder/", "/tools/port_common/", "/tools/bootstrap.py",
                     "/tools/dkp.sh", "/tools/export_patch.py", "/upstream.lock",
+                    "/tools/gen_recipe.py", "/tools/vtree_manifest.py", "/tools/build_release.py",
+                    "/tools/release_audit.py", "/tools/release_audit_allow.toml",
                     "/.firered3ds-patches"]
 
 
