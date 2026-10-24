@@ -68,6 +68,7 @@ void Port_GetRegionMapArt(u8 region, const void **mapGfx, const void **mapTilema
                           const void **bgTilemap, const u16 **pal, const void **playerGfx, const u16 **playerPal);
 u8 Port_GetRegionMapPlayer(s16 *x, s16 *y);
 uint32_t CtrGame_Frames(void);
+uint32_t CtrGame_Resets(void);
 #ifdef CTR_INPUT_SCRIPT
 bool CtrScript_Touch(u16 *x, u16 *y);
 bool CtrScript_Stick(s16 *x, s16 *y);
@@ -186,6 +187,10 @@ static u8 sInjectFrames;
 static u16 sInjected;
 static u32 sMenuFrame = 0xFFFFFFF0;
 static bool8 sGameShown;
+/* A game is under way: the field has been on since the last (soft) reset.
+ * Before, on the title and the main menu, the panel shows no save's data. */
+static bool8 sInGame;
+static u32 sResetsSeen;
 static u8 sPadPressed = 0xFF;
 static u8 sScreen = SCR_MAP;
 static u8 sOptTab, sOptSub, sOptPage;
@@ -1669,6 +1674,36 @@ static void DrawPad(void)
             sPadPressed == i);
 }
 
+/* Before a game is under way: the Pokédex, shut - its lens and lights, a
+ * Poké Ball on the shell, the game's name. Nothing to touch. */
+static void HalfDisc(int cx, int cy, int r, bool8 upper, u16 c)
+{
+    for (int dy = upper ? -r : 1; dy <= (upper ? 0 : r); dy++)
+        for (int dx = -r; dx <= r; dx++)
+            if (dx * dx + dy * dy <= r * r + r / 2)
+                Put(cx + dx, cy + dy, c);
+}
+
+static void RenderTitle(void)
+{
+    const int cx = W / 2, cy = 112, r = 50;
+
+    Header(NULL, NULL);
+    Shell(0, HEADER_H + 1, W, H - HEADER_H - 1);
+    /* the ball, a little shadow under it */
+    Disc(cx + 3, cy + 4, r + 3, C_RED_DK);
+    Disc(cx, cy, r + 3, C_INK);
+    HalfDisc(cx, cy, r, TRUE, C_RED_HI);
+    HalfDisc(cx, cy, r, FALSE, C_WHITE);
+    Disc(cx - r / 3, cy - r / 2, r / 6, C8(255, 150, 150));
+    FillRect(cx - r, cy - 4, 2 * r + 1, 9, C_INK);
+    Disc(cx, cy, 17, C_INK);
+    Disc(cx, cy, 13, C_WHITE);
+    Ring(cx, cy, 9, 1, C8(190, 194, 202));
+    TextCentered(FONT_NORMAL, Ascii("POKEMON FIRERED"), cx, cy + r + 14, C_WHITE, C_RED_DK);
+    CtrBottom_Blit(sCanvas, 0, W);
+}
+
 /* The 240x160 picture at (0, GAME_Y), on a dark ground above and below. */
 void CtrBottom_ShowGameFrame(const u16 *frame)
 {
@@ -1866,6 +1901,26 @@ void CtrBottom_Frame(void)
         if (sInjectFrames == 0)
             sInjected = 0;
         sDrawn = FALSE;
+    }
+    if (CtrGame_Resets() != sResetsSeen)
+    {
+        /* back to the title: no game until the field is on again */
+        sResetsSeen = CtrGame_Resets();
+        sInGame = FALSE;
+        sScreen = SCR_MAP;
+        sDrawn = FALSE;
+    }
+    if (!sInGame && InField())
+    {
+        sInGame = TRUE;
+        sDrawn = FALSE;
+    }
+    if (!sInGame)
+    {
+        if (!sDrawn)
+            RenderTitle();
+        sDrawn = TRUE;
+        return;
     }
     Snapshot(&now);
     ProcessPanelTouch(&now, active, x, y);

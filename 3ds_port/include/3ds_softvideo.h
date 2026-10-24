@@ -21,5 +21,14 @@ void CtrSoftVideo_SetUi(const uint16_t *pixels);
 /* The 3D battle: the world drawn as the battle's scenery under the UI layer,
  * the scenery sliding in, and the shake of a hit (BG3's scroll, GBA pixels). */
 void CtrSoftVideo_SetBattle(bool on, bool sliding, float shakeX, float shakeY);
+/* This frame is the world as it stands, neither fading nor faded: the one a
+ * menu that opens later leaves on the top screen. */
+void CtrSoftVideo_SetClean(bool clean);
+/* A menu runs on the bottom screen: the top keeps the last clean frame - in
+ * 3D when that was the 3D world, else the frame SetFrame gives. */
+void CtrSoftVideo_HoldTop(bool hold);
+/* A field move's banner crosses the UI layer: its rows carried out to the
+ * screen's edges, past the GBA picture's. */
+void CtrSoftVideo_SetBanner(bool banner);
 
 #endif

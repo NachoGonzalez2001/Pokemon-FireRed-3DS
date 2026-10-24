@@ -45,6 +45,16 @@ void CtrSoftVideo_SetFrame(const uint16_t *pixels) { sFrame = pixels; }
 static const uint16_t *sUi;
 void CtrSoftVideo_SetUi(const uint16_t *pixels) { sUi = pixels; }
 static struct { bool on, sliding; float shakeX, shakeY; } sBattle;
+static bool sClean, sHold, sBanner;
+void CtrSoftVideo_SetBanner(bool banner) { sBanner = banner; }
+void CtrSoftVideo_SetClean(bool clean) { sClean = clean; }
+void CtrSoftVideo_HoldTop(bool hold)
+{
+    if (hold != sHold)
+        CtrLog_Write(CTR_LOG_VIDEO, "top screen %s at frame %lu", hold ? "held" : "released",
+                     (unsigned long)sStats.frames);
+    sHold = hold;
+}
 void CtrSoftVideo_SetBattle(bool on, bool sliding, float shakeX, float shakeY)
 {
     sBattle.on = on;
@@ -116,6 +126,16 @@ static bool sVoxelReady;
 static C3D_Tex sSurface;
 static C3D_RenderTarget *sLogical;
 static Tex3DS_SubTexture sLogicalSub;
+/*
+ * The top screen held under a menu (CtrSoftVideo_HoldTop): the last clean 3D
+ * frame - the world surface as it was drawn, and its UI layer - kept when the
+ * frames stop being clean (a fade, a menu). Only the world's: once a clean
+ * frame is the 2D picture, the hold is the game side's copy of that.
+ */
+static C3D_Tex sHoldTex;
+static uint16_t sLastUi[CTR_SOFT_WIDTH * CTR_SOFT_HEIGHT];
+static uint16_t sHoldUi[CTR_SOFT_WIDTH * CTR_SOFT_HEIGHT];
+static bool sHoldReady, sHoldValid, sSurfaceClean;
 
 #define UI_TRANSFER_FLAGS \
     (GX_TRANSFER_FLIP_VERT(0) | GX_TRANSFER_OUT_TILED(1) | GX_TRANSFER_RAW_COPY(0) | \
@@ -155,6 +175,13 @@ static bool GpuInit(void)
                                            TOP_WIDTH / 512.0f, 1.0f - TOP_HEIGHT / 256.0f };
     }
     sVoxelReady = sVoxelReady && sLogical != NULL;
+    /* In linear memory: it is only read, a quad's worth a frame. */
+    sHoldReady = sVoxelReady && C3D_TexInit(&sHoldTex, 512, 256, GPU_RGBA8);
+    if (sHoldReady)
+    {
+        C3D_TexSetFilter(&sHoldTex, GPU_NEAREST, GPU_NEAREST);
+        C3D_TexSetWrap(&sHoldTex, GPU_CLAMP_TO_EDGE, GPU_CLAMP_TO_EDGE);
+    }
     CtrLog_Write(CTR_LOG_VIDEO, "voxel overworld %s", sVoxelReady ? "ready" : "unavailable");
 #endif
     /* Without a flip the transfer leaves line 0 of the frame at the top of
@@ -265,6 +292,26 @@ static void BattleShadows(void)
 }
 #endif
 
+#if CTR_VOXEL_ENABLED
+/* The banner's rows, out from the UI layer's edges to the screen's: each
+ * row's edge pixel, drawn over the margins at the layer's scale. */
+static void BannerEdges(void)
+{
+    for (unsigned y = 0; y < CTR_SOFT_HEIGHT; ++y)
+    {
+        for (unsigned side = 0; side < 2; ++side)
+        {
+            uint16_t c = sUi[y * CTR_SOFT_WIDTH + (side ? CTR_SOFT_WIDTH - 1 : 0)];
+
+            if (!(c & 0x8000))
+                continue;
+            C2D_DrawRectSolid(side ? (float)(OUT_X + OUT_WIDTH) : 0.0f, y * 1.5f, 0.5f, (float)OUT_X, 1.5f,
+                              C2D_Color32((c & 31) << 3, ((c >> 5) & 31) << 3, ((c >> 10) & 31) << 3, 255));
+        }
+    }
+}
+#endif
+
 static void GpuPresent(void)
 {
     uint64_t start = svcGetSystemTick(), drawStart, beginTick;
@@ -276,7 +323,9 @@ static void GpuPresent(void)
     /* The field with the 3D world on: the game's side asked for the UI layer.
      * In a battle the same, the world framed by the battle's camera
      * (ctr_voxel.c), the scenery the game would have drawn left out of it. */
-    if (sVoxelReady && sUi != NULL && sBattle.on && CtrVoxel_IsAvailableForBattle())
+    if (sHold)
+        voxel = false;
+    else if (sVoxelReady && sUi != NULL && sBattle.on && CtrVoxel_IsAvailableForBattle())
     {
         if (!CtrVoxel_InBattle())
             CtrVoxel_BeginBattle();
@@ -286,7 +335,18 @@ static void GpuPresent(void)
     else
         voxel = sVoxelReady && sUi != NULL && CtrVoxel_IsAvailable();
 #endif
-    if (sFrame && !voxel)
+    /* Held on the 3D world's last clean frame, or on the picture given. */
+    bool held = sHold && sHoldValid;
+
+    if (held)
+    {
+        const uint16_t *ui = sUi;
+
+        sUi = sHoldUi;
+        GpuUploadUi();
+        sUi = ui;
+    }
+    else if (sFrame && !voxel)
         GpuUpload();
     if (voxel)
         GpuUploadUi();
@@ -305,6 +365,16 @@ static void GpuPresent(void)
         if (sFrame)
             GpuUpload();
     }
+    /* The surface still holds the last frame's world: kept if that was the
+     * last clean one, before this frame draws over it. Queued inside the
+     * frame, the copy runs ahead of the clear below. */
+    if (sSurfaceClean && sHoldReady && !(voxel && sClean))
+    {
+        C3D_SyncTextureCopy((u32 *)sSurface.data, 0, (u32 *)sHoldTex.data, 0, sSurface.size, 8);
+        memcpy(sHoldUi, sLastUi, sizeof(sHoldUi));
+        sHoldValid = true;
+    }
+    sSurfaceClean = false;
 #endif
     C2D_TargetClear(sTop, C2D_Color32(0, 0, 0, 255));
 #if CTR_VOXEL_ENABLED
@@ -314,6 +384,11 @@ static void GpuPresent(void)
 
         C2D_TargetClear(sLogical, C2D_Color32(0, 0, 0, 255));
         CtrVoxel_Draw(sLogical, 0.0f);
+        if (sClean)
+        {
+            sSurfaceClean = true;
+            memcpy(sLastUi, sUi, sizeof(sLastUi));
+        }
         /* The world leaves its own shader and state bound, and indoors a
          * blend and fragment mode under which the UI's see-through pixels
          * came out black: back to plain alpha blending. */
@@ -329,13 +404,26 @@ static void GpuPresent(void)
             BattleShadows();
 #ifndef CTR_NO_UI_OVERLAY
         C2D_DrawImageAt(ui, (float)OUT_X, 0.0f, 0.5f, NULL, 1.5f, 1.5f);
+        if (sBanner)
+            BannerEdges();
 #else
         (void)ui;
 #endif
     }
+    else if (held)
+    {
+        C2D_Image world = { &sHoldTex, &sLogicalSub };
+
+        C2D_SceneBegin(sTop);
+        C2D_DrawImageAt(world, 0.0f, 0.0f, 0.4f, NULL, 1.0f, 1.0f);
+        C2D_DrawImageAt(ui, (float)OUT_X, 0.0f, 0.5f, NULL, 1.5f, 1.5f);
+    }
     else
 #endif
     {
+        /* A clean 2D picture: the hold is the game side's copy of it now. */
+        if (sClean && !sHold)
+            sHoldValid = false;
         C2D_SceneBegin(sTop);
         C2D_DrawImageAt(image, (float)OUT_X, 0.0f, 0.5f, NULL, 1.5f, 1.5f);
     }

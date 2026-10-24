@@ -24,6 +24,8 @@
 #include "overworld.h"
 #include "battle.h"
 #include "battle_main.h"
+#include "field_effect.h"
+#include "constants/field_effects.h"
 #include "gba/flash_internal.h"
 #include "gpu_regs.h"
 #include "palette.h"
@@ -53,6 +55,8 @@ void CtrEmu_BeginVBlank(void);
 void CtrEmu_EndVBlank(void);
 /* src/platform/gba_fast_draw.c, built with RENDERER_FAST_DRAW */
 void DrawFrame(uint16_t *pixels);
+/* overworld.c: the field is on the screen, not a menu over it */
+bool8 Port_FieldShown(void);
 
 /* gIntrTableTemplate order: VCount, Serial, Timer3, HBlank, VBlank, ... */
 #define INTR_INDEX_VBLANK 4
@@ -61,6 +65,17 @@ static u32 sFrames;
 static bool sStarted;
 static uint16_t sFrame[CTR_SOFT_WIDTH * CTR_SOFT_HEIGHT];
 static uint16_t sWorld[CTR_SOFT_WIDTH * CTR_SOFT_HEIGHT];
+/*
+ * The top screen held on the world while menus run on the bottom one: from
+ * the first menu frame until the field or the battle is back. Between two
+ * menus (the party's to the summary's, to the fly map) come frames of
+ * neither, black or half built: they are not shown above, nor kept as the
+ * world. Anything else that follows a menu (an evolution) shows once it has
+ * gone on a while.
+ */
+#define TOP_HOLD_GRACE 60
+static bool sTopHeld;
+static u32 sTopHeldSince;
 #if CTR_VOXEL_ENABLED
 /* Hooks the Emerald port's voxel modules ask of the game (field_door.c and
  * sprite.c there); FireRed's 3D world starts without open doors or weather. */
@@ -82,6 +97,7 @@ static uint16_t sUi[CTR_SOFT_WIDTH * CTR_SOFT_HEIGHT];
 extern uint16_t *gPortUiPixels;
 extern uint16_t gPortUiLayers;
 extern bool8 gPortUiTrim;
+extern bool8 gPortUiObjInWindows;
 /* The battle scene's state the 3D battle needs (patch 0007). */
 bool8 CtrBattleIntro_Sliding(void);
 bool8 CtrBattleBg_MoveBgShown(void);
@@ -255,7 +271,8 @@ void CtrGame_VBlank(void)
     CRUMB(0x102);
 #if CTR_VOXEL_ENABLED
     {
-        bool voxelUi = CtrSettings_Voxel() && gMain.callback1 == CB1_Overworld && !CtrBottom_TakesGameFrame();
+        bool voxelUi = CtrSettings_Voxel() && gMain.callback1 == CB1_Overworld && !CtrBottom_TakesGameFrame()
+                    && !sTopHeld;
         /* The 3D battle: the world as the scenery, the battle's own picture
          * without it (BG3) over it - and while the scenery slides in, without
          * the entry picture either (BG1, BG2). A move's background on BG3 is
@@ -271,12 +288,18 @@ void CtrGame_VBlank(void)
                                     : (DISPCNT_BG0_ON | DISPCNT_BG1_ON | DISPCNT_BG2_ON | DISPCNT_OBJ_ON);
             gPortUiTrim = FALSE;
             gPortUiPixels = sUi;
+            gPortUiObjInWindows = FALSE;
+            CtrSoftVideo_SetBanner(false);
         }
         else
         {
             gPortUiLayers = DISPCNT_BG0_ON;
             gPortUiTrim = TRUE;
             gPortUiPixels = voxelUi ? sUi : NULL;
+            /* a field move's banner: the Pokemon in it, over the world */
+            gPortUiObjInWindows = FieldEffectActiveListContains(FLDEFF_FIELD_MOVE_SHOW_MON)
+                               || FieldEffectActiveListContains(FLDEFF_FIELD_MOVE_SHOW_MON_INIT);
+            CtrSoftVideo_SetBanner(gPortUiObjInWindows && gPortUiPixels != NULL);
         }
         /* BG3's scroll shakes the scenery when a move hits; not while it slides in */
         CtrSoftVideo_SetBattle(scenery, sliding,
@@ -293,15 +316,31 @@ void CtrGame_VBlank(void)
         /* A menu screen: its picture goes below, the world stays above. */
         CtrBottom_ShowGameFrame(sFrame);
         CtrSoftVideo_SetFrame(sWorld);
+        sTopHeld = true;
+        sTopHeldSince = sFrames;
+        CtrSoftVideo_SetClean(false);
+    }
+    else if (sTopHeld && !Port_FieldShown()
+             && !(gMain.inBattle && gMain.callback2 == BattleMainCB2)
+             && sFrames - sTopHeldSince < TOP_HOLD_GRACE)
+    {
+        /* between menus, or on the way back */
+        CtrSoftVideo_SetFrame(sWorld);
+        CtrSoftVideo_SetClean(false);
     }
     else
     {
-        CtrSoftVideo_SetFrame(sFrame);
         /* The last picture neither fading nor faded is what a menu leaves on
          * the top: a finished fade to black is no longer active, but black. */
-        if (!gPaletteFade.active && gPaletteFade.y == 0)
+        bool clean = !gPaletteFade.active && gPaletteFade.y == 0;
+
+        sTopHeld = false;
+        CtrSoftVideo_SetFrame(sFrame);
+        CtrSoftVideo_SetClean(clean);
+        if (clean)
             memcpy(sWorld, sFrame, sizeof(sWorld));
     }
+    CtrSoftVideo_HoldTop(sTopHeld);
 #ifdef CTR_FRAME_DUMP
     /* Diagnostic: the rendered frame and the registers the renderer read,
      * as they stand at frame CTR_FRAME_DUMP (tools: raw BGR555, 240x160). */
@@ -369,6 +408,7 @@ void CtrGame_VBlank(void)
 }
 
 uint32_t CtrGame_Frames(void) { return sFrames; }
+uint32_t CtrGame_Resets(void) { return sResets; }
 uint32_t CtrGame_APresses(void) { return 0; }
 uint32_t CtrGame_Checks(void) { return 0; }
 
