@@ -38,25 +38,21 @@ from pathlib import Path
 
 from .errors import BuilderError
 
-# (script, arguments, output path relative to the tree) in the order the
-# generators depend on each other.
+# (script, arguments, output path relative to the tree). No script reads
+# another's output.
 STEPS = [
-    ("gen_voxel_regions.py", [], "3ds_port/romfs/voxel/regions.bin"),
-    ("gen_voxel_sign_masks.py", [], "3ds_port/romfs/voxel/signposts.bin"),
-    ("gen_voxel_relief.py", ["--output", "3ds_port/romfs/voxel/relief.bin"], "3ds_port/romfs/voxel/relief.bin"),
-    ("gen_voxel_buildings.py", ["--output", "3ds_port/romfs/voxel/buildings.bin"],
+    ("fr_gen_relief.py", ["--output", "3ds_port/romfs/voxel/relief.bin"], "3ds_port/romfs/voxel/relief.bin"),
+    ("fr_gen_trees.py", ["--output", "3ds_port/romfs/voxel/trees.rgba5551"],
+     "3ds_port/romfs/voxel/trees.rgba5551"),
+    ("fr_export_buildings.py", ["--output", "3ds_port/romfs/voxel/buildings.bin"],
      "3ds_port/romfs/voxel/buildings.bin"),
-    # not voxel data, but made the same way: the intro's leaves scene, widened
-    ("gen_intro_margins.py", ["--output", "3ds_port/romfs/stage/leaves.bin"], "3ds_port/romfs/stage/leaves.bin"),
 ]
 
 # What each step makes, for the progress line.
 LABELS = {
-    "gen_voxel_regions.py": "map regions",
-    "gen_voxel_sign_masks.py": "signposts",
-    "gen_voxel_relief.py": "terrain relief",
-    "gen_voxel_buildings.py": "buildings",
-    "gen_intro_margins.py": "intro scene",
+    "fr_gen_relief.py": "terrain relief",
+    "fr_gen_trees.py": "trees",
+    "fr_export_buildings.py": "buildings",
 }
 
 RUNNERS = ("subprocess", "inprocess")
@@ -133,6 +129,9 @@ def run_generators(tree: Path, voxelgen: Path, expected: list[dict], progress=No
         raise BuilderError("The release is incomplete: payload/voxelgen is missing.", code="payload_incomplete")
     port = tree / "3ds_port"
     shutil.copytree(voxelgen, port, dirs_exist_ok=True)
+    # the generators find their decomp tree here (fr_art.ROOT), in a child
+    # process or in this one
+    os.environ["POKEFIRERED"] = str(tree)
     (port / "romfs" / "voxel").mkdir(parents=True, exist_ok=True)
     steps = [s for s in STEPS if (port / "scripts" / s[0]).exists()]
 

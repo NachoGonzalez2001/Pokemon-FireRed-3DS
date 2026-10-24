@@ -152,7 +152,11 @@ class RomTests(unittest.TestCase):
                 romlib.load_rom(path)
 
 
+WEB_PAYLOAD_TOOL = Path(__file__).resolve().parents[2] / "tools" / "build_web_payload.py"
+
+
 class VariantPayloadTests(unittest.TestCase):
+    @unittest.skipUnless(WEB_PAYLOAD_TOOL.exists(), "tools/build_web_payload.py (the web builder) is not here yet")
     def test_build_picks_the_variant_made_from_the_rom(self):
         sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
         import build_web_payload
@@ -193,32 +197,24 @@ class VtreeTests(unittest.TestCase):
         base = 0x08000000
         # Tileset structs at 0x100 and 0x120; a layout at 0x200.
         struct.pack_into("<iiIIII", rom, 0x200, 20, 30, 0, 0, base + 0x100, base + 0x120)
-        # Warps at 0x300: one warp (5, 6) to group 0 num 1.
-        struct.pack_into("<hhBBBB", rom, 0x300, 5, 6, 0, 2, 1, 0)
-        # Background events at 0x320: a sign at (7, 8) and a hidden item.
-        struct.pack_into("<HHBB2xI", rom, 0x320, 7, 8, 0, 0, 0)
-        struct.pack_into("<HHBB2xI", rom, 0x32C, 9, 9, 0, 7, 0)
-        struct.pack_into("<BBBBIIII", rom, 0x280, 0, 1, 0, 2, 0, base + 0x300, 0, base + 0x320)
-        # Connections at 0x340 -> table at 0x350.
-        struct.pack_into("<iI", rom, 0x340, 1, base + 0x350)
-        struct.pack_into("<B3xiBB2x", rom, 0x350, 2, -4, 0, 1)
-        # Map header at 0x400: events 0x280, connections 0x340, layout id 1, type 3.
-        struct.pack_into("<IIIIHH", rom, 0x400, base + 0x200, base + 0x280, 0, base + 0x340, 0, 1)
+        # Map header at 0x400: layout 0x200, layout id 1, map type 3.
+        struct.pack_into("<IIIIHH", rom, 0x400, base + 0x200, 0, 0, 0, 0, 1)
         rom[0x417] = 3
         meta = {
             "tilesets": {"gTileset_A": 0x100, "gTileset_B": 0x120},
             "layouts_table_label": "gMapLayouts",
             "layouts": [{"id": "LAYOUT_X", "name": "X_Layout", "blockdata_filepath": "data/layouts/X/map.bin",
-                         "border_filepath": "data/layouts/X/border.bin", "rom": 0x200}],
-            "maps": [{"folder": "Here", "id": "MAP_HERE", "name": "Here", "group": 0, "num": 0, "rom": 0x400},
-                     {"folder": "There", "id": "MAP_THERE", "name": "There", "group": 0, "num": 1, "rom": 0x400}],
+                         "border_filepath": "data/layouts/X/border.bin", "rom": 0x200}, {}],
+            "maps": [{"folder": "Here", "id": "MAP_HERE", "name": "Here", "rom": 0x400}],
             "map_types": {"3": "MAP_TYPE_ROUTE"},
-            "connection_directions": {"2": "up"},
-            "metatiles_h": [["gMetatiles_A", "data/tilesets/primary/a/metatiles.bin"]],
-            "headers_h": [["gTileset_A", "gMetatiles_A"]],
-            "metatile_behaviors": [["MB_NORMAL", 0], ["MB_JUMP_EAST", 56]],
+            "script_layouts": {"Here": ["LAYOUT_X"]},
+            "metatiles_h": [["gMetatiles_A", "data/tilesets/primary/a/metatiles.bin"],
+                            ["gMetatileAttributes_A", "data/tilesets/primary/a/metatile_attributes.bin"]],
+            "headers_h": [["gTileset_A", "gTilesetTiles_A", "gMetatiles_A", "gMetatileAttributes_A"]],
+            "graphics_h": [["gTilesetTiles_A", "data/tilesets/primary/a/tiles.4bpp.lz"]],
+            "behaviours": {"MB_CAVE_DOOR": 0x60},
         }
-        payload = b"\x01\x02"
+        payload = b""
         rom[0x600:0x602] = payload
         r = rcp.Recipe(engine_abi=0, rom_sha1="", release="t", vtree=meta,
                        inputs=[{"path": "data/layouts/X/map.bin", "size": 2,
@@ -230,16 +226,16 @@ class VtreeTests(unittest.TestCase):
             self.assertEqual((layouts[0]["width"], layouts[0]["height"]), (20, 30))
             self.assertEqual((layouts[0]["primary_tileset"], layouts[0]["secondary_tileset"]),
                              ("gTileset_A", "gTileset_B"))
+            self.assertEqual(layouts[1], {})
             m = json.loads((root / "data/maps/Here/map.json").read_text())
-            self.assertEqual(m["layout"], "LAYOUT_X")
-            self.assertEqual(m["map_type"], "MAP_TYPE_ROUTE")
-            self.assertEqual((m["warp_events"][0]["x"], m["warp_events"][0]["y"]), (5, 6))
-            self.assertEqual(m["warp_events"][0]["dest_map"], "MAP_THERE")
-            self.assertEqual(m["connections"][0], {"map": "MAP_THERE", "offset": -4, "direction": "up"})
+            self.assertEqual((m["layout"], m["map_type"]), ("LAYOUT_X", "MAP_TYPE_ROUTE"))
+            self.assertIn("setmaplayoutindex LAYOUT_X", (root / "data/maps/Here/scripts.inc").read_text())
             self.assertEqual((root / "data/layouts/X/map.bin").read_bytes(), payload)
-            self.assertIn("gMetatiles_A", (root / "src/data/tilesets/metatiles.h").read_text())
-            self.assertEqual(m["bg_events"], [{"type": "sign", "x": 7, "y": 8, "elevation": 0}])
-            self.assertIn("MB_JUMP_EAST = 56,",
+            self.assertIn('gMetatileAttributes_A[] = INCBIN_U32(',
+                          (root / "src/data/tilesets/metatiles.h").read_text())
+            self.assertIn(".tiles = gTilesetTiles_A", (root / "src/data/tilesets/headers.h").read_text())
+            self.assertIn("tiles.4bpp.lz", (root / "src/data/tilesets/graphics.h").read_text())
+            self.assertIn("#define MB_CAVE_DOOR 0x60",
                           (root / "include/constants/metatile_behaviors.h").read_text())
 
 

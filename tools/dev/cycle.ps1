@@ -1,7 +1,7 @@
 ﻿param([int]$Wait = 15, [string]$Shot = "boot", [string]$Keys = "")
 # Build the 3dsx, run it in Azahar, capture, close, and print the port log
 # tail plus the emulator's distinct errors.
-$P = 'C:\Users\ignac\OneDrive\Escritorio\pokemon voxel mod\pokefirered-3ds'
+$P = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)   # the repository, from tools/dev
 $scratch = ($PSScriptRoot -replace '\\','/')
 $boot = python "$P\tools\bootstrap.py" --dir C:\fr3ds\upstream 2>&1
 if ($LASTEXITCODE -ne 0) { $boot; "bootstrap failed: not building"; exit 1 }

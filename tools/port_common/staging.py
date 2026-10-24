@@ -47,10 +47,9 @@ ENGINE_PATTERNS = [
     "scripts/*.rel",
     "sound/*.rel",
     "gamedata/*.rel",
-    "voxel/trees.rgba5551",
-    "bottom/battle.bin",
 ]
-SUPPORTED_ROM_SHA1 = bytes.fromhex("f3ae088181bf583e55daf962a92bb46f4f1d07b7")
+# Pokemon FireRed (USA) rev 1, the ROM the release's data comes from
+SUPPORTED_ROM_SHA1 = bytes.fromhex("dd5945db9b930750cb39d00c84da8571feebf417")
 
 
 def is_engine(rel: str) -> bool:
@@ -63,8 +62,29 @@ def walk(romfs: Path):
             yield path.relative_to(romfs).as_posix(), path
 
 
+# Asset folders whose files the executable names in assets/asset_map.txt. The
+# build stages every asset the sources INCBIN, LeafGreen's included (#if'd
+# out of this game): a file the map does not name is never opened, and is
+# left out of the game data.
+ASSET_DIRS = ("graphics/", "data/", "generated/")
+
+
+def referenced_assets(romfs: Path) -> set[str] | None:
+    path = romfs / "assets" / "asset_map.txt"
+    if not path.exists():
+        return None
+    out = set()
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        parts = line.split()
+        if len(parts) >= 3 and not line.startswith("#"):
+            out.add(parts[2])
+    return out
+
+
 def data_files(romfs: Path):
-    return [(rel, path) for rel, path in walk(romfs) if not is_engine(rel)]
+    named = referenced_assets(romfs)
+    return [(rel, path) for rel, path in walk(romfs) if not is_engine(rel)
+            and (named is None or not rel.startswith(ASSET_DIRS) or rel in named)]
 
 
 def engine_files(romfs: Path):
