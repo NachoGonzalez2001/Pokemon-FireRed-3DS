@@ -136,7 +136,9 @@ build/gamedata_image.elf: $(OBJECTS) build/firered3ds_image.specs
 build/$(TARGET)_3dsx.elf: $(TARGET).elf
 	$(DEVKITARM)/bin/arm-none-eabi-objcopy --remove-section=.rel.gamedata $< $@
 
-$(TARGET).smdh: Makefile
+# The HOME Menu's icon: 48x48 (smdhtool takes no other size). icon_large.png
+# is the same picture at 256x256, kept as drawn.
+$(TARGET).smdh: Makefile assets/artwork/icon.png
 	$(DEVKITPRO)/tools/bin/smdhtool --create "$(APP_TITLE)" "$(APP_DESCRIPTION)" "$(APP_AUTHOR)" assets/artwork/icon.png $@
 
 ROMFS_DATA_OUTS := $(ROMFS_ASSET_OUTS) $(ROMFS_MAP_OUT) $(ROMFS_SCRIPT_OUTS) $(ROMFS_SOUND_OUTS) \
