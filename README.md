@@ -45,4 +45,13 @@ Lab.
 - The side slopes of roofs are drawn as vertical strips; the generator
   transposes them instead of repeating the front slope.
 
+## Acknowledgements
+
+Special thanks to **[ZallaxDev](https://github.com/ZallaxDev)**, creator of
+[Pokémon Emerald 3Ds Dual Screen](https://github.com/ZallaxDev/pokeemerald-3Ds-dualscreen).
+This project stands on that port: its 3DS platform layer, audio, bottom-screen
+design, voxel renderer and tooling are where this one started, and its
+approach to bringing a GBA Pokémon game to both screens of the 3DS made this
+port possible.
+
 See [NOTICE.md](NOTICE.md) for credits and licences.
