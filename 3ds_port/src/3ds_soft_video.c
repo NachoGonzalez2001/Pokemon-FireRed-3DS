@@ -337,6 +337,9 @@ static void GpuPresent(void)
 #endif
     /* Held on the 3D world's last clean frame, or on the picture given. */
     bool held = sHold && sHoldValid;
+    /* A new map's world still being built: black under the UI meanwhile, not
+     * the 2D picture - it flashed in for a moment as a warp faded in. */
+    bool warming = false;
 
     if (held)
     {
@@ -362,8 +365,20 @@ static void GpuPresent(void)
     if (voxel && !CtrVoxel_Update())
     {
         voxel = false;
-        if (sFrame)
+        warming = CtrVoxel_IsWarmingUp();
+        if (sFrame && !warming)
             GpuUpload();
+    }
+    {
+        static unsigned warmFrames;
+
+        if (warming)
+            ++warmFrames;
+        else if (warmFrames != 0)
+        {
+            CtrLog_Write(CTR_LOG_VIDEO, "3D world built after %u black frames", warmFrames);
+            warmFrames = 0;
+        }
     }
     /* The surface still holds the last frame's world: kept if that was the
      * last clean one, before this frame draws over it. Queued inside the
@@ -409,6 +424,11 @@ static void GpuPresent(void)
 #else
         (void)ui;
 #endif
+    }
+    else if (warming)
+    {
+        C2D_SceneBegin(sTop);
+        C2D_DrawImageAt(ui, (float)OUT_X, 0.0f, 0.5f, NULL, 1.5f, 1.5f);
     }
     else if (held)
     {
