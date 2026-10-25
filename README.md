@@ -60,6 +60,15 @@ is inside (`tools/release_audit.py`).
 | `builder/` | the player's builder: ROM to data pack |
 | `tools/` | bootstrap, patch export, release tools |
 
+## Support the project
+
+Pokémon FireRed 3DS is free and always will be. If you enjoy it and want to
+support the time that goes into it, you can make a voluntary donation through
+PayPal. Donations support development only: they do not buy the game, early
+access or anything else, and the releases never include the game.
+
+[![Donate with PayPal](https://img.shields.io/badge/Donate-PayPal-00457C?logo=paypal&logoColor=white)](https://www.paypal.com/donate/?hosted_button_id=YRCM45GNZ59XW)
+
 ## Acknowledgements
 
 Special thanks to **[ZallaxDev](https://github.com/ZallaxDev)**, creator of
