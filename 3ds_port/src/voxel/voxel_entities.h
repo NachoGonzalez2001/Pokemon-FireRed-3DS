@@ -27,7 +27,13 @@
 #define VOXEL_SPRITE_SLOT_DIM   64u
 #define VOXEL_SPRITE_COLUMNS    (VOXEL_SPRITE_ATLAS_DIM / VOXEL_SPRITE_SLOT_DIM)
 #define VOXEL_SPRITE_SLOTS      16u
-#define VOXEL_SPRITE_PIXELS     (VOXEL_SPRITE_ATLAS_DIM * VOXEL_SPRITE_ATLAS_DIM)
+/* Below the objects' slots, a cell of its own for the Pokemon that follows
+ * the player (voxel_follower.c): its sprites are larger than theirs. */
+#define VOXEL_SPRITE_ATLAS_H    512u
+#define VOXEL_FOLLOWER_CELL_X   0u
+#define VOXEL_FOLLOWER_CELL_Y   256u
+#define VOXEL_FOLLOWER_CELL_DIM 128u
+#define VOXEL_SPRITE_PIXELS     (VOXEL_SPRITE_ATLAS_DIM * VOXEL_SPRITE_ATLAS_H)
 #define VOXEL_CAST_SHADOW_VERTICES 6u
 #define VOXEL_REFLECTION_VERTICES 6u
 
@@ -41,6 +47,8 @@ void VoxelEntities_Reset(void);
  * once per step no matter how smooth its damping is.
  */
 void VoxelEntities_GetPlayerWorldPos(float *worldX, float *worldZ);
+/* The same, without the relief's shift: the tile the player stands on. */
+void VoxelEntities_GetPlayerTilePos(float *worldX, float *worldZ);
 /* First vertex of the emitted player quad, or -1 when invisible/not emitted. */
 int VoxelEntities_PlayerVertexFirst(void);
 

@@ -75,6 +75,7 @@ bool CtrScript_Stick(s16 *x, s16 *y);
 #endif
 /* settings.txt: the player walks freely (field_player_avatar.c) */
 #define FREE_MOVE_KEY "free_move"
+#define FOLLOWER_KEY "follower"
 
 /* start_menu.c's STARTMENU_* */
 enum { MENU_POKEDEX, MENU_POKEMON, MENU_BAG, MENU_PLAYER, MENU_SAVE, MENU_OPTION, MENU_COUNT };
@@ -114,6 +115,7 @@ enum { SCR_MAP, SCR_OPTIONS };
 enum {
     OPT_TEXT_SPEED, OPT_BATTLE_SCENE, OPT_BATTLE_STYLE, OPT_SOUND, OPT_BUTTON_MODE, OPT_FRAME,
     OPT_RUN, OPT_FREE_MOVE, OPT_VOXEL, OPT_VOXEL_ANGLE, OPT_VOXEL_ZOOM, OPT_VOXEL_BLUR, OPT_VOXEL_BATTLE,
+    OPT_FOLLOWER,
     OPT_COUNT
 };
 #define OPT_MAX_ROWS 16
@@ -961,6 +963,7 @@ static u8 OptionGet(int row)
     case OPT_VOXEL_ANGLE:  return CtrSettings_VoxelPitch();
     case OPT_VOXEL_ZOOM:   return CtrSettings_VoxelZoom();
     case OPT_VOXEL_BLUR:   return CtrSettings_VoxelBlur();
+    case OPT_FOLLOWER:     return CtrSettings_GetInt(FOLLOWER_KEY, 1) != 0;
     default:               return CtrSettings_VoxelBattle();
     }
 }
@@ -984,6 +987,7 @@ static void OptionSet(int row, u8 value)
     case OPT_VOXEL_ANGLE:
     case OPT_VOXEL_ZOOM:   break; /* stepped, see OptionStep */
     case OPT_VOXEL_BLUR:   CtrSettings_SetVoxelBlur(value); break;
+    case OPT_FOLLOWER:     CtrSettings_SetInt(FOLLOWER_KEY, value); break;
     default:               CtrSettings_SetVoxelBattle(value); break;
     }
 }
@@ -1020,6 +1024,7 @@ static const u8 *OptionName(int row)
     case OPT_VOXEL_ANGLE:  return Ascii("3D CAMERA ANGLE");
     case OPT_VOXEL_ZOOM:   return Ascii("3D ZOOM");
     case OPT_VOXEL_BLUR:   return Ascii("3D DEPTH BLUR");
+    case OPT_FOLLOWER:     return Ascii("3D FOLLOWER");
     default:               return Ascii("3D BATTLE");
     }
 }
@@ -1082,6 +1087,7 @@ static u8 RowKind(const OptRow *r)
         switch (r->opt)
         {
         case OPT_BATTLE_SCENE: case OPT_RUN: case OPT_FREE_MOVE: case OPT_VOXEL: case OPT_VOXEL_BLUR: case OPT_VOXEL_BATTLE:
+        case OPT_FOLLOWER:
             return ROW_TOGGLE;
         default:
             return ROW_STEP;
@@ -1936,6 +1942,13 @@ void CtrBottom_Frame(void)
 }
 
 /* field_player_avatar.c: free movement (the options screen's FREE MOVE). */
+/* The first Pokemon of the party walks behind the player in the 3D world
+ * (voxel_follower.c), on unless turned off. */
+bool8 CtrPlayer_Follower(void)
+{
+    return CtrSettings_GetInt(FOLLOWER_KEY, 1) != 0;
+}
+
 bool8 CtrPlayer_FreeMove(void)
 {
     return CtrSettings_GetInt(FREE_MOVE_KEY, 0) != 0;

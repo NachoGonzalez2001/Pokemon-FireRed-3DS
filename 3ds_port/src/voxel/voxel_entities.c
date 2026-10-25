@@ -20,6 +20,7 @@
 #include "3ds_video.h"
 #include "voxel_building.h"
 #include "voxel_entities.h"
+#include "voxel_follower.h"
 #include "voxel_grade.h"
 #include "voxel_relief.h"
 #include "voxel_room.h"
@@ -81,6 +82,7 @@ void VoxelEntities_Reset(void)
         sSlots[i].valid = false;
         sSlotEffect[i] = 0;
     }
+    VoxelFollower_Reset();
 }
 
 /* ── OAM geometry ───────────────────────────────────────────────────────── */
@@ -200,7 +202,7 @@ static bool GetObjectWorldPos(const struct ObjectEvent *obj, const struct Sprite
     return true;
 }
 
-void VoxelEntities_GetPlayerWorldPos(float *worldX, float *worldZ)
+static void PlayerWorldPos(float *worldX, float *worldZ, bool shifted)
 {
     const struct ObjectEvent *obj = &gObjectEvents[gPlayerAvatar.objectEventId];
     float x = 0.0f, z = 0.0f;
@@ -221,9 +223,20 @@ void VoxelEntities_GetPlayerWorldPos(float *worldX, float *worldZ)
         z += (float)inst->originY;
     }
     /* The camera follows the player where the relief puts it. */
-    z += VoxelRelief_ShiftAt(x + 0.5f, z + 0.5f);
+    if (shifted)
+        z += VoxelRelief_ShiftAt(x + 0.5f, z + 0.5f);
     if (worldX != NULL) *worldX = x;
     if (worldZ != NULL) *worldZ = z;
+}
+
+void VoxelEntities_GetPlayerWorldPos(float *worldX, float *worldZ)
+{
+    PlayerWorldPos(worldX, worldZ, true);
+}
+
+void VoxelEntities_GetPlayerTilePos(float *worldX, float *worldZ)
+{
+    PlayerWorldPos(worldX, worldZ, false);
 }
 
 /* ── Slot decoding ──────────────────────────────────────────────────────── */
@@ -565,8 +578,8 @@ static void EmitBillboard(VoxelBuilder *builder, const VoxelSpriteSlot *slot, un
     float u1 = (baseX + slot->width) / (float)VOXEL_SPRITE_ATLAS_DIM;
     int rows = VisibleRows(slot);
     /* Row 0 in memory is v=1, the convention the whole port uses. */
-    float v0 = 1.0f - baseY / (float)VOXEL_SPRITE_ATLAS_DIM;
-    float v1 = 1.0f - (baseY + rows) / (float)VOXEL_SPRITE_ATLAS_DIM;
+    float v0 = 1.0f - baseY / (float)VOXEL_SPRITE_ATLAS_H;
+    float v1 = 1.0f - (baseY + rows) / (float)VOXEL_SPRITE_ATLAS_H;
     float halfW = slot->width / VOXEL_PIXELS_PER_TILE * 0.5f;
     float height = rows / VOXEL_PIXELS_PER_TILE * stretch;
     /* On relief the sprite stands where its cell was lifted to, and rides
@@ -606,8 +619,8 @@ static void EmitDecal(VoxelBuilder *builder, const VoxelSpriteSlot *slot, unsign
     unsigned baseY = (index / VOXEL_SPRITE_COLUMNS) * VOXEL_SPRITE_SLOT_DIM;
     float u0 = baseX / (float)VOXEL_SPRITE_ATLAS_DIM;
     float u1 = (baseX + slot->width) / (float)VOXEL_SPRITE_ATLAS_DIM;
-    float v0 = 1.0f - baseY / (float)VOXEL_SPRITE_ATLAS_DIM;
-    float v1 = 1.0f - (baseY + slot->height) / (float)VOXEL_SPRITE_ATLAS_DIM;
+    float v0 = 1.0f - baseY / (float)VOXEL_SPRITE_ATLAS_H;
+    float v1 = 1.0f - (baseY + slot->height) / (float)VOXEL_SPRITE_ATLAS_H;
     float halfW = slot->width / VOXEL_PIXELS_PER_TILE * 0.5f;
     float halfH = slot->height / VOXEL_PIXELS_PER_TILE * 0.5f;
     float y = VoxelRelief_LiftAt(cx, cz) + VOXEL_DECAL_LIFT + lift;
@@ -706,7 +719,7 @@ static bool OpaqueTexel(const uint16_t *atlas, float *u, float *v)
                                          VOXEL_SPRITE_ATLAS_DIM)] & 1)
                 {
                     *u = (baseX + x + 0.5f) / (float)VOXEL_SPRITE_ATLAS_DIM;
-                    *v = 1.0f - (baseY + y + 0.5f) / (float)VOXEL_SPRITE_ATLAS_DIM;
+                    *v = 1.0f - (baseY + y + 0.5f) / (float)VOXEL_SPRITE_ATLAS_H;
                     return true;
                 }
     }
@@ -772,8 +785,8 @@ static void EmitCastShadow(VoxelBuilder *shadows, const VoxelSpriteSlot *slot, u
     /* The rows the card shows (VisibleRows), from the feet: they meet their
      * own shadow. */
     int rows = VisibleRows(slot);
-    float v0 = 1.0f - baseY / (float)VOXEL_SPRITE_ATLAS_DIM;
-    float v1 = 1.0f - (baseY + rows) / (float)VOXEL_SPRITE_ATLAS_DIM;
+    float v0 = 1.0f - baseY / (float)VOXEL_SPRITE_ATLAS_H;
+    float v1 = 1.0f - (baseY + rows) / (float)VOXEL_SPRITE_ATLAS_H;
     float halfW = slot->width / VOXEL_PIXELS_PER_TILE * 0.5f;
     float height = rows / VOXEL_PIXELS_PER_TILE * stretch;
     /* Off the ground by `lift` (riding), the feet's shadow falls that much
@@ -817,8 +830,8 @@ static void EmitDecalShadow(VoxelBuilder *shadows, const VoxelSpriteSlot *slot, 
     unsigned baseY = (index / VOXEL_SPRITE_COLUMNS) * VOXEL_SPRITE_SLOT_DIM;
     float u0 = baseX / (float)VOXEL_SPRITE_ATLAS_DIM;
     float u1 = (baseX + slot->width) / (float)VOXEL_SPRITE_ATLAS_DIM;
-    float v0 = 1.0f - baseY / (float)VOXEL_SPRITE_ATLAS_DIM;
-    float v1 = 1.0f - (baseY + slot->height) / (float)VOXEL_SPRITE_ATLAS_DIM;
+    float v0 = 1.0f - baseY / (float)VOXEL_SPRITE_ATLAS_H;
+    float v1 = 1.0f - (baseY + slot->height) / (float)VOXEL_SPRITE_ATLAS_H;
     float halfW = slot->width / VOXEL_PIXELS_PER_TILE * 0.5f;
     float halfH = slot->height / VOXEL_PIXELS_PER_TILE * 0.5f;
     float x = cx + VOXEL_SUN_DX * height, z0 = cz + VOXEL_SUN_DZ * height;
@@ -872,8 +885,8 @@ static void EmitReflection(VoxelBuilder *reflections, const VoxelSpriteSlot *slo
     unsigned baseY = (index / VOXEL_SPRITE_COLUMNS) * VOXEL_SPRITE_SLOT_DIM;
     float u0 = baseX / (float)VOXEL_SPRITE_ATLAS_DIM;
     float u1 = (baseX + slot->width) / (float)VOXEL_SPRITE_ATLAS_DIM;
-    float v0 = 1.0f - baseY / (float)VOXEL_SPRITE_ATLAS_DIM;
-    float v1 = 1.0f - (baseY + slot->height) / (float)VOXEL_SPRITE_ATLAS_DIM;
+    float v0 = 1.0f - baseY / (float)VOXEL_SPRITE_ATLAS_H;
+    float v1 = 1.0f - (baseY + slot->height) / (float)VOXEL_SPRITE_ATLAS_H;
     float halfW = slot->width / VOXEL_PIXELS_PER_TILE * 0.5f;
     float cardLength = slot->height / VOXEL_PIXELS_PER_TILE * stretch;
     float fullLength = cardLength;
@@ -1052,6 +1065,52 @@ static int EffectOwner(const struct Sprite *sprite, const VoxelObjectCard *objec
         }
     }
     return best;
+}
+
+/*
+ * The Pokemon following the player (voxel_follower.c): a card as an
+ * object's, its picture in the atlas's follower cell, placed by its own
+ * ground point - a Mystery Dungeon sprite's frames move about it as the
+ * creature bobs and turns.
+ */
+static void EmitFollower(VoxelBuilder *builder, const VoxelFollowerCard *f,
+                         float rightX, float rightZ, float stretch, const VoxelDoor *door)
+{
+    float cx = f->x + 0.5f, cz = f->z + 0.5f;
+    float u0 = VOXEL_FOLLOWER_CELL_X / (float)VOXEL_SPRITE_ATLAS_DIM;
+    float u1 = (VOXEL_FOLLOWER_CELL_X + f->w) / (float)VOXEL_SPRITE_ATLAS_DIM;
+    float v0 = 1.0f - VOXEL_FOLLOWER_CELL_Y / (float)VOXEL_SPRITE_ATLAS_H;
+    float v1 = 1.0f - (VOXEL_FOLLOWER_CELL_Y + f->h) / (float)VOXEL_SPRITE_ATLAS_H;
+    float halfW = f->w / VOXEL_PIXELS_PER_TILE * 0.5f;
+    float centre = (f->dx + f->w * 0.5f) / VOXEL_PIXELS_PER_TILE;
+    float height = f->h / VOXEL_PIXELS_PER_TILE * stretch;
+    float below = (f->dy + f->h - f->foot) / VOXEL_PIXELS_PER_TILE * stretch;
+    float lift = VoxelRelief_LiftAt(cx, cz), shift = VoxelRelief_ShiftAt(cx, cz);
+    float push = CardPush(cx, cz, halfW, height), model = ModelPush(cx, cz, halfW);
+    float shade = 1.0f, dusk = DoorLight(door, cx, cz);
+    float along, px, pz, bottom;
+
+    if (dusk <= 0.0f || f->w <= 0 || f->h <= 0)
+        return;
+    if (model > push)
+        push = model;
+#if CTR_VOXEL_LIGHTING
+    {
+        const VoxelMapInstance *inst = VoxelWorld_GetInstanceAt((int)floorf(cx), (int)floorf(cz));
+
+        if (inst != NULL && !inst->indoor)
+            shade = VoxelLighting_Sample(cx, 0.75f, cz);
+    }
+#endif
+    along = push > 0.0f ? push / sqrtf(rightX * rightX + rightZ * rightZ) : 0.0f;
+    px = cx + rightX * centre - rightZ * along;
+    pz = cz + rightZ * centre + shift + rightX * along;
+    bottom = lift + push - below;
+    VoxelBuilder_Quad(builder,
+        &(VoxelVertex){px - rightX * halfW, bottom,          pz - rightZ * halfW, u0, v1, shade * dusk},
+        &(VoxelVertex){px + rightX * halfW, bottom,          pz + rightZ * halfW, u1, v1, shade * dusk},
+        &(VoxelVertex){px + rightX * halfW, bottom + height, pz + rightZ * halfW, u1, v0, shade * dusk},
+        &(VoxelVertex){px - rightX * halfW, bottom + height, pz - rightZ * halfW, u0, v0, shade * dusk});
 }
 
 unsigned VoxelEntities_Emit(VoxelBuilder *builder, uint16_t *atlas, const VoxelCamera *camera,
@@ -1295,6 +1354,15 @@ unsigned VoxelEntities_Emit(VoxelBuilder *builder, uint16_t *atlas, const VoxelC
                       0.0f, card->standZ, rise, rightX, rightZ, stretch, card->shade * dusk);
         if (i == gPlayerAvatar.objectEventId && builder->count == first + 6)
             sPlayerVertexFirst = (int)first;
+    }
+    {
+        VoxelFollowerCard follower;
+
+        /* with the player, never alone: not over a new map's black while
+         * its world is built, nor where the player is not drawn */
+        if (gPlayerAvatar.objectEventId < VOXEL_SPRITE_SLOTS && objects[gPlayerAvatar.objectEventId].drawn
+         && VoxelFollower_Update(atlas, camera->yaw, &follower))
+            EmitFollower(builder, &follower, rightX, rightZ, stretch, &door);
     }
 
     for (unsigned e = 0; e < effectCount; ++e)

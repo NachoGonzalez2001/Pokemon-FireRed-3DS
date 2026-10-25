@@ -10,6 +10,7 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
 from . import __version__
+from . import followers
 from .build import Payload, build_pack, default_payload
 from .errors import BuilderError
 from .install import APP_DIR, find_sd_cards, install
@@ -126,11 +127,21 @@ class App:
             self.payload.check()
             with tempfile.TemporaryDirectory(prefix="firered3ds-") as tmp:
                 pak_path = Path(tmp) / "firered3ds.pak"
-                info = build_pack(rom, self.payload, pak_path, lambda f, m: progress(f * 0.9, m))
+                info = build_pack(rom, self.payload, pak_path, lambda f, m: progress(f * 0.8, m))
                 files = {exe.name: exe for exe in info["payload"].executables()}
                 files["firered3ds.pak"] = pak_path
+                warning = ""
+                try:
+                    followers.build(Path(tmp), progress=lambda f: progress(
+                        0.8 + 0.1 * f, "Downloading the sprites of the Pokemon that follows you"))
+                    for name in followers.OUTPUTS:
+                        files[name] = Path(tmp) / name
+                except followers.FollowerError as exc:
+                    warning = ("\n\nThe sprites of the Pokemon that follows you could not be downloaded "
+                               "(%s). The game works without it; install again with an internet "
+                               "connection to add it." % exc)
                 dest = install(sd, files, lambda f: progress(0.9 + 0.1 * f, "Copying to the SD card"))
-            self.events.put(("done", str(dest)))
+            self.events.put(("done", str(dest) + warning))
         except BuilderError as exc:
             self.events.put(("error", str(exc)))
         except Exception as exc:  # the player gets a message, never a traceback

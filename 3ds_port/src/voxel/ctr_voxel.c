@@ -1683,7 +1683,7 @@ bool CtrVoxel_Init(void)
         goto fail;
 
     step = "sprite atlas in linear memory";
-    if (!C3D_TexInit(&sSpriteAtlas, VOXEL_SPRITE_ATLAS_DIM, VOXEL_SPRITE_ATLAS_DIM, GPU_RGBA5551))
+    if (!C3D_TexInit(&sSpriteAtlas, VOXEL_SPRITE_ATLAS_DIM, VOXEL_SPRITE_ATLAS_H, GPU_RGBA5551))
         goto fail;
     C3D_TexSetFilter(&sSpriteAtlas, GPU_NEAREST, GPU_NEAREST);
     C3D_TexSetWrap(&sSpriteAtlas, GPU_CLAMP_TO_EDGE, GPU_CLAMP_TO_EDGE);

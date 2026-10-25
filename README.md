@@ -20,6 +20,8 @@ own dump of your own Pokémon FireRed cartridge.
   battle's moves and actions to touch; menus run on it while the top screen
   keeps the world.
 - **Free movement** (optional): walk any way the circle pad points.
+- **A Pokémon that follows you** in the 3D world: the first of your party
+  walks behind you, in eight directions, in Mystery Dungeon style (see below).
 - **Options**: settings, quality-of-life enhancements (game speed, exp share,
   reusable TMs, HMs without the move...) and cheats, from the bottom screen.
 
@@ -36,6 +38,15 @@ own dump of your own Pokémon FireRed cartridge.
 
 Needs a 3DS / 2DS family console with custom firmware (Luma3DS). Saves are in
 `/3ds/firered3ds/firered3ds.sav`; updating never touches them.
+
+**The Pokémon that follows you.** Its sprites come from
+[PMD SpriteCollab](https://github.com/PMDCollab/SpriteCollab), most of them Spike
+Chunsoft's own from the Pokémon Mystery Dungeon games, so this repository and
+its releases do not include them: the builder downloads them while it installs
+(it needs an internet connection for that, once) and writes `followers.bin`
+and `followers-credits.txt`, every artist credited, next to the game. Without
+them the game works the same, without its follower; it can be turned off in
+OPTIONS (3D FOLLOWER).
 
 ## Build (developers)
 
