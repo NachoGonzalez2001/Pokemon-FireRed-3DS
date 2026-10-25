@@ -758,6 +758,50 @@ def walls(room, taken):
     return out
 
 
+THICK_WALLS = {"gTileset_SilphCo"}
+WALL_TOP_BLACK = 0.2   # a wall's top: this share of the cell drawn black or more
+
+
+def black_share(room, x, y):
+    cache = room.__dict__.setdefault("_black", {})
+    m = room.m(x, y)
+    if m not in cache:
+        px = room.L.metatile_image(m).convert("RGB").getdata()
+        cache[m] = sum(1 for p in px if p == (0, 0, 0)) / 256
+    return cache[m]
+
+
+def thick_walls(room, taken):
+    """Silph Co.'s inner walls as the solid blocks they are: each column's
+    run of wall face (INNER_WALLS) with the dark cells drawn above it - the
+    wall's top, black between white edges, H pixels north of where it is,
+    as GBA walls are drawn - one piece, the face standing, the top laid on
+    it. Stood up alone, the face left the top lying on the floor behind it,
+    a black trench, and a north-south wall's long top a black strip."""
+    if not ({room.L.primary, room.L.secondary} & THICK_WALLS):
+        return []
+    faces = INNER_WALLS.get(room.L.primary, set()) | INNER_WALLS.get(room.L.secondary, set())
+    out, runs = [], []
+    for x in range(room.w):
+        y = 0
+        while y < room.h:
+            if (x, y) in taken or room.m(x, y) not in faces:
+                y += 1
+                continue
+            y0 = y
+            while y < room.h and (x, y) not in taken and room.m(x, y) in faces:
+                y += 1
+            top = y0
+            while top > 0 and (x, top - 1) not in taken and not room.void(x, top - 1)                     and room.m(x, top - 1) not in faces and black_share(room, x, top - 1) >= WALL_TOP_BLACK:
+                top -= 1
+            if top < y0:
+                runs.append(({(x, yy) for yy in range(top, y)}, x, y, 16 * (y - y0)))
+    group = set().union(*[r[0] for r in runs]) if runs else set()
+    for cells, x, ybot, h in runs:
+        out.append((cells, x, x + 1, ybot, h, group, 0, False, None, {}))
+    return out
+
+
 AUTO_BOX = 12          # an unlisted piece of furniture's front
 AUTO_CARD = 14         # an unlisted single thing standing
 
@@ -1185,6 +1229,9 @@ def build(root, place_art):
         for w in wall:
             taken |= w[0]
         pieces = [(o, "object") for o in objects] + [(w, "wall") for w in wall]
+        for pt in thick_walls(room, taken):
+            taken |= pt[0]
+            pieces.append((pt, "object"))
         for pt in partitions(room, taken, INNER_WALLS):
             taken |= pt[0]
             pieces.append((pt, "inner"))
