@@ -20,6 +20,7 @@
 #include "3ds_platform.h"
 
 static bool sThreaded, sTried;
+static uint64_t sLastTick;
 
 void __real_m4aSoundVSync(void);
 void __real_m4aSoundMain(void);
@@ -38,8 +39,38 @@ void __wrap_m4aSoundVSync(void)
         __real_m4aSoundVSync();
 }
 
+/*
+ * Engine ticks for the time since the last: one a frame at 60 Hz; a frame
+ * that took two (a map loading) gets two, at most three - with one, the DSP
+ * ran out of sound before the next and the music stretched. A longer stall
+ * is not made up: the music goes on from where it was.
+ */
+#define GBA_FRAME_MS (1000.0f / 59.7275f)
+#define MAX_TICKS 3
+
+static unsigned TicksDue(void)
+{
+    uint64_t now = CtrPlatform_Ticks();
+    unsigned due = 1;
+
+    if (sLastTick != 0)
+    {
+        float frames = CtrPlatform_TickMs(now - sLastTick) / GBA_FRAME_MS;
+
+        due = (unsigned)(frames + 0.5);
+        if (due < 1)
+            due = 1;
+        if (due > MAX_TICKS)
+            due = MAX_TICKS;
+    }
+    sLastTick = now;
+    return due;
+}
+
 void __wrap_m4aSoundMain(void)
 {
+    unsigned due;
+
     if (!CtrPlatform_SoundTick())
         return;
     PORT_PROF_BEGIN(mix);
@@ -48,13 +79,20 @@ void __wrap_m4aSoundMain(void)
         sTried = true;
         sThreaded = CtrAudio_StartWorker(MixFrame);
     }
-    if (sThreaded && !CtrAudio_Kick())
+    due = TicksDue();
+    for (unsigned i = 0; i < due; ++i)
     {
-        sThreaded = false;
-        __real_m4aSoundVSync();
+        /* each extra tick a whole frame: the last one handed over, mixed */
+        if (i > 0 && !sThreaded)
+            __real_m4aSoundVSync();
+        if (sThreaded && !CtrAudio_Kick())
+        {
+            sThreaded = false;
+            __real_m4aSoundVSync();
+        }
+        if (!sThreaded)
+            __real_m4aSoundMain();
     }
-    if (!sThreaded)
-        __real_m4aSoundMain();
     PORT_PROF_END(mix, PORT_PROF_MIX);
 }
 

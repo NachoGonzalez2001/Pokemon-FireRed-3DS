@@ -367,6 +367,8 @@ static void GpuPresent(void)
 #endif
     /* Held on the 3D world's last clean frame, or on the picture given. */
     bool held = sHold && sHoldValid;
+    /* The world being built: black under the UI, no 2D picture shown. */
+    bool warmingUp = false;
     /* A new map's world still being built: black under the UI meanwhile, not
      * the 2D picture - it flashed in for a moment as a warp faded in. */
     bool warming = false;
@@ -399,7 +401,8 @@ static void GpuPresent(void)
         voxel = false;
         /* without this frame's picture (the world was to stand in for it),
          * black under the UI as while warming up */
-        warming = CtrVoxel_IsWarmingUp() || !sFrameDrawn;
+        warmingUp = CtrVoxel_IsWarmingUp();
+        warming = warmingUp || !sFrameDrawn;
         if (sFrame && !warming)
             GpuUpload();
     }
@@ -482,7 +485,8 @@ static void GpuPresent(void)
         C2D_DrawImageAt(image, (float)OUT_X, 0.0f, 0.5f, NULL, DRAW_SCALE, DRAW_SCALE);
     }
     C3D_FrameEnd(0);
-    sDrewVoxel = voxel;
+    /* the 2D picture went unseen: the game side needs not draw the next */
+    sDrewVoxel = voxel || warmingUp;
 #if CTR_VOXEL_ENABLED
     if (voxel)
         CtrVoxel_AfterSubmit(beginTick);

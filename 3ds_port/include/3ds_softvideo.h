@@ -30,8 +30,10 @@ void CtrSoftVideo_HoldTop(bool hold);
 /* A field move's banner crosses the UI layer: its rows carried out to the
  * screen's edges, past the GBA picture's. */
 void CtrSoftVideo_SetBanner(bool banner);
-/* Whether the last present drew the 3D world (the game side then draws the
- * UI layer alone, not the picture under it), and whether this frame's
+/* Whether the last present drew the 3D world, or black while a new map's
+ * world is built (the game side then draws the UI layer alone, not the
+ * picture under it, unseen: drawn, it doubled those frames' work and the
+ * music stretched entering a building), and whether this frame's
  * picture was drawn at all: an old one is not shown in the world's place. */
 bool CtrSoftVideo_DrewVoxel(void);
 void CtrSoftVideo_SetFrameDrawn(bool drawn);
