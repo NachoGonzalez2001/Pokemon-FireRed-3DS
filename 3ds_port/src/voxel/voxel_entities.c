@@ -1187,8 +1187,10 @@ unsigned VoxelEntities_Emit(VoxelBuilder *builder, uint16_t *atlas, const VoxelC
         card->standZ = 0.0f;
         /* A thing set on furniture (the starters' Poke Balls on Oak's
          * table) is drawn on the GBA over the piece's drawing; in 3D it is
-         * put on the piece's top, not inside it. */
-        if (i != gPlayerAvatar.objectEventId)
+         * put on the piece's top, not inside it. Only a small thing: a
+         * person on a piece sits on a chair, and the GBA draws them sitting
+         * from the floor. */
+        if (i != gPlayerAvatar.objectEventId && sSlots[i].height <= 16)
         {
             int tx = (int)floorf(worldX + 0.5f), tz = (int)floorf(worldZ + 0.5f);
             const VoxelMapInstance *inst = VoxelWorld_GetInstanceAt(tx, tz);
