@@ -219,6 +219,11 @@ bool CtrPlatform_SoundTick(void)
     return sSoundTick;
 }
 
+bool CtrPlatform_FrameShown(void)
+{
+    return sSoundTick;
+}
+
 void CtrPlatform_EndFrame(void)
 {
     if (sWaiting)

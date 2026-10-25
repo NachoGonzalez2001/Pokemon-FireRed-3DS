@@ -88,6 +88,39 @@ int VoxelRoom_Ground(const VoxelMapInstance *inst, int x, int y)
     return sRoomCells[i].ground;
 }
 
+bool VoxelRoom_StandOn(const VoxelMapInstance *inst, int x, int y, float *rise, float *offZ)
+{
+    int i = RoomCell(inst, x, y);
+    int top, back;
+
+    /* walls and nothing-there; and only a piece that stops low, furniture */
+    if (i < 0 || (sRoomCells[i].flags & (ROOM_NO_GROUND | ROOM_FLAT)) || sRoomCells[i].h == 0
+     || sRoomCells[i].h + sRoomCells[i].lift > 16)
+        return false;
+    top = sRoomCells[i].h + sRoomCells[i].lift;
+    if (sRoomCells[i].flags & ROOM_MODEL)
+    {
+        /* a box: its front at its drawing's bottom, `depth` deep */
+        back = sRoomCells[i].ybot + sRoomCells[i].lift - sRoomCells[i].depth;
+        *offZ = (back + sRoomCells[i].depth * 0.5f) / 16.0f - (sRoomCells[i].y + 0.5f);
+    }
+    else
+    {
+        /* the drawn top: its rows above the front, set back by the height
+         * (EmitCell) */
+        int split = sRoomCells[i].ybot - sRoomCells[i].h, first = sRoomCells[i].y * 16;
+        int rows = split - first;
+
+        if (rows < 0)
+            rows = 0;
+        if (rows > 16)
+            rows = 16;
+        *offZ = (first + rows * 0.5f + top) / 16.0f - (sRoomCells[i].y + 0.5f);
+    }
+    *rise = top / 16.0f;
+    return true;
+}
+
 static void SideQuad(VoxelBuilder *b, float x, float y0, float y1, float za, float zb,
                      float u0, float v0, float u1, float v1, bool east)
 {

@@ -100,6 +100,8 @@ void CtrSettings_StepSpeed(int direction, bool wrap);
 /* False on a fast-forwarded frame that is not shown: the sound engine skips
  * it, so music and effects keep their own speed (3ds_sound.c). */
 bool CtrPlatform_SoundTick(void);
+/* Whether the frame now ending is presented: a hidden one is not drawn. */
+bool CtrPlatform_FrameShown(void);
 
 void CtrGame_Init(void);
 /* The game's variables back to how AgbMain first saw them, AgbMain again:

@@ -22,6 +22,7 @@
 #include "voxel_entities.h"
 #include "voxel_grade.h"
 #include "voxel_relief.h"
+#include "voxel_room.h"
 #include "voxel_world.h"
 #include "voxel_lighting.h"
 
@@ -941,6 +942,7 @@ typedef struct
     int top, base, feet;     /* top edge, bottom edge, feet (no y2) */
     const struct Sprite *sprite;
     float rise;              /* onto what it rides */
+    float standZ;            /* on a piece of furniture: onto its top */
     float shade;
     bool outdoor;            /* casts a shadow */
 } VoxelObjectCard;
@@ -1182,6 +1184,22 @@ unsigned VoxelEntities_Emit(VoxelBuilder *builder, uint16_t *atlas, const VoxelC
         card->feet = card->base - (sSlots[i].height - VisibleRows(&sSlots[i]));
         card->sprite = sprite;
         card->rise = 0.0f;
+        card->standZ = 0.0f;
+        /* A thing set on furniture (the starters' Poke Balls on Oak's
+         * table) is drawn on the GBA over the piece's drawing; in 3D it is
+         * put on the piece's top, not inside it. */
+        if (i != gPlayerAvatar.objectEventId)
+        {
+            int tx = (int)floorf(worldX + 0.5f), tz = (int)floorf(worldZ + 0.5f);
+            const VoxelMapInstance *inst = VoxelWorld_GetInstanceAt(tx, tz);
+            float rise, offZ;
+
+            if (inst != NULL && VoxelRoom_StandOn(inst, tx, tz, &rise, &offZ))
+            {
+                card->rise = rise;
+                card->standZ = offZ;
+            }
+        }
         card->shade = shade;
         card->outdoor = outdoor;
     }
@@ -1272,7 +1290,7 @@ unsigned VoxelEntities_Emit(VoxelBuilder *builder, uint16_t *atlas, const VoxelC
                            rightX, rightZ, stretch);
         unsigned first = builder->count;
         EmitBillboard(builder, &sSlots[i], i, card->worldX + 0.5f, card->worldZ + 0.5f,
-                      0.0f, 0.0f, rise, rightX, rightZ, stretch, card->shade * dusk);
+                      0.0f, card->standZ, rise, rightX, rightZ, stretch, card->shade * dusk);
         if (i == gPlayerAvatar.objectEventId && builder->count == first + 6)
             sPlayerVertexFirst = (int)first;
     }

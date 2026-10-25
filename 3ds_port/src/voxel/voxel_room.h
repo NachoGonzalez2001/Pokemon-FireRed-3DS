@@ -17,6 +17,11 @@
  * VOXEL_ROOM_NONE when no piece stands on the cell. */
 int VoxelRoom_Ground(const VoxelMapInstance *inst, int x, int y);
 
+/* Whether a thing on the cell (x, y) stands on its piece - a Poke Ball on a
+ * table - and if so where: `rise` up, `offZ` back or forward from the cell's
+ * centre, onto the middle of the piece's top. */
+bool VoxelRoom_StandOn(const VoxelMapInstance *inst, int x, int y, float *rise, float *offZ);
+
 /* The pieces of the cells in [x0,x1) x [y0,y1), in the tree texture. */
 void VoxelRoom_EmitInstance(VoxelBuilder *builder, const VoxelMapInstance *inst,
                             int x0, int y0, int x1, int y1);

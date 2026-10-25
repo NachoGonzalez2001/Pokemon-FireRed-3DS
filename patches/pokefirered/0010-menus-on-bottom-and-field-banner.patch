@@ -110,20 +110,75 @@ index f475aa3a7417b318cb7b34e1ecc94f1fb12b54cc..454808f4e69a7e732adbd39f8e4319e4
  {
      gMain.callback1 = cb;
 diff --git a/src/platform/gba_fast_draw.c b/src/platform/gba_fast_draw.c
-index 46d85b5c438d3676d7ea4083411fe7e8e3ad53ab..7959028438e2b4f04d5f4cd974390425e2cb0f53 100644
+index 46d85b5c438d3676d7ea4083411fe7e8e3ad53ab..a9b7ba0f45aac18dcf459db42c61e30ed9cb74c1 100644
 --- a/src/platform/gba_fast_draw.c
 +++ b/src/platform/gba_fast_draw.c
-@@ -2769,6 +2769,9 @@ uint16_t gPortUiLayers = DISPCNT_BG0_ON;
+@@ -2508,6 +2508,14 @@ static void inline_hack DrawNonAffineSprite(int SpriteIndex, struct scanlineData
+ }
+ 
+ // Parts of this code heavily borrowed from NanoboyAdvance.
++#ifdef PORT_BRIDGE
++// The UI layer's pass over the 3D field: only the screen's sprites, those not
++// under the map (DrawFrame).
++extern bool8 gPortOamScreen[128];
++static bool8 sScreenObjOnly;
++static u8 sScreenObjMaxPriority;
++#endif
++
+ static void DrawSprites(struct scanlineData* scanline, uint16_t vcount, bool windowsEnabled, uint8_t priority, uint16_t* pixels, bool IsInsideWinIn)
+ {
+     int SpriteIndex;
+@@ -2531,6 +2539,10 @@ static void DrawSprites(struct scanlineData* scanline, uint16_t vcount, bool win
+             continue;
+         if (oam->objMode == 2)
+             continue;
++#ifdef PORT_BRIDGE
++        if (sScreenObjOnly && (!gPortOamScreen[SpriteIndex] || oam->priority > sScreenObjMaxPriority))
++            continue;
++#endif
+         
+         if (oam->affineMode & 1 || oam->bpp & 1 || oam->mosaic == 1)
+             DrawAffineSprite(SpriteIndex, scanline, vcount, windowsEnabled, pixels, IsInsideWinIn);
+@@ -2769,6 +2781,19 @@ uint16_t gPortUiLayers = DISPCNT_BG0_ON;
  // Whether a UI layer under the map's priority is left out (the field); the
  // 3D battle asks for its layers whole (gPortUiLayers: all but the scenery).
  bool8 gPortUiTrim = TRUE;
 +// Sprites go over the world too, where a window shows them (a field move's
 +// banner, its Pokemon in it): outside the windows the world draws its own.
 +bool8 gPortUiObjInWindows = FALSE;
++// Sprites on the screen (gPortOamScreen, sprite.c: a message's picture, the
++// rain) go over the world everywhere, those not under the map's layers: the
++// field's own are drawn in 3D.
++bool8 gPortUiScreenObj = FALSE;
++// Which pictures the lines are drawn into this frame: none for a frame fast
++// forward does not show, the UI layer alone when the 3D world stands in for
++// the picture. The lines' interrupts and HBlank DMA run either way.
++#define PORT_DRAW_FRAME 1
++#define PORT_DRAW_UI 2
++u8 gPortDrawLines = PORT_DRAW_FRAME | PORT_DRAW_UI;
  #endif
  
  void DrawFrame(uint16_t *pixels)
-@@ -2820,10 +2823,18 @@ void DrawFrame(uint16_t *pixels)
+@@ -2804,10 +2829,15 @@ void DrawFrame(uint16_t *pixels)
+             }
+         }
+         
+-        memsetu16(&pixels[i*DISPLAY_WIDTH], backdropColor, DISPLAY_WIDTH);
+-        DrawScanline(&pixels[i*DISPLAY_WIDTH], i);
+ #ifdef PORT_BRIDGE
+-        if (gPortUiPixels != NULL)
++        if (gPortDrawLines & PORT_DRAW_FRAME)
++#endif
++        {
++            memsetu16(&pixels[i*DISPLAY_WIDTH], backdropColor, DISPLAY_WIDTH);
++            DrawScanline(&pixels[i*DISPLAY_WIDTH], i);
++        }
++#ifdef PORT_BRIDGE
++        if (gPortUiPixels != NULL && (gPortDrawLines & PORT_DRAW_UI))
+         {
+             uint16_t display = REG_DISPCNT, layers = gPortUiLayers;
+             unsigned mapPriority = 3;
+@@ -2820,10 +2850,25 @@ void DrawFrame(uint16_t *pixels)
              for (int bg = 0; bg < 4 && gPortUiTrim; bg++)
                  if ((layers & (DISPCNT_BG0_ON << bg)) && (*(vu16 *)(REG_ADDR_BG0CNT + bg * 2) & 3) > mapPriority)
                      layers &= ~(DISPCNT_BG0_ON << bg);
@@ -134,11 +189,84 @@ index 46d85b5c438d3676d7ea4083411fe7e8e3ad53ab..7959028438e2b4f04d5f4cd974390425
 +                layers |= DISPCNT_OBJ_ON;
 +                REG_WINOUT = winout & ~WINOUT_WIN01_OBJ;
 +            }
++            else if (gPortUiScreenObj)
++            {
++                layers |= DISPCNT_OBJ_ON;
++                sScreenObjOnly = TRUE;
++                sScreenObjMaxPriority = mapPriority;
++            }
              REG_DISPCNT = (display & ~(DISPCNT_BG_ALL_ON | DISPCNT_OBJ_ON)) | (display & layers);
              memsetu16(&gPortUiPixels[i * DISPLAY_WIDTH], 0, DISPLAY_WIDTH);
              DrawScanline(&gPortUiPixels[i * DISPLAY_WIDTH], i);
              REG_DISPCNT = display;
 +            REG_WINOUT = winout;
++            sScreenObjOnly = FALSE;
          }
  #endif
          
+diff --git a/src/sprite.c b/src/sprite.c
+index 05b92b4240055b20d81e2aba96db6a7a4e5c0da1..908b1261bc91884a2a356ec9ec55a04d07406adf 100644
+--- a/src/sprite.c
++++ b/src/sprite.c
+@@ -291,6 +291,12 @@ EWRAM_DATA struct OamMatrix gOamMatrices[OAM_MATRIX_COUNT] = {0};
+ EWRAM_DATA bool8 gAffineAnimsDisabled = 0;
+ 
+ #ifdef PORT_BRIDGE
++// Which OAM entries belong to sprites on the screen rather than in the field
++// (no camera offset: a menu's or a message's picture): the 3DS port's voxel
++// overworld draws the field's sprites in 3D and these over it. Built with the
++// buffer, taken with it into OAM.
++static bool8 sOamScreenBuffer[128];
++bool8 gPortOamScreen[128];
+ // A frame image is an INCBIN (a stub here, resolved by the port) at an offset,
+ // or a buffer in RAM (mon and trainer pics), which carries no offset.
+ static u32 FrameImageSize(const struct SpriteFrameImage *image)
+@@ -658,7 +664,13 @@ void ResetOamRange(u8 a, u8 b)
+ void LoadOam(void)
+ {
+     if (!gMain.oamLoadDisabled)
++    {
+         CpuCopy32(gMain.oamBuffer, (void *)OAM, sizeof(gMain.oamBuffer));
++#ifdef PORT_BRIDGE
++        for (u32 i = 0; i < ARRAY_COUNT(gPortOamScreen); i++)
++            gPortOamScreen[i] = sOamScreenBuffer[i];
++#endif
++    }
+ }
+ 
+ void ClearSpriteCopyRequests(void)
+@@ -1705,6 +1717,26 @@ void SetSubspriteTables(struct Sprite *sprite, const struct SubspriteTable *subs
+ 
+ bool8 AddSpriteToOamBuffer(struct Sprite *sprite, u8 *oamIndex)
+ {
++#ifdef PORT_BRIDGE
++    u8 first = *oamIndex;
++    bool8 full;
++
++    if (*oamIndex >= gOamLimit)
++        return 1;
++    if (!sprite->subspriteTables || sprite->subspriteMode == SUBSPRITES_OFF)
++    {
++        gMain.oamBuffer[*oamIndex] = sprite->oam;
++        (*oamIndex)++;
++        full = 0;
++    }
++    else
++    {
++        full = AddSubspritesToOamBuffer(sprite, &gMain.oamBuffer[*oamIndex], oamIndex);
++    }
++    for (; first < *oamIndex && first < ARRAY_COUNT(sOamScreenBuffer); first++)
++        sOamScreenBuffer[first] = !sprite->coordOffsetEnabled;
++    return full;
++#else
+     if (*oamIndex >= gOamLimit)
+         return 1;
+ 
+@@ -1718,6 +1750,7 @@ bool8 AddSpriteToOamBuffer(struct Sprite *sprite, u8 *oamIndex)
+     {
+         return AddSubspritesToOamBuffer(sprite, &gMain.oamBuffer[*oamIndex], oamIndex);
+     }
++#endif
+ }
+ 
+ bool8 AddSubspritesToOamBuffer(struct Sprite *sprite, struct OamData *destOam, u8 *oamIndex)

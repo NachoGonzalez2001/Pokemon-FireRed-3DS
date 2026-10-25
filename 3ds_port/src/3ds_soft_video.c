@@ -46,7 +46,10 @@ static const uint16_t *sUi;
 void CtrSoftVideo_SetUi(const uint16_t *pixels) { sUi = pixels; }
 static struct { bool on, sliding; float shakeX, shakeY; } sBattle;
 static bool sClean, sHold, sBanner;
+static bool sDrewVoxel, sFrameDrawn = true;
 void CtrSoftVideo_SetBanner(bool banner) { sBanner = banner; }
+bool CtrSoftVideo_DrewVoxel(void) { return sDrewVoxel; }
+void CtrSoftVideo_SetFrameDrawn(bool drawn) { sFrameDrawn = drawn; }
 void CtrSoftVideo_SetClean(bool clean) { sClean = clean; }
 void CtrSoftVideo_HoldTop(bool hold)
 {
@@ -111,7 +114,20 @@ void CtrVideo_Bind(CtrVideoMemory memory) { sMemory = memory; }
  * by 1.5 into the top screen's render target. The 3D overworld draws into the
  * same target before the frame's 2D parts go over it.
  */
-#define TEX_DIM 256
+/*
+ * The GBA picture at 1.5 is not drawn at 1.5: nearest sampling at a
+ * fractional scale makes GBA pixels alternately one and two screen pixels
+ * wide, which reads as jagged edges on text and sprites on hardware. It is
+ * uploaded at 2 - every GBA pixel an exact 2x2 block - and drawn at 0.75 with
+ * bilinear filtering: every pixel the same size, edges a pixel soft ("sharp
+ * bilinear", as the Emerald port draws its battle scene). Only the rows the
+ * picture fills are written and flushed; the rest stay the zeros of Init.
+ */
+#define TEX_DIM 512
+#define UP 2
+#define UP_W (CTR_SOFT_WIDTH * UP)    /* 480 */
+#define UP_H (CTR_SOFT_HEIGHT * UP)   /* 320 */
+#define DRAW_SCALE (1.5f / UP)
 static C3D_RenderTarget *sTop;
 static C3D_Tex sFrameTex;
 static Tex3DS_SubTexture sFrameSub;
@@ -157,12 +173,12 @@ static bool GpuInit(void)
     if (sTop == NULL || sLinear == NULL || !C3D_TexInit(&sFrameTex, TEX_DIM, TEX_DIM, GPU_RGB565))
         return false;
     memset(sLinear, 0, TEX_DIM * TEX_DIM * sizeof(uint16_t));
-    C3D_TexSetFilter(&sFrameTex, GPU_NEAREST, GPU_NEAREST);
+    C3D_TexSetFilter(&sFrameTex, GPU_LINEAR, GPU_LINEAR);
     sUiLinear = linearAlloc(TEX_DIM * TEX_DIM * sizeof(uint16_t));
     if (sUiLinear == NULL || !C3D_TexInit(&sUiTex, TEX_DIM, TEX_DIM, GPU_RGBA5551))
         return false;
     memset(sUiLinear, 0, TEX_DIM * TEX_DIM * sizeof(uint16_t));
-    C3D_TexSetFilter(&sUiTex, GPU_NEAREST, GPU_NEAREST);
+    C3D_TexSetFilter(&sUiTex, GPU_LINEAR, GPU_LINEAR);
 #if CTR_VOXEL_ENABLED
     sVoxelReady = CtrVoxel_Init();
     /* After the world's own VRAM, which wants it in one piece. */
@@ -187,42 +203,56 @@ static bool GpuInit(void)
     /* Without a flip the transfer leaves line 0 of the frame at the top of
      * the texture (v = 1). A subtexture whose top is below its bottom would
      * be taken for a rotated one, so the data is laid out to match instead. */
-    sFrameSub = (Tex3DS_SubTexture){ CTR_SOFT_WIDTH, CTR_SOFT_HEIGHT, 0.0f, 1.0f,
-                                     CTR_SOFT_WIDTH / (float)TEX_DIM, 1.0f - CTR_SOFT_HEIGHT / (float)TEX_DIM };
+    sFrameSub = (Tex3DS_SubTexture){ UP_W, UP_H, 0.0f, 1.0f,
+                                     UP_W / (float)TEX_DIM, 1.0f - UP_H / (float)TEX_DIM };
     return true;
+}
+
+/* One GBA row, every pixel twice, into two rows of the linear buffer. */
+static inline void DoubleRow(uint16_t *dst, const uint16_t *row)
+{
+    uint32_t *out = (uint32_t *)dst;
+
+    for (unsigned x = 0; x < CTR_SOFT_WIDTH; ++x)
+        out[x] = row[x] | ((uint32_t)row[x] << 16);
+    memcpy(dst + TEX_DIM, dst, UP_W * sizeof(uint16_t));
 }
 
 static void GpuUpload(void)
 {
+    uint16_t row[CTR_SOFT_WIDTH];
+
     for (unsigned y = 0; y < CTR_SOFT_HEIGHT; ++y)
     {
         const uint16_t *src = sFrame + y * CTR_SOFT_WIDTH;
-        uint16_t *dst = sLinear + y * TEX_DIM;
 
         for (unsigned x = 0; x < CTR_SOFT_WIDTH; ++x)
-            dst[x] = sLut[src[x] & 0x7FFF];
+            row[x] = sLut[src[x] & 0x7FFF];
+        DoubleRow(sLinear + y * UP * TEX_DIM, row);
     }
-    GSPGPU_FlushDataCache(sLinear, TEX_DIM * TEX_DIM * sizeof(uint16_t));
+    GSPGPU_FlushDataCache(sLinear, TEX_DIM * UP_H * sizeof(uint16_t));
     C3D_SyncDisplayTransfer((u32 *)sLinear, GX_BUFFER_DIM(TEX_DIM, TEX_DIM),
                             (u32 *)sFrameTex.data, GX_BUFFER_DIM(TEX_DIM, TEX_DIM), TILE_TRANSFER_FLAGS);
 }
 
 static void GpuUploadUi(void)
 {
+    uint16_t row[CTR_SOFT_WIDTH];
+
     for (unsigned y = 0; y < CTR_SOFT_HEIGHT; ++y)
     {
         const uint16_t *src = sUi + y * CTR_SOFT_WIDTH;
-        uint16_t *dst = sUiLinear + y * TEX_DIM;
 
         for (unsigned x = 0; x < CTR_SOFT_WIDTH; ++x)
         {
             uint16_t c = src[x];
 
-            dst[x] = (c & 0x8000) ? (uint16_t)(((c & 31) << 11) | (((c >> 5) & 31) << 6) | (((c >> 10) & 31) << 1) | 1)
+            row[x] = (c & 0x8000) ? (uint16_t)(((c & 31) << 11) | (((c >> 5) & 31) << 6) | (((c >> 10) & 31) << 1) | 1)
                                   : 0;
         }
+        DoubleRow(sUiLinear + y * UP * TEX_DIM, row);
     }
-    GSPGPU_FlushDataCache(sUiLinear, TEX_DIM * TEX_DIM * sizeof(uint16_t));
+    GSPGPU_FlushDataCache(sUiLinear, TEX_DIM * UP_H * sizeof(uint16_t));
     C3D_SyncDisplayTransfer((u32 *)sUiLinear, GX_BUFFER_DIM(TEX_DIM, TEX_DIM),
                             (u32 *)sUiTex.data, GX_BUFFER_DIM(TEX_DIM, TEX_DIM), UI_TRANSFER_FLAGS);
 }
@@ -349,9 +379,11 @@ static void GpuPresent(void)
         GpuUploadUi();
         sUi = ui;
     }
-    else if (sFrame && !voxel)
+    else if (sFrame && !voxel && sFrameDrawn)
         GpuUpload();
-    if (voxel)
+    else if (!voxel && sUi != NULL)
+        warming = true;     /* no picture this frame: black under the UI */
+    if (voxel || warming)
         GpuUploadUi();
     drawStart = svcGetSystemTick();
     /* Begin waits for the previous frame and paces to the screen's 60 Hz. */
@@ -365,7 +397,9 @@ static void GpuPresent(void)
     if (voxel && !CtrVoxel_Update())
     {
         voxel = false;
-        warming = CtrVoxel_IsWarmingUp();
+        /* without this frame's picture (the world was to stand in for it),
+         * black under the UI as while warming up */
+        warming = CtrVoxel_IsWarmingUp() || !sFrameDrawn;
         if (sFrame && !warming)
             GpuUpload();
     }
@@ -418,7 +452,7 @@ static void GpuPresent(void)
         if (sBattle.on && CtrVoxel_InBattle() && !sBattle.sliding)
             BattleShadows();
 #ifndef CTR_NO_UI_OVERLAY
-        C2D_DrawImageAt(ui, (float)OUT_X, 0.0f, 0.5f, NULL, 1.5f, 1.5f);
+        C2D_DrawImageAt(ui, (float)OUT_X, 0.0f, 0.5f, NULL, DRAW_SCALE, DRAW_SCALE);
         if (sBanner)
             BannerEdges();
 #else
@@ -428,7 +462,7 @@ static void GpuPresent(void)
     else if (warming)
     {
         C2D_SceneBegin(sTop);
-        C2D_DrawImageAt(ui, (float)OUT_X, 0.0f, 0.5f, NULL, 1.5f, 1.5f);
+        C2D_DrawImageAt(ui, (float)OUT_X, 0.0f, 0.5f, NULL, DRAW_SCALE, DRAW_SCALE);
     }
     else if (held)
     {
@@ -436,7 +470,7 @@ static void GpuPresent(void)
 
         C2D_SceneBegin(sTop);
         C2D_DrawImageAt(world, 0.0f, 0.0f, 0.4f, NULL, 1.0f, 1.0f);
-        C2D_DrawImageAt(ui, (float)OUT_X, 0.0f, 0.5f, NULL, 1.5f, 1.5f);
+        C2D_DrawImageAt(ui, (float)OUT_X, 0.0f, 0.5f, NULL, DRAW_SCALE, DRAW_SCALE);
     }
     else
 #endif
@@ -445,9 +479,10 @@ static void GpuPresent(void)
         if (sClean && !sHold)
             sHoldValid = false;
         C2D_SceneBegin(sTop);
-        C2D_DrawImageAt(image, (float)OUT_X, 0.0f, 0.5f, NULL, 1.5f, 1.5f);
+        C2D_DrawImageAt(image, (float)OUT_X, 0.0f, 0.5f, NULL, DRAW_SCALE, DRAW_SCALE);
     }
     C3D_FrameEnd(0);
+    sDrewVoxel = voxel;
 #if CTR_VOXEL_ENABLED
     if (voxel)
         CtrVoxel_AfterSubmit(beginTick);

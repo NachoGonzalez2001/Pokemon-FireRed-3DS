@@ -98,6 +98,12 @@ extern uint16_t *gPortUiPixels;
 extern uint16_t gPortUiLayers;
 extern bool8 gPortUiTrim;
 extern bool8 gPortUiObjInWindows;
+extern bool8 gPortUiScreenObj;
+#endif
+extern u8 gPortDrawLines;   /* gba_fast_draw.c */
+#define PORT_DRAW_FRAME 1
+#define PORT_DRAW_UI 2
+#if CTR_VOXEL_ENABLED
 /* The battle scene's state the 3D battle needs (patch 0007). */
 bool8 CtrBattleIntro_Sliding(void);
 bool8 CtrBattleBg_MoveBgShown(void);
@@ -289,6 +295,7 @@ void CtrGame_VBlank(void)
             gPortUiTrim = FALSE;
             gPortUiPixels = sUi;
             gPortUiObjInWindows = FALSE;
+            gPortUiScreenObj = FALSE;
             CtrSoftVideo_SetBanner(false);
         }
         else
@@ -300,6 +307,8 @@ void CtrGame_VBlank(void)
             gPortUiObjInWindows = FieldEffectActiveListContains(FLDEFF_FIELD_MOVE_SHOW_MON)
                                || FieldEffectActiveListContains(FLDEFF_FIELD_MOVE_SHOW_MON_INIT);
             CtrSoftVideo_SetBanner(gPortUiObjInWindows && gPortUiPixels != NULL);
+            /* the field's sprites are 3D; a message's picture is not */
+            gPortUiScreenObj = TRUE;
         }
         /* BG3's scroll shakes the scenery when a move hits; not while it slides in */
         CtrSoftVideo_SetBattle(scenery, sliding,
@@ -308,6 +317,20 @@ void CtrGame_VBlank(void)
         CtrSoftVideo_SetUi(gPortUiPixels);
     }
 #endif
+    /*
+     * Only what will be seen is drawn - on an N3DS the lines were most of a
+     * frame's work. A frame fast-forward hides, none of it; under the 3D
+     * world, its UI layer alone: the picture is drawn when the world was not
+     * (it stands in until a new map's world is built).
+     */
+    if (!CtrPlatform_FrameShown())
+        gPortDrawLines = 0;
+#if CTR_VOXEL_ENABLED
+    else if (gPortUiPixels != NULL && CtrSoftVideo_DrewVoxel() && !CtrBottom_TakesGameFrame())
+        gPortDrawLines = PORT_DRAW_UI;
+#endif
+    else
+        gPortDrawLines = PORT_DRAW_FRAME | PORT_DRAW_UI;
     DrawFrame(sFrame);
     CRUMB(0x103);
     PORT_PROF_END(lines, PORT_PROF_LINES);
@@ -316,6 +339,7 @@ void CtrGame_VBlank(void)
         /* A menu screen: its picture goes below, the world stays above. */
         CtrBottom_ShowGameFrame(sFrame);
         CtrSoftVideo_SetFrame(sWorld);
+        CtrSoftVideo_SetFrameDrawn(true);
         sTopHeld = true;
         sTopHeldSince = sFrames;
         CtrSoftVideo_SetClean(false);
@@ -326,6 +350,7 @@ void CtrGame_VBlank(void)
     {
         /* between menus, or on the way back */
         CtrSoftVideo_SetFrame(sWorld);
+        CtrSoftVideo_SetFrameDrawn(true);
         CtrSoftVideo_SetClean(false);
     }
     else
@@ -336,8 +361,9 @@ void CtrGame_VBlank(void)
 
         sTopHeld = false;
         CtrSoftVideo_SetFrame(sFrame);
+        CtrSoftVideo_SetFrameDrawn(gPortDrawLines & PORT_DRAW_FRAME);
         CtrSoftVideo_SetClean(clean);
-        if (clean)
+        if (clean && (gPortDrawLines & PORT_DRAW_FRAME))
             memcpy(sWorld, sFrame, sizeof(sWorld));
     }
     CtrSoftVideo_HoldTop(sTopHeld);
@@ -725,10 +751,40 @@ static void DebugBattle(void)
 }
 #endif
 
+#ifdef CTR_DEBUG_MONPIC
+#include "quest_log.h"
+#include "script_menu.h"
+#include "constants/species.h"
+/* Diagnostic: once the field has stood still a moment, a Pokemon's picture
+ * in its window, as a script's showmonpic puts it over the field. */
+static void DebugMonPic(void)
+{
+    static bool8 done;
+    static u32 idleSince;
+
+    if (done || !Port_FieldShown() || ArePlayerFieldControlsLocked() || gPaletteFade.active
+     || gQuestLogState != 0)
+    {
+        idleSince = 0;
+        return;
+    }
+    if (idleSince == 0)
+        idleSince = sFrames;
+    if (sFrames - idleSince < 240)
+        return;
+    done = TRUE;
+    CtrLog_Write(CTR_LOG_GAME, "debug monpic");
+    ScriptMenu_ShowPokemonPic(SPECIES_BULBASAUR, 10, 3);
+}
+#endif
+
 void CtrGame_WaitFrame(void)
 {
 #ifdef CTR_DEBUG_WARP
     DebugWarp();
+#endif
+#ifdef CTR_DEBUG_MONPIC
+    DebugMonPic();
 #endif
 #ifdef CTR_DEBUG_BATTLE
     DebugBattle();
