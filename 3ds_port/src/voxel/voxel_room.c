@@ -117,6 +117,7 @@ bool VoxelRoom_StandOn(const VoxelMapInstance *inst, int x, int y, float *rise, 
             rows = 16;
         *offZ = (first + rows * 0.5f + top) / 16.0f - (sRoomCells[i].y + 0.5f);
     }
+    *offZ -= sRoomCells[i].back / 16.0f;
     *rise = top / 16.0f;
     return true;
 }
@@ -140,7 +141,8 @@ static void EmitModel(VoxelBuilder *b, const VoxelMapInstance *inst, unsigned i,
                       float u0, float v0, float u1, float v1)
 {
     const float x0 = (float)(inst->originX + sRoomCells[i].x), x1 = x0 + 1.0f;
-    const float oz = (float)inst->originY;
+    /* stood `back` pixels north of where its drawing puts it */
+    const float oz = (float)inst->originY - sRoomCells[i].back / 16.0f;
     const int ly = sRoomCells[i].y, top = sRoomCells[i].top, ybot = sRoomCells[i].ybot;
     const float lift = sRoomCells[i].lift / 16.0f;
     const float h = sRoomCells[i].h / 16.0f, depth = sRoomCells[i].depth / 16.0f;
@@ -207,7 +209,7 @@ static void EmitCell(VoxelBuilder *b, const VoxelMapInstance *inst, unsigned i,
     const float x0 = (float)(inst->originX + sRoomCells[i].x), x1 = x0 + 1.0f;
     const int ly = sRoomCells[i].y, h = sRoomCells[i].h, ybot = sRoomCells[i].ybot;
     const int lift = sRoomCells[i].lift;
-    const float oz = (float)inst->originY;
+    const float oz = (float)inst->originY - sRoomCells[i].back / 16.0f;
     const int split = ybot - h;                 /* the first row of the front */
     int ps = split - ly * 16, pe = ybot - ly * 16;
 #define ROW_V(r) (v0 + (v1 - v0) * (float)(r) / 16.0f)

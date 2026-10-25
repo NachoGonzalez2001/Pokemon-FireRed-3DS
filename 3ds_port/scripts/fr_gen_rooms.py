@@ -242,6 +242,25 @@ ROOM_OBJECTS = {
     ],
     "gTileset_Lab": [
         ([[0x2AB, 0x2AC], [0x2B3, 0x2B4]], 24, {"depth": 8}),    # Oak's machine
+        # Oak's table: its top, its front and legs - drawn over the row in
+        # front of it, which is floor: stood back onto its own row
+        ([[0x2A8, 0x2A9, 0x2AA], [0x2B0, 0x2B1, 0x2B2]], 8, {"back": "blocked"}),
+        # Oak's bookshelves, the white top drawn on the floor north of them,
+        # the books, the foot drawn on the floor south: low boxes on their
+        # own row
+        ([[0x2BA, 0x28B, 0x28C, 0x28B, 0x28C], [0x073, 0x073, 0x074, 0x073, 0x074],
+          [0x287, 0x283, 0x284, 0x283, 0x284]], 19, {"back": "blocked"}),
+        ([[0x28B, 0x28C, 0x28B, 0x28C, 0x28C], [0x073, 0x074, 0x073, 0x074, 0x074],
+          [0x283, 0x284, 0x283, 0x284, 0x284]], 19, {"back": "blocked"}),
+        # against the back wall: the bookshelves, and the desk under the
+        # computers (they stay on the wall), out of it nearly to their foot -
+        # the foot is drawn at the middle of the row in front, where Red walks
+        ([[0x073, 0x074, 0x073, 0x074], [0x283, 0x284, 0x283, 0x284]], 0, {"model": (24, 10), "back": 3}),
+        ([[0x285, 0x286, 0x285, 0x286]], 8, {"depth": 6, "back": 3}),
+        # the two machines beside it, boxes out of the wall
+        ([[0x2AD, 0x2A6], [0x2B5, 0x2B6]], 0, {"model": (24, 10), "back": 3}),
+        # the corner plants
+        ([[0x293], [0x29B]], 26), ([[0x294], [0x29C]], 26),
         ([[0x29F], [0x29F]], 10), ([[0x2A8, 0x2A9, 0x2AA]], 10),
         ([[0x2FB, 0x2FC], [0x073, 0x074]], 16, {"depth": 8}),
         ([[0x073]], 16, {"depth": 8}), ([[0x074]], 16, {"depth": 8}),   # bookshelves
@@ -612,6 +631,8 @@ PLAIN_WALL = {
     "gTileset_Building": [0x020, 0x028],
     "gTileset_PokemonCenter": [0x284, 0x28C],
     "gTileset_Mart": [0x287, 0x28F],
+    # the labs' (in Building's own metatiles: without it, the houses')
+    "gTileset_Lab": [0x069, 0x071],
 }
 
 
@@ -940,7 +961,7 @@ FLAG_WEST, FLAG_EAST, FLAG_NO_GROUND, FLAG_BARE, FLAG_ATLAS = 1, 2, 4, 8, 16
 FLAG_MODEL, FLAG_FLAT, FLAG_OVERLAY = 32, 64, 128
 
 ROW_FIELDS = ("y", "x", "h", "flags", "depth", "lift", "cap", "inw", "ine", "ybot", "top",
-              "tw", "te", "sx", "sy", "ground", "ssx", "ssy", "tsx", "tsy")
+              "tw", "te", "sx", "sy", "ground", "ssx", "ssy", "tsx", "tsy", "back")
 
 
 def row(**kw):
@@ -1149,6 +1170,13 @@ def build(root, place_art):
                     top_px, ybot_px = min(opaque), max(opaque) + 1
                 else:
                     top_px = first * 16
+            # back: stood this many pixels north of where its drawing ends -
+            # "blocked", onto the south edge of its blocked cells, the floor
+            # its drawing spills over left free to walk in front of it
+            back = opt.get("back", 0)
+            if back == "blocked":
+                edge = 16 * (max((cy for (cx, cy) in cells if room.L.collision(cx, cy)), default=ybot - 1) + 1)
+                back = max(0, ybot_px - edge)
             roof = opt.get("roof", 0)
             card = not model and h >= ybot_px - top_px - 4
             ss = (0, 0)
@@ -1251,7 +1279,7 @@ def build(root, place_art):
                                 depth=mdepth if (model or y == first) else 0,
                                 lift=on[0] if on else 0, cap=cap, inw=inw, ine=ine,
                                 ybot=ybot_px, top=top_px, tw=tw, te=te, sx=sx, sy=sy,
-                                ground=ground, ssx=ss[0], ssy=ss[1], tsx=ts[0], tsy=ts[1]))
+                                ground=ground, ssx=ss[0], ssy=ss[1], tsx=ts[0], tsy=ts[1], back=back))
             # a cell drawn over whole: the floor its row's other cells found
             for k, y in unsure:
                 if known.get(y):
@@ -1301,10 +1329,11 @@ def write_table(rooms, path):
               "    unsigned short tw, te;      /* its drawing's first row at each edge */",
               "    unsigned short sx, sy, ground, ssx, ssy;   /* ss: its sides' art, 0 none */",
               "    unsigned short tsx, tsy;    /* a model's top art, 0 none */",
+              "    unsigned char back;         /* stood this many pixels north of its drawing */",
               "} sRoomCells[] = {"]
     for index, lid, rows in rooms:
         for r in rows:
-            lines.append("    { %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, 0x%03X, %d, %d, %d, %d }," % r)
+            lines.append("    { %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, 0x%03X, %d, %d, %d, %d, %d }," % r)
     lines += ["};", "", "#endif", ""]
     with open(path, "w", encoding="utf-8", newline="\n") as f:
         f.write("\n".join(lines))
