@@ -33,6 +33,8 @@ Y0 = {"yrep": 0}         # its first row repeats
 SILPH_CURB = {(123, 123, 123), (213, 213, 213), (255, 255, 255), (180, 180, 164)}
 SILPH_POND = {(98, 139, 189), (123, 164, 189)}
 ROOF_RAIL = {(57, 106, 82), (90, 205, 115), (41, 156, 98)}
+# Pewter Gym's sand and earth round its rocks, the specks of grey in the sand
+PEWTER_ROCK = {"drop": {(197, 189, 139), (164, 139, 115), (131, 106, 82)}, "speck": 4}
 
 DECK_RAIL = {(82, 82, 106), (131, 131, 213), (98, 98, 172), (148, 148, 172)}
 HARBOR_RAIL = {(82, 82, 106), (106, 205, 164), (57, 156, 115), (180, 189, 189), (148, 156, 156), (106, 115, 115)}
@@ -341,6 +343,12 @@ ROOM_OBJECTS = {
     ],
     "gTileset_PewterGym": [
         ([[0x2B2]], 16), ([[0x2DE]], 16),
+        # the rocks: low, their tops seen from above (stood up whole, as
+        # partitions, they were sheets of paper side on)
+        # (cut out by colour: the floor's own grey is the rocks', and taken
+        # for floor it hollowed them out)
+        ([[0x2A3]], 8, PEWTER_ROCK), ([[0x2A4]], 8, PEWTER_ROCK),
+        ([[0x2A2]], 8, PEWTER_ROCK), ([[0x29B]], 8, PEWTER_ROCK),
     ],
     "gTileset_CeladonGym": [
         ([[0x2B9]], 16),
@@ -356,7 +364,7 @@ ROOM_OBJECTS = {
         ([[0x29C]], 16),
     ],
     "gTileset_VermilionGym": [
-        ([[0x2B8]], 16),
+        ([[0x2B8]], 9),          # the bins: the rim their top, the can its front
         ([[0x2BA]], 16),
         ([[0x286]], 16),
     ],
@@ -451,6 +459,7 @@ INNER_WALLS = {
 }
 
 WALL_ROWS = 2
+WALL_GAP_MAX = 6        # the longest gap the collision leaves in a back wall
 # rooms whose back wall is drawn taller
 WALL_ROWS_BY = {"gTileset_PokemonLeague": 3}           # a room's back wall, from its top
 # the wall goes on past its rows while it is drawn with these (the elevators'
@@ -489,7 +498,9 @@ PARTITIONS.setdefault("gTileset_SaffronGym", set()).update({0x283, 0x284, 0x28B,
 
 PARTITIONS.setdefault("gTileset_SeaCottage", set()).update({0x099, 0x28C, 0x28E, 0x28F, 0x291, 0x292, 0x293, 0x295, 0x296, 0x297, 0x29C, 0x2A4, 0x2A5, 0x2A6, 0x2B2, 0x2B4})
 
-PARTITIONS.setdefault("gTileset_FuchsiaGym", set()).update({0x282, 0x28A})
+# Blocked cells drawn as plain floor: they stay flat (Fuchsia Gym's
+# invisible walls, in the room and along its west edge).
+FLOOR_BLOCKS = {"gTileset_FuchsiaGym": {0x282, 0x28A}}
 
 PARTITIONS.setdefault("gTileset_CinnabarGym", set()).update({0x285, 0x286, 0x287, 0x28B, 0x28C, 0x28D, 0x28E, 0x28F, 0x290, 0x294, 0x296, 0x297, 0x298, 0x299, 0x29A, 0x29B, 0x29C, 0x29F, 0x2A0, 0x2A1, 0x2A2, 0x2A3, 0x2A5, 0x2A6, 0x2A8, 0x2B0, 0x2BD, 0x2BE, 0x2CC, 0x2D3, 0x2D4, 0x2D5, 0x2D6, 0x2D7, 0x2DC, 0x2DD, 0x2DE, 0x2DF})
 
@@ -542,6 +553,58 @@ class Room:
         # the black under the room: floor, never furniture
         self.flat = {(x, y) for y in range(self.h) for x in range(self.w)
                      if y + 1 >= self.h or self.void(x, y + 1)}
+        # blocked cells the game draws as floor (Fuchsia Gym's invisible
+        # walls): they lie flat, the maze as hidden as on the GBA
+        hidden = FLOOR_BLOCKS.get(self.L.primary, set()) | FLOOR_BLOCKS.get(self.L.secondary, set())
+        self.flat |= {(x, y) for y in range(self.h) for x in range(self.w) if self.m(x, y) in hidden}
+        self._reach = None
+
+    def reachable(self, x, y):
+        """Whether the player can stand on the cell: walking from the map's
+        warps over unblocked cells. A cell of the back wall the collision
+        leaves open is wall all the same, out of reach behind the blocked
+        row below it (it left a gap in the wall). Without warps, every
+        unblocked cell counts."""
+        if self._reach is None:
+            starts = set()
+            maps = os.path.join(fr_art.ROOT, "data", "maps")
+            for name in os.listdir(maps):
+                path = os.path.join(maps, name, "map.json")
+                if os.path.exists(path):
+                    m = json.load(open(path, encoding="utf-8"))
+                    if m.get("layout") == self.L.id:
+                        starts |= {(w["x"], w["y"]) for w in m.get("warp_events", ())}
+            starts = {(sx, sy) for sx, sy in starts if 0 <= sx < self.w and 0 <= sy < self.h}
+            if not starts:
+                self._reach = {(cx, cy) for cy in range(self.h) for cx in range(self.w)
+                               if not self.L.collision(cx, cy)}
+            else:
+                seen, todo = set(starts), list(starts)
+                while todo:
+                    cx, cy = todo.pop()
+                    for nx, ny in ((cx - 1, cy), (cx + 1, cy), (cx, cy - 1), (cx, cy + 1)):
+                        if 0 <= nx < self.w and 0 <= ny < self.h and (nx, ny) not in seen                                 and not self.L.collision(nx, ny) and not self.void(nx, ny):
+                            seen.add((nx, ny))
+                            todo.append((nx, ny))
+                self._reach = seen
+        return (x, y) in self._reach
+
+    def wall_gap(self, x, y):
+        """An open cell out of reach in a short run of open cells with
+        blocked cells at both ends of it, along its row: a gap in a wall
+        (Pewter Gym's back wall), not a stretch of floor running to the edge
+        or the sea round the S.S. Anne."""
+        if self.L.collision(x, y) or self.reachable(x, y):
+            return False
+        ends = []
+        for step in (-1, 1):
+            cx = x + step
+            while 0 <= cx < self.w and not self.L.collision(cx, y) and not self.void(cx, y):
+                cx += step
+            if not (0 <= cx < self.w) or self.void(cx, y):
+                return False
+            ends.append(cx)
+        return ends[1] - ends[0] - 1 <= WALL_GAP_MAX
 
     def m(self, x, y):
         return self.L.metatile(x, y)
@@ -566,6 +629,28 @@ class Room:
             black = sum(1 for j in range(16) for i in range(16) if px[i, j] == (0, 0, 0))
             self._void[m] = black >= VOID_SHARE * 256
         return self._void[m]
+
+
+def drop_specks(art, size):
+    """Clears the specks of an art: groups of fewer than `size` drawn pixels
+    (the floor's grey dots, in a rock's own grey)."""
+    seen = set()
+    for j in range(16):
+        for i in range(16):
+            if art[j][i] is None or (i, j) in seen:
+                continue
+            group, todo = [], [(i, j)]
+            seen.add((i, j))
+            while todo:
+                ci, cj = todo.pop()
+                group.append((ci, cj))
+                for ni, nj in ((ci - 1, cj), (ci + 1, cj), (ci, cj - 1), (ci, cj + 1)):
+                    if 0 <= ni < 16 and 0 <= nj < 16 and (ni, nj) not in seen and art[nj][ni] is not None:
+                        seen.add((ni, nj))
+                        todo.append((ni, nj))
+            if len(group) < size:
+                for ci, cj in group:
+                    art[cj][ci] = None
 
 
 def expand(cells, xrep, yrep, n):
@@ -658,7 +743,7 @@ def walls(room, taken):
             plain = plain_wall(room)
             if plain and ((x, y) in taken or corner) and y - y0 < len(plain):
                 room.wall_art[(x, y)] = plain[y - y0]
-            elif (x, y) in taken or not room.L.collision(x, y) or corner:
+            elif (x, y) in taken or (not room.L.collision(x, y) and not room.wall_gap(x, y)) or corner:
                 break
             cells.append((x, y))
         more = WALL_MORE.get(room.L.secondary, set()) | WALL_MORE.get(room.L.primary, set())
@@ -1149,6 +1234,8 @@ def build(root, place_art):
                         masks[(x, y)] = [[im[i, j] + (255,) if (keep is None or im[i, j] in keep)
                                           and (drop is None or im[i, j] not in drop) else None
                                           for i in range(16)] for j in range(16)]
+                        if opt.get("speck"):
+                            drop_specks(masks[(x, y)], opt["speck"])
                 else:
                     masks = object_mask(room, cells, all_cells)
             # split: the last row's pixels from `cut` down are a thing of
