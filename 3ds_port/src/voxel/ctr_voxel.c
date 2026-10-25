@@ -29,6 +29,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "3ds_assets.h"
 #include "3ds_log.h"
@@ -4970,6 +4971,113 @@ static VoxelLight FogLight(const VoxelLight *clear, bool cave)
 }
 #endif
 
+/*
+ * Day and night (OPTIONS > DAY/NIGHT): the outdoor light by the hour of the
+ * console's clock, or of a day that passes in 24 minutes. Four lights, the
+ * day being the weather's own, blended along the hours below: night until
+ * five, dawn by half past six, day from eight to five, dusk by half past
+ * six, night from eight. Only the tints, haze and glow change - the baked
+ * shadows stay where the sun put them, so at night they all but fade.
+ * Indoors and underground the hour does not reach.
+ */
+#if CTR_VOXEL_LIGHTING
+#define DAYNIGHT_KEY "daynight"          /* 0 off, 1 the clock, 2 fast */
+#define DAYNIGHT_FAST_DAY_SECONDS 1440.0 /* a day in 24 minutes */
+
+enum { LIGHT_DAY, LIGHT_DAWN, LIGHT_DUSK, LIGHT_NIGHT };
+static const struct { float minute; int light; } sDayKeys[] = {
+    {    0.0f, LIGHT_NIGHT }, {  300.0f, LIGHT_NIGHT }, {  390.0f, LIGHT_DAWN },
+    {  480.0f, LIGHT_DAY   }, { 1020.0f, LIGHT_DAY   }, { 1110.0f, LIGHT_DUSK },
+    { 1200.0f, LIGHT_NIGHT }, { 1440.0f, LIGHT_NIGHT },
+};
+
+/* The minute of the day the light shows, or a negative with the cycle off. */
+static float DayMinute(void)
+{
+#ifdef CTR_DEBUG_DAYNIGHT_MINUTE
+    return (float)CTR_DEBUG_DAYNIGHT_MINUTE;
+#else
+    int mode = CtrSettings_GetInt(DAYNIGHT_KEY, 1);
+
+    if (mode == 2)
+        return (float)fmod(osGetTime() / 1000.0, DAYNIGHT_FAST_DAY_SECONDS) * (1440.0f / DAYNIGHT_FAST_DAY_SECONDS);
+    if (mode == 1)
+    {
+        /* the console's clock is local time: its fields as they are */
+        time_t now = time(NULL);
+        struct tm *tm = gmtime(&now);
+
+        if (tm != NULL)
+            return tm->tm_hour * 60.0f + tm->tm_min + tm->tm_sec / 60.0f;
+    }
+    return -1.0f;
+#endif
+}
+
+static VoxelLight TimeLight(const VoxelLight *day, int which)
+{
+    VoxelLight l = *day;
+
+    if (which == LIGHT_DAY)
+        return l;
+    l.dappleLow = l.dappleHigh = 1.0f;
+    if (which == LIGHT_NIGHT)
+    {
+        /* blue and dim, the shadows nearly the light's own */
+        l.sun[0] = 0.44f; l.sun[1] = 0.52f; l.sun[2] = 0.80f;
+        l.shade[0] = 0.38f; l.shade[1] = 0.46f; l.shade[2] = 0.74f;
+        l.haze = 0.34f;
+        l.hazeRgb[0] = 0.07f; l.hazeRgb[1] = 0.09f; l.hazeRgb[2] = 0.19f;
+        l.rays = 0.0f;
+        l.bloom = 0.04f;
+        l.motes = 0.0f;
+    }
+    else if (which == LIGHT_DAWN)
+    {
+        /* pink and pale, a cool shade, the dust just catching the light */
+        l.sun[0] = 1.00f; l.sun[1] = 0.86f; l.sun[2] = 0.86f;
+        l.shade[0] = 0.78f; l.shade[1] = 0.80f; l.shade[2] = 0.98f;
+        l.haze = 0.20f;
+        l.hazeRgb[0] = 0.96f; l.hazeRgb[1] = 0.82f; l.hazeRgb[2] = 0.80f;
+        l.rays = l.rays * 0.5f;
+        l.bloom = 0.10f;
+        l.motes *= 0.5f;
+    }
+    else
+    {
+        /* orange sun, violet shade */
+        l.sun[0] = 1.10f; l.sun[1] = 0.82f; l.sun[2] = 0.58f;
+        l.shade[0] = 0.66f; l.shade[1] = 0.64f; l.shade[2] = 0.90f;
+        l.haze = 0.24f;
+        l.hazeRgb[0] = 0.98f; l.hazeRgb[1] = 0.70f; l.hazeRgb[2] = 0.50f;
+        l.bloom = 0.14f;
+        l.motes *= 0.6f;
+    }
+    return l;
+}
+
+static VoxelLight DayNight(const VoxelLight *day)
+{
+    float minute = DayMinute();
+
+    if (minute < 0.0f || VoxelWorld_Underground())
+        return *day;
+    for (unsigned i = 0; i + 1 < sizeof(sDayKeys) / sizeof(sDayKeys[0]); ++i)
+    {
+        if (minute <= sDayKeys[i + 1].minute)
+        {
+            float span = sDayKeys[i + 1].minute - sDayKeys[i].minute;
+            float f = span > 0.0f ? (minute - sDayKeys[i].minute) / span : 0.0f;
+            VoxelLight a = TimeLight(day, sDayKeys[i].light), b = TimeLight(day, sDayKeys[i + 1].light);
+
+            /* eased, the light lingers at each end */
+            return LightMix(&a, &b, f * f * (3.0f - 2.0f * f));
+        }
+    }
+    return *day;
+}
+#endif
+
 static VoxelLight LightFor(bool indoor)
 {
     VoxelLight light = {{1.00f, 0.99f, 0.95f}, {0.93f, 0.97f, 1.05f}, VOXEL_HAZE_MAX,
@@ -5025,7 +5133,7 @@ static VoxelLight LightFor(bool indoor)
         default:
             break;
         }
-        return light;
+        return DayNight(&light);
     }
 #endif
     (void)indoor;
