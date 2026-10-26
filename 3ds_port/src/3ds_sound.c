@@ -80,18 +80,21 @@ void __wrap_m4aSoundMain(void)
         sThreaded = CtrAudio_StartWorker(MixFrame);
     }
     due = TicksDue();
-    for (unsigned i = 0; i < due; ++i)
+    /* the worker mixes them all from one hand-over (each a VSync and a Main) */
+    if (sThreaded && !CtrAudio_KickFrames(due))
     {
-        /* each extra tick a whole frame: the last one handed over, mixed */
-        if (i > 0 && !sThreaded)
-            __real_m4aSoundVSync();
-        if (sThreaded && !CtrAudio_Kick())
+        sThreaded = false;
+        __real_m4aSoundVSync();
+    }
+    if (!sThreaded)
+    {
+        for (unsigned i = 0; i < due; ++i)
         {
-            sThreaded = false;
-            __real_m4aSoundVSync();
-        }
-        if (!sThreaded)
+            /* each extra tick a whole frame: the last one handed over, mixed */
+            if (i > 0)
+                __real_m4aSoundVSync();
             __real_m4aSoundMain();
+        }
     }
     PORT_PROF_END(mix, PORT_PROF_MIX);
 }

@@ -1,6 +1,7 @@
 #include <3ds.h>
 #include <stdlib.h>
 #include <malloc.h>
+#include <unistd.h>
 #include <string.h>
 #include "3ds_platform.h"
 #include "3ds_data.h"
@@ -108,11 +109,19 @@ void CtrPlatform_SetHooks(const CtrPlatformHooks *hooks)
  * heap newlib allocates from, and the linear heap the GPU can address. */
 void CtrPlatform_ReportMemory(const char *stage)
 {
+    extern char *fake_heap_end;
+    extern u32 __ctru_heap_size, __ctru_linear_heap_size;
     struct mallinfo info = mallinfo();
+    char *top = sbrk(0);
 
-    CtrLog_Write(CTR_LOG_BOOT, "memory %s: heap used=%u free=%u, linear free=%lu, VRAM free=%lu",
+    /* used and free are what malloc holds; the heap's room past them is
+     * what it can still take (an Old 3DS has a third of a New 3DS's) */
+    CtrLog_Write(CTR_LOG_BOOT, "memory %s: heap used=%u free=%u room=%lu of %lu KiB, linear free=%lu of %lu KiB, "
+                 "VRAM free=%lu",
                  stage, (unsigned)info.uordblks, (unsigned)info.fordblks,
-                 (unsigned long)linearSpaceFree(), (unsigned long)vramSpaceFree());
+                 (unsigned long)((fake_heap_end - top) >> 10), (unsigned long)(__ctru_heap_size >> 10),
+                 (unsigned long)linearSpaceFree(), (unsigned long)(__ctru_linear_heap_size >> 10),
+                 (unsigned long)vramSpaceFree());
 }
 
 _Static_assert(sizeof(CtrLock) == sizeof(LightLock), "CtrLock is a LightLock");

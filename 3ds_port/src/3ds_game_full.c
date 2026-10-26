@@ -850,6 +850,7 @@ void CtrGame_WaitFrame(void)
                      (unsigned long)stats->loads, (unsigned long)stats->entries,
                      (unsigned long)(stats->bytes >> 10), (unsigned long)stats->hits,
                      (unsigned long)stats->misses, (unsigned long)stats->errors);
+        CtrPlatform_ReportMemory("now");
     }
 #ifdef CTR_DEBUG_STEPS
     /* Every step the player takes, to check movement by (local.mk). */

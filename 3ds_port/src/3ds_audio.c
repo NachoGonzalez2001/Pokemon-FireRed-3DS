@@ -271,6 +271,7 @@ static uint64_t sWaited;
 
 static RecursiveLock sSoundLock;
 static void (*sMix)(void);
+static volatile unsigned sMixCount = 1;   /* frames the next kick mixes */
 
 static void Worker(void *arg)
 {
@@ -281,7 +282,8 @@ static void Worker(void *arg)
         if (sWorkerQuit)
             break;
         RecursiveLock_Lock(&sSoundLock);
-        sMix();
+        for (unsigned n = sMixCount; n > 0; --n)
+            sMix();
         RecursiveLock_Unlock(&sSoundLock);
         LightEvent_Signal(&sIdle);
     }
@@ -291,6 +293,7 @@ bool CtrAudio_StartWorker(void (*mix)(void))
 {
     s32 priority = 0x30;
     int core = 2;
+    bool n3ds = false;
 
     if (sWorker != NULL)
         return true;
@@ -302,7 +305,10 @@ bool CtrAudio_StartWorker(void (*mix)(void))
     svcGetThreadPriority(&priority, CUR_THREAD_HANDLE);
     /* Above the game thread: it only ever waits on the mix it asked for. */
     priority = priority > 0x18 ? priority - 1 : priority;
-    sWorker = threadCreate(Worker, NULL, 32 * 1024, priority, core, false);
+    /* The third core is a New 3DS's: an Old 3DS is not asked for it (a
+     * thread on a core that is not there brought Azahar down outright). */
+    if (R_SUCCEEDED(APT_CheckNew3DS(&n3ds)) && n3ds)
+        sWorker = threadCreate(Worker, NULL, 32 * 1024, priority, core, false);
     if (sWorker == NULL && R_SUCCEEDED(APT_SetAppCpuTimeLimit(CTR_AUDIO_SYSCORE_PERCENT)))
     {
         core = 1;
@@ -319,6 +325,11 @@ bool CtrAudio_StartWorker(void (*mix)(void))
 }
 
 bool CtrAudio_Kick(void)
+{
+    return CtrAudio_KickFrames(1);
+}
+
+bool CtrAudio_KickFrames(unsigned frames)
 {
     uint64_t start = svcGetSystemTick();
 
@@ -338,6 +349,7 @@ bool CtrAudio_Kick(void)
             return false;
         }
     }
+    sMixCount = frames ? frames : 1;
     LightEvent_Clear(&sIdle);
     LightEvent_Signal(&sKick);
     return true;

@@ -46,6 +46,9 @@ bool CtrAudio_Available(void);
 bool CtrAudio_StartWorker(void (*mix)(void));
 /* False once the worker is given up (see 3ds_audio.c): mix inline from then. */
 bool CtrAudio_Kick(void);
+/* The same, for several frames mixed one after another by the worker: the
+ * game thread hands them over at once instead of waiting between them. */
+bool CtrAudio_KickFrames(unsigned frames);
 void CtrAudio_LockSound(void);
 void CtrAudio_UnlockSound(void);
 

@@ -110,10 +110,10 @@ index f475aa3a7417b318cb7b34e1ecc94f1fb12b54cc..454808f4e69a7e732adbd39f8e4319e4
  {
      gMain.callback1 = cb;
 diff --git a/src/platform/gba_fast_draw.c b/src/platform/gba_fast_draw.c
-index 46d85b5c438d3676d7ea4083411fe7e8e3ad53ab..a9b7ba0f45aac18dcf459db42c61e30ed9cb74c1 100644
+index 46d85b5c438d3676d7ea4083411fe7e8e3ad53ab..e3ab144e6239983cee0d7857b8c918ac45f44e21 100644
 --- a/src/platform/gba_fast_draw.c
 +++ b/src/platform/gba_fast_draw.c
-@@ -2508,6 +2508,14 @@ static void inline_hack DrawNonAffineSprite(int SpriteIndex, struct scanlineData
+@@ -2508,6 +2508,50 @@ static void inline_hack DrawNonAffineSprite(int SpriteIndex, struct scanlineData
  }
  
  // Parts of this code heavily borrowed from NanoboyAdvance.
@@ -125,21 +125,70 @@ index 46d85b5c438d3676d7ea4083411fe7e8e3ad53ab..a9b7ba0f45aac18dcf459db42c61e30e
 +static u8 sScreenObjMaxPriority;
 +#endif
 +
++// The frame's sprites, by priority (highest index first, the drawing
++// order), each with the lines it covers: a line looks only at those, not at
++// all 128 entries four times over - most of them the game's hidden dummies.
++// Built from OAM when a frame starts (BuildSpriteLists): the game writes OAM
++// in VBlank, never between the lines.
++static u8 sObjList[4][128];
++static u8 sObjCount[4];
++static s16 sObjTop[128], sObjBottom[128];
++
++static void BuildSpriteLists(void)
++{
++    sObjCount[0] = sObjCount[1] = sObjCount[2] = sObjCount[3] = 0;
++    for (int i = 127; i >= 0; i--)
++    {
++        struct OamData *oam = &((struct OamData *)OAM)[i];
++        int height, y;
++
++        if (oam->objMode == 2 || oam->shape == 3)
++            continue;
++        if (!(oam->affineMode & 1) && (oam->affineMode & 2))
++            continue;               // a non-affine sprite with bit 9: hidden
++        height = oam->shape == 0 ? (8 << oam->size)
++               : oam->shape == 1 ? spriteSizes[oam->size][0] : spriteSizes[oam->size][1];
++        if ((oam->affineMode & 1) && (oam->affineMode & 2))
++            height *= 2;            // an affine sprite's double size
++        y = oam->y;
++        if (y >= DISPLAY_HEIGHT)
++            y -= 256;
++        if (y + height <= 0 || y >= DISPLAY_HEIGHT)
++            continue;
++        sObjTop[i] = y;
++        sObjBottom[i] = y + height;
++        sObjList[oam->priority][sObjCount[oam->priority]++] = i;
++    }
++}
++
  static void DrawSprites(struct scanlineData* scanline, uint16_t vcount, bool windowsEnabled, uint8_t priority, uint16_t* pixels, bool IsInsideWinIn)
  {
      int SpriteIndex;
-@@ -2531,6 +2539,10 @@ static void DrawSprites(struct scanlineData* scanline, uint16_t vcount, bool win
+@@ -2523,14 +2567,18 @@ static void DrawSprites(struct scanlineData* scanline, uint16_t vcount, bool win
+         puts("2-D OBJ Character mapping not supported.");
+     }
+ 
+-    for (SpriteIndex = 127; SpriteIndex >= 0; SpriteIndex--)
++    for (int n = 0; n < sObjCount[priority]; n++)
+     {
+-        struct OamData *oam = &((struct OamData *)OAM)[SpriteIndex];
+-        
+-        if (oam->priority != priority)
++        struct OamData *oam;
++
++        SpriteIndex = sObjList[priority][n];
++        if (vcount < sObjTop[SpriteIndex] || vcount >= sObjBottom[SpriteIndex])
              continue;
-         if (oam->objMode == 2)
-             continue;
+-        if (oam->objMode == 2)
++        oam = &((struct OamData *)OAM)[SpriteIndex];
 +#ifdef PORT_BRIDGE
 +        if (sScreenObjOnly && (!gPortOamScreen[SpriteIndex] || oam->priority > sScreenObjMaxPriority))
-+            continue;
+             continue;
 +#endif
          
          if (oam->affineMode & 1 || oam->bpp & 1 || oam->mosaic == 1)
              DrawAffineSprite(SpriteIndex, scanline, vcount, windowsEnabled, pixels, IsInsideWinIn);
-@@ -2769,6 +2781,19 @@ uint16_t gPortUiLayers = DISPCNT_BG0_ON;
+@@ -2769,6 +2817,69 @@ uint16_t gPortUiLayers = DISPCNT_BG0_ON;
  // Whether a UI layer under the map's priority is left out (the field); the
  // 3D battle asks for its layers whole (gPortUiLayers: all but the scenery).
  bool8 gPortUiTrim = TRUE;
@@ -156,10 +205,77 @@ index 46d85b5c438d3676d7ea4083411fe7e8e3ad53ab..a9b7ba0f45aac18dcf459db42c61e30e
 +#define PORT_DRAW_FRAME 1
 +#define PORT_DRAW_UI 2
 +u8 gPortDrawLines = PORT_DRAW_FRAME | PORT_DRAW_UI;
++#endif
++
++#ifdef PORT_BRIDGE
++// Whether the field's UI layer has nothing to draw this frame: BG0 off,
++// under the map or all blank tiles, and no sprite going over the world. Then
++// its lines are not drawn: it is cleared once and stays clear - most of the
++// time in the field, out of a message, the pass was most of the lines' work.
++static bool8 sUiBlank;
++
++static bool8 UiHasNothing(void)
++{
++    uint16_t display = REG_DISPCNT, bgcnt = REG_BG0CNT;
++    unsigned mapPriority = 3, entries;
++    const uint16_t *map;
++    const uint32_t *chars;
++    unsigned words, last = 0xFFFF;
++
++    if (!gPortUiTrim || gPortUiLayers != DISPCNT_BG0_ON)
++        return FALSE;
++    if (gPortUiObjInWindows && (display & (DISPCNT_WIN0_ON | DISPCNT_WIN1_ON)))
++        return FALSE;
++    if (gPortUiScreenObj)
++        for (int p = 0; p < 4; p++)
++            for (int n = 0; n < sObjCount[p]; n++)
++                if (gPortOamScreen[sObjList[p][n]])
++                    return FALSE;
++    if (!(display & DISPCNT_BG0_ON))
++        return TRUE;
++    for (int bg = 1; bg < 4; bg++)
++        if ((display & (DISPCNT_BG0_ON << bg)) && (*(vu16 *)(REG_ADDR_BG0CNT + bg * 2) & 3) < mapPriority)
++            mapPriority = *(vu16 *)(REG_ADDR_BG0CNT + bg * 2) & 3;
++    if ((bgcnt & 3) > mapPriority)
++        return TRUE;
++    map = (const uint16_t *)BG_SCREEN_ADDR((bgcnt >> 8) & 0x1F);
++    chars = (const uint32_t *)BG_CHAR_ADDR((bgcnt >> 2) & 3);
++    entries = 1024u * (bgcnt >> 14 == 0 ? 1 : bgcnt >> 14 == 3 ? 4 : 2);
++    words = (bgcnt & BGCNT_256COLOR) ? 16 : 8;
++    for (unsigned e = 0; e < entries; e++)
++    {
++        unsigned tile = map[e] & 0x3FF;
++
++        if (tile == last)
++            continue;
++        for (unsigned w = 0; w < words; w++)
++            if (chars[tile * words + w] != 0)
++                return FALSE;
++        last = tile;
++    }
++    return TRUE;
++}
  #endif
  
  void DrawFrame(uint16_t *pixels)
-@@ -2804,10 +2829,15 @@ void DrawFrame(uint16_t *pixels)
+@@ -2778,6 +2889,16 @@ void DrawFrame(uint16_t *pixels)
+     
+     //memsetu16(pixels, *(uint16_t *)PLTT, DISPLAY_WIDTH * DISPLAY_HEIGHT);
+ 
++    BuildSpriteLists();
++#ifdef PORT_BRIDGE
++    {
++        bool8 blank = gPortUiPixels != NULL && (gPortDrawLines & PORT_DRAW_UI) && UiHasNothing();
++
++        if (blank && !sUiBlank)
++            memset(gPortUiPixels, 0, DISPLAY_WIDTH * DISPLAY_HEIGHT * sizeof(uint16_t));
++        sUiBlank = blank;
++    }
++#endif
+     for (i = 0; i < DISPLAY_HEIGHT; i++)
+     {
+         REG_VCOUNT = i;
+@@ -2804,10 +2925,15 @@ void DrawFrame(uint16_t *pixels)
              }
          }
          
@@ -174,11 +290,11 @@ index 46d85b5c438d3676d7ea4083411fe7e8e3ad53ab..a9b7ba0f45aac18dcf459db42c61e30e
 +            DrawScanline(&pixels[i*DISPLAY_WIDTH], i);
 +        }
 +#ifdef PORT_BRIDGE
-+        if (gPortUiPixels != NULL && (gPortDrawLines & PORT_DRAW_UI))
++        if (gPortUiPixels != NULL && (gPortDrawLines & PORT_DRAW_UI) && !sUiBlank)
          {
              uint16_t display = REG_DISPCNT, layers = gPortUiLayers;
              unsigned mapPriority = 3;
-@@ -2820,10 +2850,25 @@ void DrawFrame(uint16_t *pixels)
+@@ -2820,10 +2946,25 @@ void DrawFrame(uint16_t *pixels)
              for (int bg = 0; bg < 4 && gPortUiTrim; bg++)
                  if ((layers & (DISPCNT_BG0_ON << bg)) && (*(vu16 *)(REG_ADDR_BG0CNT + bg * 2) & 3) > mapPriority)
                      layers &= ~(DISPCNT_BG0_ON << bg);
