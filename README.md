@@ -39,6 +39,18 @@ own dump of your own Pokémon FireRed cartridge.
 Needs a 3DS / 2DS family console with custom firmware (Luma3DS). Saves are in
 `/3ds/firered3ds/firered3ds.sav`; updating never touches them.
 
+**Linux, macOS or a Chromebook (Linux).** The builder is plain Python: with
+Python 3.11+ and Pillow, use the `payload` folder from the release ZIP and the
+builder's sources from the same version:
+
+```
+git clone --branch v<version> https://github.com/NachoGonzalez2001/Pokemon-FireRed-3DS
+cd Pokemon-FireRed-3DS/builder
+python3 -m firered3ds_builder --payload /path/to/FireRed3DS-v<version>-Windows/payload     build --rom /path/to/firered.gba --output out
+```
+
+then copy `out/3ds` to the root of the SD card.
+
 **The Pokémon that follows you.** Its sprites come from
 [PMD SpriteCollab](https://github.com/PMDCollab/SpriteCollab), most of them Spike
 Chunsoft's own from the Pokémon Mystery Dungeon games, so this repository and
