@@ -128,6 +128,23 @@ void CtrVideo_Bind(CtrVideoMemory memory) { sMemory = memory; }
 #define UP_W (CTR_SOFT_WIDTH * UP)    /* 480 */
 #define UP_H (CTR_SOFT_HEIGHT * UP)   /* 320 */
 #define DRAW_SCALE (1.5f / UP)
+
+/*
+ * Across, the picture at 1.5 leaves 20 pixels of black each side of the
+ * 400-pixel screen; OPTIONS > SCREEN FIT can stretch it to the width, 1.67
+ * across and 1.5 down (the 3D world fills the width on its own). Set each
+ * present: sPicX where the picture starts, sPicScaleX its scale across.
+ */
+#define SCREEN_FIT_KEY "screen_fit"     /* 0 the GBA's proportions, 1 the width */
+static float sPicX = OUT_X, sPicScaleX = 1.5f;
+
+static void PlacePicture(void)
+{
+    bool wide = CtrSettings_GetInt(SCREEN_FIT_KEY, 1) == 1;
+
+    sPicScaleX = wide ? (float)TOP_WIDTH / CTR_SOFT_WIDTH : 1.5f;
+    sPicX = wide ? 0.0f : (float)OUT_X;
+}
 static C3D_RenderTarget *sTop;
 static C3D_Tex sFrameTex;
 static Tex3DS_SubTexture sFrameSub;
@@ -312,9 +329,9 @@ static void BattleShadows(void)
         return;
     for (unsigned i = 0; i < count; ++i)
     {
-        /* GBA pixels to the top screen: the picture at 1.5, OUT_X across */
-        float x = shadows[i].x * 1.5f + OUT_X, y = shadows[i].y * 1.5f;
-        float rx = shadows[i].rx * 1.5f, ry = shadows[i].ry * 1.5f;
+        /* GBA pixels to the top screen: where the picture is (PlacePicture) */
+        float x = shadows[i].x * sPicScaleX + sPicX, y = shadows[i].y * 1.5f;
+        float rx = shadows[i].rx * sPicScaleX, ry = shadows[i].ry * 1.5f;
 
         C2D_DrawImageAt((C2D_Image){ &sShadowTex, &whole }, x - rx, y - ry, 0.45f, NULL,
                         rx * 2.0f / BATTLE_SHADOW_W, ry * 2.0f / BATTLE_SHADOW_H);
@@ -327,6 +344,8 @@ static void BattleShadows(void)
  * row's edge pixel, drawn over the margins at the layer's scale. */
 static void BannerEdges(void)
 {
+    if (sPicX <= 0.0f)
+        return;                 /* stretched to the edges: none to fill */
     for (unsigned y = 0; y < CTR_SOFT_HEIGHT; ++y)
     {
         for (unsigned side = 0; side < 2; ++side)
@@ -345,6 +364,8 @@ static void BannerEdges(void)
 static void GpuPresent(void)
 {
     uint64_t start = svcGetSystemTick(), drawStart, beginTick;
+
+    PlacePicture();
     C2D_Image image = { &sFrameTex, &sFrameSub };
     C2D_Image ui = { &sUiTex, &sFrameSub };
     bool voxel = false;
@@ -455,7 +476,7 @@ static void GpuPresent(void)
         if (sBattle.on && CtrVoxel_InBattle() && !sBattle.sliding)
             BattleShadows();
 #ifndef CTR_NO_UI_OVERLAY
-        C2D_DrawImageAt(ui, (float)OUT_X, 0.0f, 0.5f, NULL, DRAW_SCALE, DRAW_SCALE);
+        C2D_DrawImageAt(ui, sPicX, 0.0f, 0.5f, NULL, sPicScaleX / UP, DRAW_SCALE);
         if (sBanner)
             BannerEdges();
 #else
@@ -465,7 +486,7 @@ static void GpuPresent(void)
     else if (warming)
     {
         C2D_SceneBegin(sTop);
-        C2D_DrawImageAt(ui, (float)OUT_X, 0.0f, 0.5f, NULL, DRAW_SCALE, DRAW_SCALE);
+        C2D_DrawImageAt(ui, sPicX, 0.0f, 0.5f, NULL, sPicScaleX / UP, DRAW_SCALE);
     }
     else if (held)
     {
@@ -473,7 +494,7 @@ static void GpuPresent(void)
 
         C2D_SceneBegin(sTop);
         C2D_DrawImageAt(world, 0.0f, 0.0f, 0.4f, NULL, 1.0f, 1.0f);
-        C2D_DrawImageAt(ui, (float)OUT_X, 0.0f, 0.5f, NULL, DRAW_SCALE, DRAW_SCALE);
+        C2D_DrawImageAt(ui, sPicX, 0.0f, 0.5f, NULL, sPicScaleX / UP, DRAW_SCALE);
     }
     else
 #endif
@@ -482,7 +503,7 @@ static void GpuPresent(void)
         if (sClean && !sHold)
             sHoldValid = false;
         C2D_SceneBegin(sTop);
-        C2D_DrawImageAt(image, (float)OUT_X, 0.0f, 0.5f, NULL, DRAW_SCALE, DRAW_SCALE);
+        C2D_DrawImageAt(image, sPicX, 0.0f, 0.5f, NULL, sPicScaleX / UP, DRAW_SCALE);
     }
     C3D_FrameEnd(0);
     /* the 2D picture went unseen: the game side needs not draw the next */

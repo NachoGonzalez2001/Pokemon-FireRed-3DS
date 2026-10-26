@@ -40,6 +40,9 @@ bool8 CtrPlayer_Follower(void);   /* fr_bottom_ui.c: the option */
 #define PATH_STEP 0.05f           /* tiles between the path's points */
 #define PATH_POINTS 128
 #define WARP_JUMP 3.0f            /* a move this long in a frame is a warp */
+#define HEADING_AHEAD 0.4f        /* tiles: it faces where the path goes this far on */
+#define HEADING_EASE 0.25f        /* of the way to the new heading, a frame */
+#define TURN_MARGIN 10.0f         /* degrees past a sector's edge before it turns */
 #define ANIM_HEAD 52
 #define DIRECTIONS 8
 
@@ -57,6 +60,7 @@ static int sPathCount;            /* newest last */
 static float sX, sZ, sDirX, sDirZ = 1.0f;
 static bool sPlaced;
 static float sAnimTime;
+static int sScreenDir = -1;
 static int sStill;
 static u16 sMapKey = 0xFFFF;
 
@@ -191,6 +195,7 @@ static void StartPath(float px, float pz)
     sZ = sPathZ[0];
     sDirX = fx;
     sDirZ = fz;
+    sScreenDir = -1;
     sPlaced = true;
     sStill = 1000;
 }
@@ -202,11 +207,35 @@ void VoxelFollower_Reset(void)
     sDrawnKey = -1;
 }
 
+/* The point `distance` back along the path from the player at (px, pz). */
+static void PathPoint(float px, float pz, float distance, float *x, float *z)
+{
+    float tx = px, tz = pz, left = distance;
+
+    for (int i = sPathCount - 1; i >= 0; --i)
+    {
+        float sx = sPathX[i] - tx, sz = sPathZ[i] - tz;
+        float len = sqrtf(sx * sx + sz * sz);
+
+        if (len >= left)
+        {
+            tx += sx * (left / len);
+            tz += sz * (left / len);
+            break;
+        }
+        left -= len;
+        tx = sPathX[i];
+        tz = sPathZ[i];
+    }
+    *x = tx;
+    *z = tz;
+}
+
 static void Follow(float px, float pz)
 {
     float lastX = sPathX[sPathCount - 1], lastZ = sPathZ[sPathCount - 1];
-    float dx = px - lastX, dz = pz - lastZ, left = sDistance;
-    float tx = px, tz = pz, ox = sX, oz = sZ;
+    float dx = px - lastX, dz = pz - lastZ;
+    float ox = sX, oz = sZ, ax, az;
 
     if (dx * dx + dz * dz >= PATH_STEP * PATH_STEP)
     {
@@ -220,33 +249,37 @@ static void Follow(float px, float pz)
         sPathZ[sPathCount] = pz;
         ++sPathCount;
     }
-    /* back along the path from the player, a tile of it */
-    for (int i = sPathCount - 1; i >= 0; --i)
-    {
-        float sx = sPathX[i] - tx, sz = sPathZ[i] - tz;
-        float len = sqrtf(sx * sx + sz * sz);
-
-        if (len >= left)
-        {
-            tx += sx * (left / len);
-            tz += sz * (left / len);
-            left = 0.0f;
-            break;
-        }
-        left -= len;
-        tx = sPathX[i];
-        tz = sPathZ[i];
-    }
-    sX = tx;
-    sZ = tz;
+    /* back along the path from the player, a tile of it or more */
+    PathPoint(px, pz, sDistance, &sX, &sZ);
     dx = sX - ox;
     dz = sZ - oz;
     if (dx * dx + dz * dz > 0.0004f * 0.0004f)
     {
         float step = sqrtf(dx * dx + dz * dz);
+        float hx, hz, len;
 
-        sDirX = dx / step;
-        sDirZ = dz / step;
+        /* Facing where the path goes a little further on, eased: free
+         * movement lays the path down a pixel across, a pixel along, and
+         * the frame's own step turned the sprite between a diagonal and a
+         * straight direction every few frames - it flickered. */
+        PathPoint(px, pz, sDistance > HEADING_AHEAD ? sDistance - HEADING_AHEAD : 0.0f, &ax, &az);
+        hx = ax - sX;
+        hz = az - sZ;
+        len = sqrtf(hx * hx + hz * hz);
+        if (len < 0.01f)
+        {
+            hx = dx;
+            hz = dz;
+            len = step;
+        }
+        hx = sDirX + (hx / len - sDirX) * HEADING_EASE;
+        hz = sDirZ + (hz / len - sDirZ) * HEADING_EASE;
+        len = sqrtf(hx * hx + hz * hz);
+        if (len > 0.001f)
+        {
+            sDirX = hx / len;
+            sDirZ = hz / len;
+        }
         /* a sixteenth of a tile a frame is walking pace: the walk's own speed */
         sAnimTime += step * 16.0f < 0.5f ? 0.5f : step * 16.0f > 3.0f ? 3.0f : step * 16.0f;
         if (sStill > 8)
@@ -265,12 +298,24 @@ static void Follow(float px, float pz)
  * right, 4 up, 6 left, the diagonals between. */
 static int ScreenDirection(float yawDegrees)
 {
-    float yaw = yawDegrees * (3.14159265358979323846f / 180.0f);
+    const float pi = 3.14159265358979323846f;
+    float yaw = yawDegrees * (pi / 180.0f);
     float sx = sDirX * cosf(yaw) - sDirZ * sinf(yaw);
     float sy = sDirX * sinf(yaw) + sDirZ * cosf(yaw);
-    int k = (int)lroundf(atan2f(sx, sy) / (3.14159265358979323846f / 4.0f));
+    float angle = atan2f(sx, sy) * (180.0f / pi);
+    int k = (int)lroundf(angle / 45.0f);
 
-    return ((k % DIRECTIONS) + DIRECTIONS) % DIRECTIONS;
+    k = ((k % DIRECTIONS) + DIRECTIONS) % DIRECTIONS;
+    /* the one it shows until the heading is well into another's sector */
+    if (sScreenDir >= 0 && k != sScreenDir)
+    {
+        float off = fabsf(fmodf(angle - sScreenDir * 45.0f + 540.0f, 360.0f) - 180.0f);
+
+        if (off < 22.5f + TURN_MARGIN)
+            k = sScreenDir;
+    }
+    sScreenDir = k;
+    return k;
 }
 
 static int FrameAt(const uint8_t *anim, float time)

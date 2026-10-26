@@ -77,6 +77,7 @@ bool CtrScript_Stick(s16 *x, s16 *y);
 #define FREE_MOVE_KEY "free_move"
 #define FOLLOWER_KEY "follower"
 #define DAYNIGHT_KEY "daynight"      /* ctr_voxel.c: 0 off, 1 the clock, 2 fast */
+#define SCREEN_FIT_KEY "screen_fit"  /* 3ds_soft_video.c: 0 the GBA's proportions, 1 the width */
 
 /* start_menu.c's STARTMENU_* */
 enum { MENU_POKEDEX, MENU_POKEMON, MENU_BAG, MENU_PLAYER, MENU_SAVE, MENU_OPTION, MENU_COUNT };
@@ -115,7 +116,7 @@ enum { SCR_MAP, SCR_OPTIONS };
  * the extras (3ds_extras.h). It replaces the game's option menu. */
 enum {
     OPT_TEXT_SPEED, OPT_BATTLE_SCENE, OPT_BATTLE_STYLE, OPT_SOUND, OPT_BUTTON_MODE, OPT_FRAME,
-    OPT_RUN, OPT_FREE_MOVE, OPT_VOXEL, OPT_VOXEL_ANGLE, OPT_VOXEL_ZOOM, OPT_VOXEL_BLUR, OPT_VOXEL_BATTLE,
+    OPT_SCREEN_FIT, OPT_RUN, OPT_FREE_MOVE, OPT_VOXEL, OPT_VOXEL_ANGLE, OPT_VOXEL_ZOOM, OPT_VOXEL_BLUR, OPT_VOXEL_BATTLE,
     OPT_DAYNIGHT, OPT_FOLLOWER,
     OPT_COUNT
 };
@@ -966,6 +967,7 @@ static u8 OptionGet(int row)
     case OPT_VOXEL_ZOOM:   return CtrSettings_VoxelZoom();
     case OPT_VOXEL_BLUR:   return CtrSettings_VoxelBlur();
     case OPT_FOLLOWER:     return CtrSettings_GetInt(FOLLOWER_KEY, 1) != 0;
+    case OPT_SCREEN_FIT:   return CtrSettings_GetInt(SCREEN_FIT_KEY, 1) != 0;
     case OPT_DAYNIGHT:     return (u8)CtrSettings_GetInt(DAYNIGHT_KEY, 1) % 3;
     default:               return CtrSettings_VoxelBattle();
     }
@@ -991,6 +993,7 @@ static void OptionSet(int row, u8 value)
     case OPT_VOXEL_ZOOM:   break; /* stepped, see OptionStep */
     case OPT_VOXEL_BLUR:   CtrSettings_SetVoxelBlur(value); break;
     case OPT_FOLLOWER:     CtrSettings_SetInt(FOLLOWER_KEY, value); break;
+    case OPT_SCREEN_FIT:   CtrSettings_SetInt(SCREEN_FIT_KEY, value); break;
     case OPT_DAYNIGHT:     CtrSettings_SetInt(DAYNIGHT_KEY, value); break;
     default:               CtrSettings_SetVoxelBattle(value); break;
     }
@@ -1029,6 +1032,7 @@ static const u8 *OptionName(int row)
     case OPT_VOXEL_ZOOM:   return Ascii("3D ZOOM");
     case OPT_VOXEL_BLUR:   return Ascii("3D DEPTH BLUR");
     case OPT_FOLLOWER:     return Ascii("3D FOLLOWER");
+    case OPT_SCREEN_FIT:   return Ascii("SCREEN FIT");
     case OPT_DAYNIGHT:     return Ascii("3D DAY/NIGHT");
     default:               return Ascii("3D BATTLE");
     }
@@ -1055,6 +1059,8 @@ static const u8 *OptionValue(int row, u8 value)
         return buf;
     case OPT_DAYNIGHT:
         return Ascii(value == 0 ? "OFF" : value == 1 ? "CLOCK" : "FAST");
+    case OPT_SCREEN_FIT:
+        return Ascii(value ? "STRETCH" : "ORIGINAL");
     case OPT_VOXEL_ZOOM:
         p = ConvertIntToDecimalStringN(buf, value, STR_CONV_MODE_LEFT_ALIGN, 3);
         *p++ = CHAR_PERCENT;
