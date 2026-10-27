@@ -59,6 +59,46 @@ uint64_t CtrPlatform_FrameCount(void)
 const CtrTiming *CtrPlatform_GetTiming(void) { return &sTiming; }
 void CtrPlatform_NoteBottom(float ms) { sTiming.bottomMs = ms; }
 
+/* settings.txt: the no-sound notice was shown (ShowNoSound) */
+#define NO_SOUND_SEEN_KEY "no_sound_seen"
+
+/* Before the renderer takes the top screen: said there until A, as the data
+ * pack's errors are, then the screen is given back as it was. */
+static void ShowNoSound(void)
+{
+    PrintConsole console;
+
+    consoleInit(GFX_TOP, &console);
+    consoleSelect(&console);
+    consoleClear();
+    printf("\x1b[2;2HPokemon FireRed 3DS\n\n\x1b[33m No sound\x1b[0m\n\n"
+           " This console has no dump of its DSP\n"
+           " firmware, which homebrew needs to play\n"
+           " sound.\n\n"
+           " Run DSP1 once from the Homebrew Launcher:\n"
+           " it saves sdmc:/3ds/dspfirm.cdc. Then\n"
+           " start the game again.\n\n"
+           " The game plays on without sound. This is\n"
+           " shown only once.\n\n\n"
+           " Press A to continue.");
+    while (aptMainLoop())
+    {
+        hidScanInput();
+        if (hidKeysDown() & (KEY_A | KEY_START))
+            break;
+        gfxFlushBuffers();
+        gfxSwapBuffers();
+        gspWaitForVBlank();
+    }
+    consoleClear();
+    gfxFlushBuffers();
+    gfxSwapBuffers();
+    gspWaitForVBlank();
+    /* as gfxInitDefault left it, for the renderer */
+    gfxSetScreenFormat(GFX_TOP, GSP_BGR8_OES);
+    gfxSetDoubleBuffering(GFX_TOP, true);
+}
+
 bool CtrPlatform_Init(void)
 {
     /* A New 3DS runs at 804 MHz with its L2 cache; an Old 3DS ignores this. */
@@ -85,15 +125,20 @@ bool CtrPlatform_Init(void)
     CtrSettings_Load();
     if (!CtrData_Init())
         CtrPlatform_ShowDataError(CtrData_ErrorTitle(), CtrData_ErrorDetail());
+    /* A console without dumped DSP firmware still plays; it just plays silent.
+     * CtrAudio_Init says so in the log, and once on the screen: a player
+     * would only hear nothing, and not know why. */
+    if (!CtrAudio_Init() && !CtrSettings_GetInt(NO_SOUND_SEEN_KEY, 0))
+    {
+        ShowNoSound();
+        CtrSettings_SetInt(NO_SOUND_SEEN_KEY, 1);
+    }
     if (!CtrVideo_Init())
     {
         CtrLog_Write(CTR_LOG_ERROR, "platform init: GPU video failed");
         return false;
     }
     CtrLog_SetOverlay(sOverlay);
-    /* A console without dumped DSP firmware still plays; it just plays silent.
-     * CtrAudio_Init says so in the log and the game is left running. */
-    CtrAudio_Init();
     return true;
 }
 
@@ -210,12 +255,85 @@ static unsigned sHidden;
 static uint64_t sShownTick;
 static float sPresentMs = 4.0f;
 
+/*
+ * At normal speed the game keeps the display's time. A frame that takes
+ * longer to draw than the display gives it (an Old 3DS's 2D picture, a 3D
+ * battle) used to slow the whole game down - which fast-forward put right,
+ * not drawing some frames. So a frame is run without being drawn whenever
+ * the game has fallen a frame behind the clock: at most AUTO_SKIP_MAX in a
+ * row, so the picture keeps moving. The clock runs at the screen's own
+ * refresh, a little under 60 Hz, and the game is never ahead of it (it
+ * waits for the screen): a frame ahead sets it again. A stall of more than
+ * AUTO_SKIP_STALL frames - a map loading - is let go, not made up.
+ */
+#define AUTO_SKIP_MAX 2
+#define AUTO_SKIP_STALL 8.0f
+#define LCD_FRAME_MS (1000.0f / 59.8261f)
+static uint64_t sClockTick;     /* when the game was last on time */
+static unsigned sClockFrames;   /* frames run since */
+static unsigned sSkipped;       /* frames not drawn in a row */
+
+static bool AutoSkip(uint64_t now)
+{
+    float behind;
+
+    if (sClockTick == 0)
+    {
+        sClockTick = now;
+        sClockFrames = 0;
+    }
+    ++sClockFrames;
+    behind = (float)((now - sClockTick) * 1000.0 / SYSCLOCK_ARM11) / LCD_FRAME_MS - (float)sClockFrames;
+    if (behind < 0.0f || behind > AUTO_SKIP_STALL)
+    {
+        sClockTick = now;
+        sClockFrames = 0;
+        behind = 0.0f;
+    }
+    if (behind >= 1.0f && sSkipped < AUTO_SKIP_MAX)
+    {
+        ++sSkipped;
+        return true;
+    }
+    sSkipped = 0;
+    return false;
+}
+
+/* Every PACE_FRAMES the log says how fast the game ran and how much of it
+ * was drawn: the pace a console keeps, which an emulator cannot say. */
+#define PACE_FRAMES 600
+static uint64_t sPaceTick;
+static unsigned sPaceFrames, sPaceShown;
+
+static void Pace(uint64_t now, bool shown)
+{
+    if (sPaceTick == 0)
+        sPaceTick = now;
+    ++sPaceFrames;
+    sPaceShown += shown;
+    if (sPaceFrames == PACE_FRAMES)
+    {
+        float seconds = (float)((now - sPaceTick) / (double)SYSCLOCK_ARM11);
+
+        CtrLog_Write(CTR_LOG_VIDEO, "pace: %.1f game frames a second, %.1f drawn",
+                     PACE_FRAMES / seconds, sPaceShown / seconds);
+        sPaceTick = now;
+        sPaceFrames = sPaceShown = 0;
+    }
+}
+
 static bool FrameShown(uint64_t now)
 {
     int speed = CtrSettings_Speed();
     float since = sShownTick ? (now - sShownTick) * 1000.0f / SYSCLOCK_ARM11 : FRAME_MS;
 
-    if (speed <= 1 || ++sHidden >= (unsigned)speed || since + sTiming.gameMs + sPresentMs > FRAME_MS)
+    if (speed <= 1)
+    {
+        sHidden = 0;
+        return !AutoSkip(now);
+    }
+    sClockTick = 0;
+    if (++sHidden >= (unsigned)speed || since + sTiming.gameMs + sPresentMs > FRAME_MS)
     {
         sHidden = 0;
         return true;
@@ -242,6 +360,7 @@ void CtrPlatform_EndFrame(void)
     /* This frame's game work, for FrameShown (set again below). */
     sTiming.gameMs = (endStart - sWorkStart) * 1000.0f / SYSCLOCK_ARM11;
     bool shown = FrameShown(endStart);
+    Pace(endStart, shown);
     sSoundTick = shown;
     if (sHooks.audioFrame)
         sHooks.audioFrame();

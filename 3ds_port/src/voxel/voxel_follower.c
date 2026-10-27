@@ -65,6 +65,8 @@ static int sStill;
 static u16 sMapKey = 0xFFFF;
 
 static int sDrawnKey = -1, sDrawnW, sDrawnH;
+static uint32_t sColumn[VOXEL_FOLLOWER_CELL_DIM];   /* Draw's atlas offsets */
+static bool sColumnsBuilt;
 
 static uint32_t Le32(const uint8_t *p)
 {
@@ -349,20 +351,32 @@ static void Draw(uint16_t *atlas, int anim, int dir, int frame)
     graded[0] = 0;
     for (int c = 1; c < 16; ++c)
         graded[c] = VoxelGrade_RGBA5551((uint16_t)(a[4 + 2 * c] | (a[5 + 2 * c] << 8)));
-    for (int y = 0; y < clearH && y < (int)VOXEL_FOLLOWER_CELL_DIM; ++y)
-        for (int x = 0; x < clearW && x < (int)VOXEL_FOLLOWER_CELL_DIM; ++x)
-        {
-            uint16_t texel = 0;
+    /* A texel's place in the tiled atlas is a column's part plus a row's: the
+     * columns' once, the row's once a row - a call a texel was a good part of
+     * an Old 3DS's frame whenever the frame changed. */
+    if (!sColumnsBuilt)
+    {
+        for (unsigned x = 0; x < VOXEL_FOLLOWER_CELL_DIM; ++x)
+            sColumn[x] = CtrVideo_Texel(VOXEL_FOLLOWER_CELL_X + x, 0, VOXEL_SPRITE_ATLAS_DIM);
+        sColumnsBuilt = true;
+    }
+    if (clearW > (int)VOXEL_FOLLOWER_CELL_DIM)
+        clearW = VOXEL_FOLLOWER_CELL_DIM;
+    if (clearH > (int)VOXEL_FOLLOWER_CELL_DIM)
+        clearH = VOXEL_FOLLOWER_CELL_DIM;
+    for (int y = 0; y < clearH; ++y)
+    {
+        uint16_t *row = atlas + (CtrVideo_Texel(VOXEL_FOLLOWER_CELL_X, VOXEL_FOLLOWER_CELL_Y + (unsigned)y,
+                                                VOXEL_SPRITE_ATLAS_DIM) - sColumn[0]);
+        const uint8_t *line = px;
+        int x = 0, k = y * r[2];
 
-            if (x < w && y < h)
-            {
-                int k = y * r[2] + x;
-
-                texel = graded[(px[k >> 1] >> ((k & 1) * 4)) & 15];
-            }
-            atlas[CtrVideo_Texel(VOXEL_FOLLOWER_CELL_X + (unsigned)x, VOXEL_FOLLOWER_CELL_Y + (unsigned)y,
-                                 VOXEL_SPRITE_ATLAS_DIM)] = texel;
-        }
+        if (y < h)
+            for (; x < w; ++x, ++k)
+                row[sColumn[x]] = graded[(line[k >> 1] >> ((k & 1) * 4)) & 15];
+        for (; x < clearW; ++x)
+            row[sColumn[x]] = 0;
+    }
     sDrawnW = w;
     sDrawnH = h;
 }
