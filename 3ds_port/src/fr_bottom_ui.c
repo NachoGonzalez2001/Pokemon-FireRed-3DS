@@ -30,7 +30,9 @@
 
 #include "global.h"
 #include "main.h"
+#include "gba/m4a_internal.h"
 #include "battle.h"
+#include "battle_anim.h"
 #include "battle_controllers.h"
 #include "battle_main.h"
 #include "data.h"

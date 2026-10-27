@@ -751,6 +751,98 @@ static void DebugBattle(void)
 }
 #endif
 
+#ifdef CTR_DEBUG_MOVE_ANIMS
+#include "battle.h"
+#include "battle_anim.h"
+#include "data.h"
+#include "constants/moves.h"
+/*
+ * Diagnostic: in a battle waiting on the player's choice, every move's
+ * animation in turn, by the player's Pokemon and then by the foe's, then the
+ * status and general animations, set up as a controller sets them up. For
+ * reads the GBA let pass and a console does not: Azahar logs each "unmapped"
+ * access with its PC. CTR_DEBUG_MOVE_ANIMS is the test to start from; one
+ * that never ends stops the run, since what it leaves behind would hold up
+ * every test after it.
+ */
+#define ANIM_TEST_STATUS 9
+#define ANIM_TEST_GENERAL 28
+static void DebugMoveAnims(void)
+{
+    static struct DisableStruct disable;
+    static u32 battleSince;
+    static u32 startedAt;
+    static int next = CTR_DEBUG_MOVE_ANIMS;
+    static bool8 running;
+    const int moves = (MOVES_COUNT - 1) * 2;
+    const int total = moves + (ANIM_TEST_STATUS + ANIM_TEST_GENERAL) * 2;
+
+    if (!gMain.inBattle || gMain.callback2 != BattleMainCB2)
+    {
+        battleSince = 0;
+        return;
+    }
+    if (battleSince == 0)
+        battleSince = sFrames;
+    if (sFrames - battleSince < 900 || (next >= total && !running))
+        return;
+    if (running)
+    {
+        gAnimScriptCallback();
+        if (gAnimScriptActive && sFrames - startedAt < 900)
+            return;
+        if (gAnimScriptActive)
+        {
+            int i;
+
+            CtrLog_Write(CTR_LOG_GAME, "anim test %d: still running after 900 frames, %u visual and %u sound tasks",
+                         next - 1, gAnimVisualTaskCount, gAnimSoundTaskCount);
+            for (i = 0; i < NUM_TASKS; i++)
+                if (gTasks[i].isActive)
+                    CtrLog_Write(CTR_LOG_GAME, "  task %d: func %p", i, (void *)gTasks[i].func);
+            next = total;
+        }
+        running = FALSE;
+        if (next >= total)
+        {
+            CtrLog_Write(CTR_LOG_GAME, "anim test done");
+            return;
+        }
+    }
+    gBattlerAttacker = next & 1;
+    gBattlerTarget = gBattlerAttacker ^ 1;
+    gAnimMoveTurn = 0;
+    gAnimMovePower = 150;
+    gAnimMoveDmg = 50;
+    gAnimFriendship = 255;
+    gWeatherMoveAnim = 0;
+    gAnimDisableStructPtr = &disable;
+    if (next < moves)
+    {
+        u16 move = next / 2 + 1;
+
+        CtrLog_Write(CTR_LOG_GAME, "anim test %d: move %u by %s", next, move, gBattlerAttacker ? "foe" : "player");
+        DoMoveAnim(move);
+    }
+    else
+    {
+        int i = (next - moves) / 2;
+
+        gBattleAnimAttacker = gBattlerAttacker;
+        gBattleAnimTarget = gBattlerTarget;
+        CtrLog_Write(CTR_LOG_GAME, "anim test %d: %s %d by %s", next, i < ANIM_TEST_STATUS ? "status" : "general",
+                     i < ANIM_TEST_STATUS ? i : i - ANIM_TEST_STATUS, gBattlerAttacker ? "foe" : "player");
+        if (i < ANIM_TEST_STATUS)
+            LaunchBattleAnimation(gBattleAnims_StatusConditions, i, FALSE);
+        else
+            LaunchBattleAnimation(gBattleAnims_General, i - ANIM_TEST_STATUS, FALSE);
+    }
+    next++;
+    running = TRUE;
+    startedAt = sFrames;
+}
+#endif
+
 #ifdef CTR_DEBUG_MONPIC
 #include "quest_log.h"
 #include "script_menu.h"
@@ -788,6 +880,9 @@ void CtrGame_WaitFrame(void)
 #endif
 #ifdef CTR_DEBUG_BATTLE
     DebugBattle();
+#endif
+#ifdef CTR_DEBUG_MOVE_ANIMS
+    DebugMoveAnims();
 #endif
     /* The battle scene on screen (not its bag or party): the compositor lays
      * it out as a battle - the box on the top screen's foot, the 3D world as
