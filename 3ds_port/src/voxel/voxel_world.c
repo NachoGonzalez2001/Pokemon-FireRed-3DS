@@ -282,6 +282,8 @@ bool VoxelWorld_IsMapAvailable(void)
         return false;
     if (gBackupMapLayout.map == NULL)
         return false;
+    if (Port_SceneShown())
+        return false;
     /* FireRed keeps CB2_Overworld static: the field is the one with its
      * callback1, CB2_OverworldBasic standing in while a script or effect runs. */
     return gMain.callback1 == CB1_Overworld || gMain.callback2 == CB2_OverworldBasic;

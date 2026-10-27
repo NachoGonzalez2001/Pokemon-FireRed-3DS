@@ -11,8 +11,8 @@
  * the party (icons and HP); a tap on the party opens the party menu.
  *
  * The game's menu screens (party, bag, Pokédex, trainer card, options,
- * summary, PC, town map, shop, TM case, berry pouch, naming) are shown here
- * instead of on the top screen: each one's main callback calls
+ * summary, PC, town map, shop, TM case, berry pouch, naming, Easy Chat, Teachy
+ * TV) are shown here instead of on the top screen: each one's main callback calls
  * Port_MenuOnBottom, the top screen holds the last picture of the world
  * (3ds_game_full.c), and the GBA picture is put 1:1 in the panel's place, its
  * edges carried out to the panel's. The column then has the GBA's buttons
@@ -368,7 +368,7 @@ static const u8 *Ascii(const char *s)
 static bool8 InField(void)
 {
     return gMain.callback1 == CB1_Overworld && gSaveBlock2Ptr != NULL && gSaveBlock1Ptr != NULL
-        && gMapHeader.mapLayout != NULL;
+        && gMapHeader.mapLayout != NULL && !Port_SceneShown();
 }
 
 /* The player stands in the field with nothing else going on. */

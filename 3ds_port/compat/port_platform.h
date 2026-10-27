@@ -125,6 +125,12 @@ void Port_SetAssetDebugEx(u16 tag, u16 a, u16 b, u16 c, u16 d);
  * goes to the bottom screen while the top screen holds the world. */
 void Port_MenuOnBottom(void);
 
+/* A full-screen scene's main callback (evolution, trade, Hall of Fame...)
+ * calls this every frame it runs: FireRed leaves the field's callback1 set
+ * under it, and the scene is shown as the GBA's picture, not the world. */
+void Port_SceneOnTop(void);
+bool Port_SceneShown(void);
+
 /* The battle's action and move menus call this every frame they take input:
  * the bottom screen shows them as buttons, and the call returns the button
  * tapped (0-3, or 4 for the move menu's cancel), or -1. moveInfo is the

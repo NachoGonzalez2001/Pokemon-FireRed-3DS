@@ -278,7 +278,7 @@ void CtrGame_VBlank(void)
 #if CTR_VOXEL_ENABLED
     {
         bool voxelUi = CtrSettings_Voxel() && gMain.callback1 == CB1_Overworld && !CtrBottom_TakesGameFrame()
-                    && !sTopHeld;
+                    && !sTopHeld && !Port_SceneShown();
         /* The 3D battle: the world as the scenery, the battle's own picture
          * without it (BG3) over it - and while the scenery slides in, without
          * the entry picture either (BG1, BG2). A move's background on BG3 is
@@ -438,9 +438,25 @@ uint32_t CtrGame_Resets(void) { return sResets; }
 uint32_t CtrGame_APresses(void) { return 0; }
 uint32_t CtrGame_Checks(void) { return 0; }
 
+/* A full-screen scene opened from the field (an evolution, a trade, the Hall
+ * of Fame, the slot machine...) leaves callback1 at CB1_Overworld, so its
+ * main callback says it runs: the top screen shows its GBA picture, not the
+ * world. One frame of grace, as for Port_MenuOnBottom. */
+static u32 sSceneFrame = (u32)-2;
+
+void Port_SceneOnTop(void)
+{
+    sSceneFrame = sFrames;
+}
+
+bool Port_SceneShown(void)
+{
+    return sFrames - sSceneFrame <= 1;
+}
+
 bool CtrGame_IsOverworld(void)
 {
-    if (gMapHeader.mapLayout == NULL || gSaveBlock1Ptr == NULL)
+    if (gMapHeader.mapLayout == NULL || gSaveBlock1Ptr == NULL || Port_SceneShown())
         return false;
     /* FireRed keeps CB2_Overworld static; the field's callback 1 is public. */
     return gMain.callback1 == CB1_Overworld || gMain.callback2 == CB2_OverworldBasic;
@@ -870,6 +886,80 @@ static void DebugMonPic(void)
 }
 #endif
 
+#ifdef CTR_DEBUG_SCENE
+#include "diploma.h"
+#include "event_data.h"
+#include "evolution_scene.h"
+#include "hall_of_fame.h"
+#include "pokemon_special_anim.h"
+#include "quest_log.h"
+#include "slot_machine.h"
+#include "teachy_tv.h"
+#include "trade_scene.h"
+#include "constants/items.h"
+#include "constants/species.h"
+void DoSeagallopFerryScene(void);
+void DoCredits(void);
+/* Diagnostic: once the field has stood still a moment, the full-screen scene
+ * settings.txt's debug_scene names, as the game opens it from the field. */
+static void DebugScene(void)
+{
+    static bool8 done;
+    static u32 idleSince;
+    int scene;
+
+    if (done || !Port_FieldShown() || ArePlayerFieldControlsLocked() || gPaletteFade.active
+     || gQuestLogState != 0)
+    {
+        idleSince = 0;
+        return;
+    }
+    if (idleSince == 0)
+        idleSince = sFrames;
+    if (sFrames - idleSince < 240)
+        return;
+    done = TRUE;
+    scene = CtrSettings_GetInt("debug_scene", 0);
+    CtrLog_Write(CTR_LOG_GAME, "debug scene %d", scene);
+    switch (scene)
+    {
+    case 1:
+        gCB2_AfterEvolution = CB2_ReturnToField;
+        BeginEvolutionScene(&gPlayerParty[0], SPECIES_PIDGEOTTO, TRUE, 0);
+        break;
+    case 2:
+        gSpecialVar_0x8004 = 0;
+        gSpecialVar_0x8005 = 0;
+        CreateInGameTradePokemon();
+        DoInGameTradeScene();
+        break;
+    case 3:
+        PlaySlotMachine(0, CB2_ReturnToField);
+        break;
+    case 4:
+        InitTeachyTvController(0, CB2_ReturnToField);
+        break;
+    case 5:
+        SetMainCallback2(CB2_DoHallOfFameScreenDontSaveData);
+        break;
+    case 6:
+        SetMainCallback2(CB2_ShowDiploma);
+        break;
+    case 7:
+        gSpecialVar_0x8004 = 0;
+        gSpecialVar_0x8006 = 1;
+        DoSeagallopFerryScene();
+        break;
+    case 8:
+        StartUseItemAnim_Normal(0, ITEM_HP_UP, CB2_ReturnToField);
+        break;
+    case 9:
+        DoCredits();
+        break;
+    }
+}
+#endif
+
 void CtrGame_WaitFrame(void)
 {
 #ifdef CTR_DEBUG_WARP
@@ -877,6 +967,9 @@ void CtrGame_WaitFrame(void)
 #endif
 #ifdef CTR_DEBUG_MONPIC
     DebugMonPic();
+#endif
+#ifdef CTR_DEBUG_SCENE
+    DebugScene();
 #endif
 #ifdef CTR_DEBUG_BATTLE
     DebugBattle();
