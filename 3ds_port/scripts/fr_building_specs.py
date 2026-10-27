@@ -1558,11 +1558,15 @@ def pokemon_tower_top(art):
 def forest_gate_roof(art):
     """The gate at Viridian Forest's south edge, of which the forest's map
     holds only the roof (cells 24..34 x 63..68): the gate's corrugated
-    sheets, falling to the front, off the map's end."""
+    sheets, seen from the forest at their low back eave and rising away to
+    the south, off the map's end. Its high edge on the forest's side (as the
+    gate's front is) stood four cells tall a row from the door: from the
+    camera it hid the player across the five rows north of it."""
     roof = Prism(
-        "roof", 0, 176, [(96, 0), (96, 53), (0, 65), (0, 0)],
-        edges={1: Strip((10, 14), repeat=(10, 14)), 0: Tile(8, 10, 24, 14)}, skip=(2, 3),
-        caps=[Band(0, 66, Tile(8, 10, 24, 14), 96)])
+        "roof", 0, 176, [(96, 0), (96, 40), (0, 12), (0, 0)],
+        edges={1: Strip((10, 14), repeat=(10, 14)), 0: Tile(8, 10, 24, 14),
+               2: Tile(8, 10, 24, 14)}, skip=(3,),
+        caps=[Band(0, 41, Tile(8, 10, 24, 14), 96)])
     return [roof], art
 
 SPECS = [

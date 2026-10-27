@@ -189,6 +189,9 @@ static const LightCell *Cell(int x, int z)
     if (VoxelWorld_UsesTreeSprites(inst))
     {
         int part = VoxelTree_Part(inst->secondaryTileset, metatile);
+        /* a wood's floor: under its trees' cards, which cast from their bases */
+        if (part == VOXEL_TREE_WOOD_FLOOR)
+            return cell;
         if (part >= 0)
         {
             /* A rounded crown proxy, rather than the opaque rectangular card.
@@ -262,6 +265,14 @@ static bool CellOccludes(const LightCell *cell, float x, float y, float z)
         float dx = (x - ((float)cell->x + 0.5f)) * (1.0f / 0.48f);
         float dz = (z - ((float)cell->z + 0.35f)) * (1.0f / 0.55f);
         float dy = (y - 0.80f) * (1.0f / 0.62f);
+        return dx * dx + dz * dz + dy * dy < 1.0f;
+    }
+    if (cell->crownPart >= VOXEL_TREE_WOOD)
+    {
+        /* a wood's big tree, three cells across, over its shadow */
+        float dx = (x - ((float)(cell->x - (cell->crownPart - VOXEL_TREE_WOOD)) + 1.5f)) * (1.0f / 1.45f);
+        float dz = (z - ((float)cell->z + 0.35f)) * (1.0f / 0.65f);
+        float dy = (y - 1.15f) * (1.0f / 0.8f);
         return dx * dx + dz * dz + dy * dy < 1.0f;
     }
     if (cell->crownPart >= 0)

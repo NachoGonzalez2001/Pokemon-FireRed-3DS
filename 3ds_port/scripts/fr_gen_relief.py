@@ -68,13 +68,11 @@ def cave_door():
 
 CAVE_DOOR = cave_door()
 
-# Woods drawn as one mass of round canopies (Viridian Forest, Berry Forest,
-# Pattern Bush, the Safari Zone): lifted like rock, the lowest cell of each
-# run - its trunks and shade - the face it stands on.
+# Lifted like rock, the lowest cell of each run the face it stands on: the
+# Safari Zone's round bushes. The woods' trees stand up as cards instead
+# (fr_gen_trees.py WOODS).
 FOREST = {
-    "gTileset_ViridianForest": range(0x288, 0x2A8),
-    "gTileset_BerryForest": range(0x288, 0x2A8),
-    "gTileset_FuchsiaCity": range(0x2F4, 0x328),
+    "gTileset_FuchsiaCity": [0x2F4],
 }
 
 SIDE = 5            # lattice points per cell side, every 4 pixels

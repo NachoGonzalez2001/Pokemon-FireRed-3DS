@@ -1474,10 +1474,13 @@ void VoxelMesh_EmitBorder(VoxelBuilder *builder, int x0, int y0, int x1, int y1)
                                VoxelWorld_BorderMetatile(x, y)) >= 0)
                 continue; /* flat trunks and tilted crowns are appended later */
             if (VoxelWorld_UsesTreeSprites(VoxelWorld_Instance(0))
-             && VoxelTree_Crown(VoxelWorld_Instance(0)->secondaryTileset,
-                                VoxelWorld_BorderMetatile(x, y)) >= 0)
+             && (VoxelTree_Crown(VoxelWorld_Instance(0)->secondaryTileset,
+                                 VoxelWorld_BorderMetatile(x, y)) >= 0
+                 || VoxelTree_InWood(VoxelWorld_Instance(0)->secondaryTileset,
+                                     VoxelWorld_BorderMetatile(x, y))))
             {
-                /* The crown's card is appended later; its ground is flat. */
+                /* The crown's card is appended later; its ground is flat,
+                 * and so is all of a wood's, between its cards. */
                 if (MetatileUV(builder, VoxelTree_GroundMetatile(VoxelWorld_Instance(0)->secondaryTileset,
                                                                  VoxelWorld_BorderMetatile(x, y)),
                                &u0, &v0, &u1, &v1))

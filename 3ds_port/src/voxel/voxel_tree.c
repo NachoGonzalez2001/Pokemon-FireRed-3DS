@@ -281,9 +281,48 @@ static void EmitProp(VoxelBuilder *builder, int x, int y, int prop, int below, i
         &(VoxelVertex){wx + s0, base,     zc, u0 + (u1 - u0) * s0, v1, 1.0f});
 }
 
+/*
+ * The woods of big trees, three cells wide (Viridian Forest, Berry Forest,
+ * Pattern Bush, the Safari Zone): each stands up as one card from its crown
+ * row, its shadow flat under it, the rest of its rows ground - a metatile's,
+ * or drawn for the cell where the trees were drawn on the ground itself
+ * (fr_gen_trees.py WOODS). The cell's entry in sWoodCells, or -1.
+ */
+static int WoodCell(const void *secondaryTileset, int metatileId)
+{
+    enum { WOODS = sizeof(sWoods) / sizeof(sWoods[0]) };
+    static int8_t index[WOODS][0x100];   /* each wood's secondary metatiles */
+    static bool built;
+    unsigned wood;
+
+    if (!built)
+    {
+        for (unsigned w = 0; w < WOODS; ++w)
+            for (unsigned i = 0; i < 0x100; ++i)
+                index[w][i] = -1;
+        for (unsigned i = 0; i < sizeof(sWoodCells) / sizeof(sWoodCells[0]); ++i)
+            index[sWoodCells[i].wood][sWoodCells[i].id - 0x280] = (int8_t)i;
+        built = true;
+    }
+    if (metatileId < 0x280 || metatileId >= 0x280 + 0x100)
+        return -1;
+    for (wood = 0; wood < WOODS && sWoods[wood].set != secondaryTileset; ++wood)
+        ;
+    return wood < WOODS ? index[wood][metatileId - 0x280] : -1;
+}
+
+bool VoxelTree_InWood(const void *secondaryTileset, int metatileId)
+{
+    return WoodCell(secondaryTileset, metatileId) >= 0;
+}
+
 int VoxelTree_Part(const void *secondaryTileset, int metatileId)
 {
-    (void)secondaryTileset;
+    int wood = WoodCell(secondaryTileset, metatileId);
+
+    if (wood >= 0)
+        return sWoodCells[wood].base >= 0 ? VOXEL_TREE_WOOD + sWoodCells[wood].base
+             : sWoodCells[wood].gx != 0xFFFF ? VOXEL_TREE_WOOD_FLOOR : -1;
     switch (metatileId)
     {
     case 0x014: case 0x016: case 0x024: case 0x026: return VOXEL_TREE_BASE_LEFT;
@@ -311,8 +350,10 @@ static int PalletFencedTree(const void *secondaryTileset, int metatileId)
 
 int VoxelTree_Crown(const void *secondaryTileset, int metatileId)
 {
-    int as = PalletFencedTree(secondaryTileset, metatileId);
+    int as = PalletFencedTree(secondaryTileset, metatileId), wood = WoodCell(secondaryTileset, metatileId);
 
+    if (wood >= 0)
+        return sWoodCells[wood].crown;
     if (as >= 0)
         metatileId = as;
     switch (metatileId)
@@ -326,7 +367,11 @@ int VoxelTree_Crown(const void *secondaryTileset, int metatileId)
 int VoxelTree_GroundMetatile(const void *secondaryTileset, int metatileId)
 {
     int prop = PropIndex(secondaryTileset, metatileId), as = PalletFencedTree(secondaryTileset, metatileId);
+    int wood = WoodCell(secondaryTileset, metatileId);
 
+    if (wood >= 0)
+        return sWoodCells[wood].ground != metatileId ? sWoodCells[wood].ground
+                                                     : (int)VOXEL_BARE_FIRST + metatileId;
     if (as >= 0)
         metatileId = as;
 
@@ -379,16 +424,48 @@ static void EmitCrown(VoxelBuilder *builder, int x, int y, int col)
     builder->rounded = false;
 }
 
-static void EmitCell(VoxelBuilder *builder, int x, int y, int part, int crown)
+/* A wood's card: its tree's drawing, three cells wide, from its top down
+ * to where its trunk meets the shadow - leaning north as the General
+ * tree's does, its foot there. */
+static void EmitWoodCrown(VoxelBuilder *builder, int x, int y, int col, int wood)
 {
-    if (part >= 0)
+    float wx = (float)x;
+    float u0 = TEX_U(sWoods[wood].x + col * 16), u1 = TEX_U(sWoods[wood].x + col * 16 + 16);
+    float v0 = TEX_V(sWoods[wood].y), v1 = TEX_V(sWoods[wood].y + sWoods[wood].foot);
+    float length = sWoods[wood].foot / 16.0f;
+    float rise = length * 0.766044f, run = length * 0.642788f;   /* 50 degrees */
+    const float baseHeight = -0.05f;
+    float baseZ = (float)y + (sWoods[wood].foot - sWoods[wood].top) / 16.0f;
+
+    builder->rounded = true;
+    VoxelBuilder_Quad(builder,
+        &(VoxelVertex){wx,        baseHeight + rise, baseZ - run, u0, v0, 1.0f},
+        &(VoxelVertex){wx + 1.0f, baseHeight + rise, baseZ - run, u1, v0, 1.0f},
+        &(VoxelVertex){wx + 1.0f, baseHeight,        baseZ,       u1, v1, 1.0f},
+        &(VoxelVertex){wx,        baseHeight,        baseZ,       u0, v1, 1.0f});
+    builder->rounded = false;
+}
+
+/* `cell` is the cell's entry in sWoodCells, or -1. */
+static void EmitCell(VoxelBuilder *builder, int x, int y, int part, int crown, int cell)
+{
+    if (part >= VOXEL_TREE_WOOD && cell >= 0)
+    {
+        float u = (float)sWoodCells[cell].gx, v = (float)sWoodCells[cell].gy;
+
+        VoxelMesh_Top(builder, (float)x, (float)y, 0.0f, 0.0f,
+                      TEX_U(u), TEX_V(v), TEX_U(u + 16), TEX_V(v + 16), 1.0f);
+    }
+    else if (part >= 0)
     {
         int col = part - VOXEL_TREE_BASE_LEFT;
 
         VoxelMesh_Top(builder, (float)x, (float)y, 0.0f, 0.0f,
                       TEX_U(32 + col * 16), TEX_V(0), TEX_U(48 + col * 16), TEX_V(16), 1.0f);
     }
-    if (crown >= 0)
+    if (crown >= 0 && cell >= 0)
+        EmitWoodCrown(builder, x, y, crown, sWoodCells[cell].wood);
+    else if (crown >= 0)
         EmitCrown(builder, x, y, crown);
 }
 
@@ -453,7 +530,7 @@ void VoxelTree_EmitInstance(VoxelBuilder *builder, const VoxelMapInstance *inst,
             {
                 builder->lift = VoxelRelief_CellLift(inst, x, y);
                 builder->shift = VoxelRelief_CellShift(inst, x, y);
-                EmitCell(builder, x, y, part, crown);
+                EmitCell(builder, x, y, part, crown, WoodCell(inst->secondaryTileset, metatileId));
                 builder->lift = 0.0f;
                 builder->shift = 0.0f;
             }
@@ -487,6 +564,6 @@ void VoxelTree_EmitBorder(VoxelBuilder *builder, int x0, int y0, int x1, int y1)
             else if (prop >= 0)
                 EmitProp(builder, x, y, prop, -1, -1, false, false);
             if (part >= 0 || crown >= 0)
-                EmitCell(builder, x, y, part, crown);
+                EmitCell(builder, x, y, part, crown, WoodCell(current->secondaryTileset, metatileId));
         }
 }

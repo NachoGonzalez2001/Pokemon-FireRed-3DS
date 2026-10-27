@@ -106,12 +106,196 @@ FENCES += [0x0F4, 0x0F5]   # the white posts of a fence running north-south
 MAILBOX_TILES = {0x150, 0x151, 0x160, 0x161, 0x170, 0x171}
 
 
+# Woods of big trees three metatiles wide, stood up as one card each from
+# its crown row as the General tree is (voxel_tree.c); the other rows give
+# back their ground.
+#
+# Viridian Forest, Berry Forest and Pattern Bush draw round trees on the
+# upper layer: the tip (288/299/28A, over the grass; a bump of it, 281, in
+# the cell above the middle), the crown (290-292, or 2A0-2A2 over the last
+# row) and the base (2A3-2A5): the shadow, the trunk standing in it. A wood
+# repeats crown and base every two rows, the base of one tree carrying the
+# tip of the next (298-29A).
+WOOD_ROUND = {
+    # the card, row by row from its top: three metatiles, the layer they
+    # draw it on, and what of it stands ("all" its ink; "hang" the ink
+    # hanging from the row above, and the trunk; "trunk" the trunk alone)
+    "rows": [((None, 0x281, None), 1, "all"), ((0x288, 0x299, 0x28A), 1, "all"),
+             ((0x2A0, 0x2A1, 0x2A2), 1, "all"), ((0x2A3, 0x2A4, 0x2A5), 1, "trunk")],
+    "crown_row": 2,
+    "ground_idx": {0xC, 0xD, 0xE, 0xF},     # palette 8: grass and its shadow
+    "shade": 5,
+    # the columns of the crown row; 296 and 29E carry a neighbour's edge
+    "crown": {0x290: 0, 0x291: 1, 0x292: 2, 0x2A0: 0, 0x2A1: 1, 0x2A2: 2, 0x296: 2, 0x29E: 0},
+    "base": {0x2A3: 0, 0x2A4: 1, 0x2A5: 2, 0x29E: 2},
+    # the tips, the bumps (over grass, a ledge, tall grass, a path's edge)
+    # and the rows between two trees: ground only
+    "clear": [0x281, 0x283, 0x284, 0x286, 0x287, 0x288, 0x289, 0x28A, 0x298, 0x299, 0x29A],
+    # cells whose lower layer draws leaves of the tree too: plain grass
+    "ground": {0x288: 0x008, 0x28A: 0x008, 0x296: 0x010},
+}
+# The Safari Zone's trees (Fuchsia's tileset) are drawn whole on the lower
+# layer, over a floor in their shade (palette 11): the top of the canopy
+# over the grass (310-312, on the upper layer), the canopy (2FD-2FF; 318-31A
+# under the top, 31D-31F after a gap), the canopy's foot and the trunk
+# (305-307) and the trunk's foot in its shadow (325-327; 30D-30F at the
+# wood's edge). Packed close, the next canopy hides the trunk (2F5-2F7).
+WOOD_SAFARI = {
+    "rows": [((0x310, 0x311, 0x312), 1, "all"), ((0x2FD, 0x2FE, 0x2FF), 0, "all"),
+             ((0x305, 0x306, 0x307), 0, "hang"), ((0x325, 0x326, 0x327), 0, "trunk")],
+    "crown_row": 1,
+    "ground_idx": {0x9, 0xD, 0xE},          # the shadow, the grass, the floor
+    "shade": 9,
+    "palette": 11,
+    "floor": 0xE,   # under the canopy: what the trees drawn on it give back
+    # 323/304 and 320/2FC/322 end a wood at the west and the east
+    "crown": {0x2FD: 0, 0x2FE: 1, 0x2FF: 2, 0x318: 0, 0x319: 1, 0x31A: 2, 0x31D: 0, 0x31E: 1,
+              0x31F: 2, 0x323: 0, 0x304: 2},
+    "base": {0x325: 0, 0x326: 1, 0x327: 2, 0x30D: 0, 0x30E: 1, 0x30F: 2, 0x313: 0, 0x314: 2},
+    "clear": [0x2F5, 0x2F6, 0x2F7, 0x2FC, 0x300, 0x301, 0x302, 0x305, 0x306, 0x307, 0x308, 0x309,
+              0x30A, 0x30B, 0x30C, 0x310, 0x311, 0x312, 0x315, 0x316, 0x317, 0x320, 0x321, 0x322],
+    "ground": {},
+}
+# Berry Forest's trees are yellow (palette 11): its 3 and 4, its leaves'
+# shading in Viridian Forest, are only the shadow's green rim showing round
+# the crown's foot.
+WOODS = {"gTileset_ViridianForest": WOOD_ROUND,
+         "gTileset_BerryForest": dict(WOOD_ROUND, rim={3, 4}),
+         "gTileset_FuchsiaCity": WOOD_SAFARI}
+WOOD_TRUNK = {6, 7, 8}
+# Each wood's card, 48x64, side by side along the bottom of the texture.
+WOOD_W, WOOD_H = 48, 64
+WOOD_MAX = 4
+WOOD_Y = DIM_H - WOOD_H
+NO_ART = 0xFFFF
+
+
 def prop_slots():
-    """16x16 slots of the texture clear of the tree (x < 64, y < 48)."""
+    """16x16 slots of the texture clear of the tree (x < 64, y < 48) and the
+    woods' cards."""
     for sy in range(DIM_H // 16):
         for sx in range(DIM // 16):
-            if not (sx < 4 and sy < 3):
+            if not (sx < 4 and sy < 3) and not (sx * 16 < WOOD_W * WOOD_MAX and sy * 16 >= WOOD_Y):
                 yield sx * 16, sy * 16
+
+
+def build_woods(root, image):
+    """Each wood's card into the texture, and the ground of the cells that
+    need their own: a base's shadow, its trunk in the shade; the floor under
+    trees drawn on the lower layer. Returns the woods [(tileset, x, y, foot,
+    top)] - the card's rows from its top to where its trunk meets the ground
+    and to the crown row's top - and their cells [(wood, id, ground, crown
+    column, base column, art x, art y)]: -1, NO_ART where none."""
+    gen = (root / "data/tilesets/primary/general/metatiles.bin").read_bytes()
+    plain = {}
+    for i in range(len(gen) // 16):
+        e = struct.unpack_from("<8H", gen, i * 16)
+        if not any(e[4:]):
+            plain.setdefault(e[:4], i)
+    used = {(x // 16 * 16, y // 16 * 16) for (x, y) in image}
+    free = (s for s in prop_slots() if s not in used)
+    seen = {}
+    woods, cells = [], []
+
+    def place(art):
+        key = tuple(tuple(row) for row in art)
+        if key not in seen:
+            sx, sy = next(free)
+            for y in range(16):
+                for x in range(16):
+                    image[(sx + x, sy + y)] = art[y][x]
+            seen[key] = (sx, sy)
+        return seen[key]
+
+    for name in sorted(WOODS):
+        spec = WOODS[name]
+        tiles = fr_art.Tilesets("gTileset_General", name)
+        blob = open(os.path.join(fr_art.tileset_dir(name), "metatiles.bin"), "rb").read()
+
+        def entries(m):
+            return struct.unpack_from("<8H", gen if m < 0x280 else blob,
+                                      (m if m < 0x280 else m - 0x280) * 16)
+
+        def ink(idx):
+            return idx and idx not in spec["ground_idx"] and idx not in spec.get("rim", ())
+
+        def own(e, x, y):
+            """Whether the pixel's lower-layer tile is drawn in the wood's palette."""
+            return (e[(y >> 3) * 2 + (x >> 3)] >> 12) == spec.get("palette")
+
+        local = dict(plain)
+        for i in range(len(blob) // 16):
+            e = struct.unpack_from("<8H", blob, i * 16)
+            if not any(e[4:]):
+                local.setdefault(e[:4], 0x280 + i)
+        ox, oy = len(woods) * WOOD_W, WOOD_Y
+        foot = 0
+        hanging = [False] * 48      # the columns whose ink reaches the row's foot
+        for row, (ids, which, keep) in enumerate(spec["rows"]):
+            art = [[(None, 0)] * 48 for _ in range(16)]
+            for col, m in enumerate(ids):
+                if m is not None:
+                    pix = layer(tiles, entries(m), which)
+                    for y in range(16):
+                        for x in range(16):
+                            art[y][col * 16 + x] = pix[y][x]
+            kept = set()
+            if keep == "hang":
+                # the ink joined to the row above through more of it, not
+                # through the trunk: the shrubs at the trunk's foot stay on
+                # the ground
+                todo = [(x, 0) for x in range(48) if hanging[x] and ink(art[0][x][1])
+                        and art[0][x][1] not in WOOD_TRUNK]
+                kept = set(todo)
+                while todo:
+                    x, y = todo.pop()
+                    for nx, ny in ((x - 1, y), (x + 1, y), (x, y + 1), (x, y - 1)):
+                        if (0 <= nx < 48 and 0 <= ny < 16 and (nx, ny) not in kept
+                                and ink(art[ny][nx][1]) and art[ny][nx][1] not in WOOD_TRUNK):
+                            kept.add((nx, ny))
+                            todo.append((nx, ny))
+            for y in range(16):
+                for x in range(48):
+                    rgb, idx = art[y][x]
+                    stands = (ink(idx) if keep == "all"
+                              else idx in WOOD_TRUNK or (x, y) in kept)
+                    if stands:
+                        image[(ox + x, oy + row * 16 + y)] = rgb
+                        foot = max(foot, row * 16 + y + 1)
+            hanging = [bool(ink(art[15][x][1])) for x in range(48)]
+        wood = len(woods)
+        woods.append((name, ox, oy, foot, spec["crown_row"] * 16))
+
+        for m in sorted(set(spec["crown"]) | set(spec["base"]) | set(spec["clear"])):
+            if m - 0x280 >= len(blob) // 16:
+                continue
+            e = entries(m)
+            lower, upper = layer(tiles, e, 0), layer(tiles, e, 1)
+            colours = {idx: rgb for line in lower + upper for rgb, idx in line}
+            art = None
+            if m in spec["base"]:
+                # the shadow as drawn, the trunk in it; a crown's ink over
+                # it is its card's
+                shade = colours[spec["shade"]]
+                over = m not in spec["crown"]
+                art = [[(shade if upper[y][x][1] in WOOD_TRUNK else upper[y][x][0])
+                        if over and upper[y][x][1]
+                        else shade if own(e, x, y) and lower[y][x][1] in WOOD_TRUNK
+                        else lower[y][x][0] for x in range(16)] for y in range(16)]
+            elif "floor" in spec and any(own(e, x, y) and ink(lower[y][x][1])
+                                         for y in range(16) for x in range(16)):
+                # the floor, its trees' shadows kept
+                floor = layer(tiles, entries(spec["rows"][3][0][1]), 0)
+                floor_rgb = next(rgb for line in floor for rgb, idx in line if idx == spec["floor"])
+                # (a clear pixel there too: 304 draws a tile past the
+                # tileset's end, under the upper layer)
+                art = [[floor_rgb if own(e, x, y) and (ink(lower[y][x][1]) or not lower[y][x][1])
+                        else lower[y][x][0] for x in range(16)] for y in range(16)]
+            gx, gy = place(art) if art is not None else (NO_ART, NO_ART)
+            ground = spec["ground"].get(m, local.get(e[:4], m))
+            cells.append((wood, m, ground, spec["crown"].get(m, -1), spec["base"].get(m, -1), gx, gy))
+    assert len(woods) <= WOOD_MAX
+    return woods, cells
 
 
 def outdoor_secondaries(root):
@@ -269,7 +453,7 @@ def build_props(root, ts, metatile, image):
     return [tuple(p) for p in out], sets
 
 
-def write_table(props, sets, path):
+def write_table(props, sets, woods, wood_cells, path):
     lines = ["/* Generated by scripts/fr_gen_trees.py --table: where each prop's",
              " * upper layer is in the tree texture, the rows it fills, and the",
              " * metatile drawn under it (its own: then the console draws it bare);",
@@ -296,6 +480,30 @@ def write_table(props, sets, path):
               "} sProps[] = {"]
     for p in props:
         lines.append("    { %2d, 0x%03X, %3d, %3d, %2d, %2d, 0x%03X, %d, %2d, %3d, %3d, %2d }," % p)
+    lines += ["};", ""]
+    lines += ["extern const struct Tileset %s;" % n for n in sorted({w[0] for w in woods} - set(sets))]
+    lines += ["",
+              "/* The woods of big trees: each one's card, 48 wide, at x, y, its",
+              " * trunk meeting the ground `foot` rows down, its crown row `top`",
+              " * rows down. */",
+              "static const struct",
+              "{",
+              "    const struct Tileset *set;",
+              "    unsigned short x, y, foot, top;",
+              "} sWoods[] = {"]
+    lines += ["    { &%s, %3d, %3d, %2d, %2d }," % w for w in woods]
+    lines += ["};", "",
+              "/* Their cells: the metatile drawn under each (its own: bare), the",
+              " * column of the tree it stands up (crown) or shades (base), and",
+              " * the ground drawn for it in the texture at gx, gy (0x%X: none). */" % NO_ART,
+              "static const struct",
+              "{",
+              "    unsigned char wood;",
+              "    unsigned short id, ground;",
+              "    signed char crown, base;",
+              "    unsigned short gx, gy;",
+              "} sWoodCells[] = {"]
+    lines += ["    { %d, 0x%03X, 0x%03X, %2d, %2d, 0x%04X, 0x%04X }," % c for c in wood_cells]
     lines += ["};", "", "#endif", ""]
     path.write_text("\n".join(lines), encoding="utf-8", newline="\n")
 
@@ -331,7 +539,8 @@ def build(root):
                     image[(32 + ox + x, y)] = shadow_rgb
     props = build_props(root, ts, metatile, image)
     rooms = build_rooms(root, image)
-    return image, props, rooms
+    woods = build_woods(root, image)
+    return image, props, woods, rooms
 
 
 def build_rooms(root, image):
@@ -373,9 +582,9 @@ def main():
     parser.add_argument("--table", type=Path, help="write voxel_props_table.h")
     args = parser.parse_args()
     root = Path(os.environ.get("POKEFIRERED", port.parent))
-    image, props, rooms = build(root)
+    image, props, woods, rooms = build(root)
     if args.table:
-        write_table(props[0], props[1], args.table)
+        write_table(props[0], props[1], woods[0], woods[1], args.table)
         import fr_gen_rooms
         fr_gen_rooms.write_table(rooms, args.table.parent / "voxel_room_table.h")
     pixels = pack(image)

@@ -467,6 +467,11 @@ WALL_ROWS_BY = {"gTileset_PokemonLeague": 3}           # a room's back wall, fro
 WALL_MORE = {"gTileset_SilphCo": {0x2F8, 0x2FB, 0x2FC},
              # the Trainer Tower's timer gate, its steps
              "gTileset_TrainerTower": {0x382, 0x2FB, 0x2FD}}
+# Doors in the back wall the player walks through (the gates' north doors):
+# the wall's own, drawn on its face. The collision leaves them open, and
+# breaking the wall there stood the door's top alone, half the wall's height
+# and a row back - a notch over the door, a scrap of wall in it.
+WALL_DOORS = {"gTileset_GenericBuilding2": {0x291}}
 VOID_SHARE = 0.85
 INDOOR = ("MAP_TYPE_INDOOR",)
 
@@ -553,11 +558,36 @@ class Room:
         # the black under the room: floor, never furniture
         self.flat = {(x, y) for y in range(self.h) for x in range(self.w)
                      if y + 1 >= self.h or self.void(x, y + 1)}
+        # A side exit's doormat - two warps, one over the other, beside the
+        # edge (the side gates'; a staircase is one) - its outer half in the
+        # edge column: the first cells of that column drawn, it stood up as
+        # a back wall, a red sliver. It lies flat.
+        self.side_mats = set()
+        warps = self.warps()
+        for wx, wy in warps:
+            if (wx, wy + 1) not in warps:
+                continue
+            for ex in ((0,) if wx == 1 else (self.w - 1,) if wx == self.w - 2 else ()):
+                self.side_mats |= {(ex, wy + dy) for dy in (-1, 0, 1, 2) if 0 <= wy + dy < self.h}
         # blocked cells the game draws as floor (Fuchsia Gym's invisible
         # walls): they lie flat, the maze as hidden as on the GBA
         hidden = FLOOR_BLOCKS.get(self.L.primary, set()) | FLOOR_BLOCKS.get(self.L.secondary, set())
         self.flat |= {(x, y) for y in range(self.h) for x in range(self.w) if self.m(x, y) in hidden}
         self._reach = None
+
+    def warps(self):
+        """The cells of the map's warps."""
+        if getattr(self, "_warps", None) is None:
+            found = set()
+            maps = os.path.join(fr_art.ROOT, "data", "maps")
+            for name in os.listdir(maps):
+                path = os.path.join(maps, name, "map.json")
+                if os.path.exists(path):
+                    m = json.load(open(path, encoding="utf-8"))
+                    if m.get("layout") == self.L.id:
+                        found |= {(w["x"], w["y"]) for w in m.get("warp_events", ())}
+            self._warps = {(wx, wy) for wx, wy in found if 0 <= wx < self.w and 0 <= wy < self.h}
+        return self._warps
 
     def reachable(self, x, y):
         """Whether the player can stand on the cell: walking from the map's
@@ -566,15 +596,7 @@ class Room:
         row below it (it left a gap in the wall). Without warps, every
         unblocked cell counts."""
         if self._reach is None:
-            starts = set()
-            maps = os.path.join(fr_art.ROOT, "data", "maps")
-            for name in os.listdir(maps):
-                path = os.path.join(maps, name, "map.json")
-                if os.path.exists(path):
-                    m = json.load(open(path, encoding="utf-8"))
-                    if m.get("layout") == self.L.id:
-                        starts |= {(w["x"], w["y"]) for w in m.get("warp_events", ())}
-            starts = {(sx, sy) for sx, sy in starts if 0 <= sx < self.w and 0 <= sy < self.h}
+            starts = self.warps()
             if not starts:
                 self._reach = {(cx, cy) for cy in range(self.h) for cx in range(self.w)
                                if not self.L.collision(cx, cy)}
@@ -730,6 +752,7 @@ def walls(room, taken):
     the black round the room, stood up at the last one's south edge; above an
     object standing in it (a plant against the wall), what is left of it."""
     out = []
+    doors = WALL_DOORS.get(room.L.primary, set()) | WALL_DOORS.get(room.L.secondary, set())
     for x in range(room.w):
         y0 = next((y for y in range(room.h) if not room.void(x, y)), None)
         if y0 is None:
@@ -743,7 +766,7 @@ def walls(room, taken):
             plain = plain_wall(room)
             if plain and ((x, y) in taken or corner) and y - y0 < len(plain):
                 room.wall_art[(x, y)] = plain[y - y0]
-            elif (x, y) in taken or (not room.L.collision(x, y) and not room.wall_gap(x, y)) or corner:
+            elif (x, y) in taken or corner or (x, y) in room.side_mats                     or (not room.L.collision(x, y) and not room.wall_gap(x, y) and room.m(x, y) not in doors):
                 break
             cells.append((x, y))
         more = WALL_MORE.get(room.L.secondary, set()) | WALL_MORE.get(room.L.primary, set())

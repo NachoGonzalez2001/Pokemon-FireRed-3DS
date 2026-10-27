@@ -13,13 +13,20 @@
 #define VOXEL_TREE_SMALL 4
 #define VOXEL_TREE_BASE_LEFT 2
 #define VOXEL_TREE_BASE_RIGHT 3
+/* A wood's big tree, three cells wide: its base, VOXEL_TREE_WOOD + column;
+ * VOXEL_TREE_WOOD_FLOOR a cell of a wood whose ground the tree pass draws */
+#define VOXEL_TREE_WOOD 8
+#define VOXEL_TREE_WOOD_FLOOR (VOXEL_TREE_WOOD + 3)
 
 /* A tree's base, whose cell the tree pass draws (its shadow): the half
- * VOXEL_TREE_BASE_LEFT/RIGHT, or -1. secondaryTileset is the map's. */
+ * VOXEL_TREE_BASE_LEFT/RIGHT, a wood's VOXEL_TREE_WOOD + column, or -1.
+ * secondaryTileset is the map's. */
 int VoxelTree_Part(const void *secondaryTileset, int metatileId);
-/* A tree's crown row, where its card stands: the half 0/1, or -1. Its ground
+/* A tree's crown row, where its card stands: the column, or -1. Its ground
  * is VoxelTree_GroundMetatile's, drawn by the ground pass. */
 int VoxelTree_Crown(const void *secondaryTileset, int metatileId);
+/* Whether the cell is any part of a wood's big trees (VOXEL_TREE_WOOD). */
+bool VoxelTree_InWood(const void *secondaryTileset, int metatileId);
 /* Remove the old canopy from the cell above a tree, leaving its ground. */
 int VoxelTree_GroundMetatile(const void *secondaryTileset, int metatileId);
 
