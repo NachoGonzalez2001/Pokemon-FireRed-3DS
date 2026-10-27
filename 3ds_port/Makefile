@@ -22,7 +22,7 @@ APP_TITLE := Pokemon FireRed 3DS
 APP_FILE := FireRed3DS
 APP_DESCRIPTION := Native port for Nintendo 3DS
 APP_AUTHOR := pokefirered-3ds
-APP_VERSION := 0.2.1
+APP_VERSION := 0.2.2
 # The FireRed build the game units are compiled as (pokefirered's Makefile:
 # GAME_VERSION, GAME_REVISION, GAME_LANGUAGE). upstream.lock pins rev 1.
 GAME_VERSION ?= FIRERED
