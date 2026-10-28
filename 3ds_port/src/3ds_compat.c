@@ -227,7 +227,187 @@ u16 Port_FontProbe_CompareNormalLatinGlyph(u16 glyphId)
  * CtrFs_MigrateLegacy (3ds_fs.c). */
 #define CTR_SAVE_PATH CTR_DATA_DIR "firered3ds.sav"
 
+#define CTR_SAVE_BACKUP_PATH CTR_SAVE_PATH ".bak"
+
 static bool sSaveAvailable;
+
+/*
+ * Saves from 0.2.2 and earlier kept gcc's layout of SaveBlock1, 160 bytes
+ * shorter than the GBA's: a quest-log object event took 18 bytes instead of 20
+ * and a Fame Checker entry 2 instead of 4, and every field after them moved.
+ * Such a save would not load on a GBA or an emulator, and a GBA save not here.
+ * Each slot still in that layout is rewritten in the GBA's (save.c asserts it).
+ *
+ * A save's last SaveBlock1 sector tells the two apart: the old block ends 3656
+ * bytes into it and the game zeroes the sector before filling it, while the
+ * GBA's block ends at 3816 with the Trainer Tower record times, which a new
+ * game sets to an encrypted 59:59.59 - never all zero.
+ */
+#define SAVE_SECTOR_SIZE     0x1000
+#define SAVE_SECTOR_DATA     3968
+#define SAVE_SLOT_SECTORS    14
+#define SAVE_SIGNATURE       0x08012025
+#define SB1_FIRST_ID         1
+#define SB1_SECTORS          4
+#define SB1_OLD_SIZE         0x3CC8
+#define SB1_NEW_SIZE         0x3D68
+#define QUEST_LOG_OFFSET     0x1300
+#define QUEST_LOG_SCENES     4
+#define QUEST_SCENE_OLD      1608
+#define QUEST_SCENE_NEW      1640
+#define QUEST_OBJECTS        16
+#define QUEST_OBJECT_OLD     18
+#define QUEST_OBJECT_NEW     20
+#define AFTER_QUEST_OLD      0x2C20
+#define AFTER_QUEST_NEW      0x2CA0
+#define FAME_CHECKER_OLD     0x39D4
+#define FAME_CHECKER_NEW     0x3A54
+#define FAME_PEOPLE          16
+#define AFTER_FAME_OLD       0x39F4
+#define AFTER_FAME_NEW       0x3A94
+
+static u8 *SaveSector(u32 sector) { return FLASH_BASE + sector * SAVE_SECTOR_SIZE; }
+
+static u32 SaveSectorRead32(const u8 *sector, u32 offset)
+{
+    return sector[offset] | (sector[offset + 1] << 8) | (sector[offset + 2] << 16)
+         | ((u32)sector[offset + 3] << 24);
+}
+
+static u16 SaveSectorId(const u8 *sector) { return sector[0xFF4] | (sector[0xFF5] << 8); }
+
+/* save.c's CalculateChecksum. */
+static u16 SaveChecksum(const u8 *data, u32 size)
+{
+    u32 sum = 0, i;
+
+    for (i = 0; i < size; i += 4)
+        sum += SaveSectorRead32(data, i);
+    return (u16)((sum >> 16) + sum);
+}
+
+static u32 Sb1ChunkSize(u32 chunk, u32 blockSize)
+{
+    u32 start = chunk * SAVE_SECTOR_DATA;
+
+    return blockSize - start < SAVE_SECTOR_DATA ? blockSize - start : SAVE_SECTOR_DATA;
+}
+
+/* The slot's SaveBlock1 sectors, if they are whole and in the old layout. */
+static bool FindOldLayoutSlot(u32 slot, u8 *sectors[SB1_SECTORS])
+{
+    u32 i, chunk;
+
+    for (chunk = 0; chunk < SB1_SECTORS; chunk++)
+        sectors[chunk] = NULL;
+    for (i = 0; i < SAVE_SLOT_SECTORS; i++)
+    {
+        u8 *sector = SaveSector(slot * SAVE_SLOT_SECTORS + i);
+        u16 id = SaveSectorId(sector);
+
+        if (SaveSectorRead32(sector, 0xFF8) == SAVE_SIGNATURE
+         && id >= SB1_FIRST_ID && id < SB1_FIRST_ID + SB1_SECTORS)
+            sectors[id - SB1_FIRST_ID] = sector;
+    }
+    for (chunk = 0; chunk < SB1_SECTORS; chunk++)
+    {
+        u8 *sector = sectors[chunk];
+        u32 size = Sb1ChunkSize(chunk, SB1_OLD_SIZE);
+
+        if (sector == NULL
+         || SaveChecksum(sector, size) != (sector[0xFF6] | (sector[0xFF7] << 8)))
+            return false;
+    }
+    for (i = Sb1ChunkSize(SB1_SECTORS - 1, SB1_OLD_SIZE);
+         i < Sb1ChunkSize(SB1_SECTORS - 1, SB1_NEW_SIZE); i++)
+    {
+        if (sectors[SB1_SECTORS - 1][i] != 0)
+            return false;
+    }
+    return true;
+}
+
+static void ConvertOldLayoutSlot(u8 *sectors[SB1_SECTORS])
+{
+    static u8 oldBlock[SB1_OLD_SIZE], newBlock[SB1_NEW_SIZE];
+    u32 chunk, scene, i;
+
+    for (chunk = 0; chunk < SB1_SECTORS; chunk++)
+        memcpy(oldBlock + chunk * SAVE_SECTOR_DATA, sectors[chunk], Sb1ChunkSize(chunk, SB1_OLD_SIZE));
+
+    memset(newBlock, 0, sizeof(newBlock));
+    memcpy(newBlock, oldBlock, QUEST_LOG_OFFSET);
+    for (scene = 0; scene < QUEST_LOG_SCENES; scene++)
+    {
+        const u8 *from = oldBlock + QUEST_LOG_OFFSET + scene * QUEST_SCENE_OLD;
+        u8 *to = newBlock + QUEST_LOG_OFFSET + scene * QUEST_SCENE_NEW;
+        u32 rest = 8 + QUEST_OBJECTS * QUEST_OBJECT_OLD;
+
+        memcpy(to, from, 8);
+        for (i = 0; i < QUEST_OBJECTS; i++)
+            memcpy(to + 8 + i * QUEST_OBJECT_NEW, from + 8 + i * QUEST_OBJECT_OLD, QUEST_OBJECT_OLD);
+        memcpy(to + 8 + QUEST_OBJECTS * QUEST_OBJECT_NEW, from + rest, QUEST_SCENE_OLD - rest);
+    }
+    memcpy(newBlock + AFTER_QUEST_NEW, oldBlock + AFTER_QUEST_OLD, FAME_CHECKER_OLD - AFTER_QUEST_OLD);
+    for (i = 0; i < FAME_PEOPLE; i++)
+        memcpy(newBlock + FAME_CHECKER_NEW + i * 4, oldBlock + FAME_CHECKER_OLD + i * 2, 2);
+    memcpy(newBlock + AFTER_FAME_NEW, oldBlock + AFTER_FAME_OLD, SB1_OLD_SIZE - AFTER_FAME_OLD);
+
+    for (chunk = 0; chunk < SB1_SECTORS; chunk++)
+    {
+        u8 *sector = sectors[chunk];
+        u32 size = Sb1ChunkSize(chunk, SB1_NEW_SIZE);
+        u16 checksum;
+
+        memset(sector, 0, SAVE_SECTOR_DATA);
+        memcpy(sector, newBlock + chunk * SAVE_SECTOR_DATA, size);
+        checksum = SaveChecksum(sector, size);
+        sector[0xFF6] = (u8)checksum;
+        sector[0xFF7] = (u8)(checksum >> 8);
+    }
+}
+
+static bool WriteSaveFile(const char *path, const void *data, size_t size)
+{
+    FILE *file = fopen(path, "wb");
+    bool ok;
+
+    if (file == NULL)
+        return false;
+    ok = fwrite(data, 1, size, file) == size && fflush(file) == 0;
+    if (fclose(file) != 0)
+        ok = false;
+    return ok;
+}
+
+static void ConvertOldLayoutSave(long size)
+{
+    u8 *sectors[2][SB1_SECTORS];
+    bool old[2];
+    u32 slot;
+
+    old[0] = FindOldLayoutSlot(0, sectors[0]);
+    old[1] = FindOldLayoutSlot(1, sectors[1]);
+    if (!old[0] && !old[1])
+        return;
+
+    /* The file as it was, in case anything here goes wrong. */
+    if (!WriteSaveFile(CTR_SAVE_BACKUP_PATH, FLASH_BASE, (size_t)size))
+        CtrLog_Write(CTR_LOG_ERROR, "save backup failed: %s (errno=%d)", CTR_SAVE_BACKUP_PATH, errno);
+    for (slot = 0; slot < 2; slot++)
+    {
+        if (old[slot])
+            ConvertOldLayoutSlot(sectors[slot]);
+    }
+    /* Written whole, so the file is never left half in each layout. On a
+     * failure the converted image still plays, and the next start converts the
+     * file again. */
+    if (WriteSaveFile(CTR_SAVE_PATH, FLASH_BASE, sizeof(FLASH_BASE)))
+        CtrLog_Write(CTR_LOG_FS, "save converted to the GBA layout (slots %d%d), old file kept as %s",
+                     old[0], old[1], CTR_SAVE_BACKUP_PATH);
+    else
+        CtrLog_Write(CTR_LOG_ERROR, "converted save not written: %s (errno=%d)", CTR_SAVE_PATH, errno);
+}
 
 void Port_SaveInit(void)
 {
@@ -268,6 +448,7 @@ void Port_SaveInit(void)
     /* A short file still holds whole sectors; the game recovers the older slot. */
     sSaveAvailable = true;
     CtrLog_Write(CTR_LOG_FS, "save loaded: %s (%ld bytes)", CTR_SAVE_PATH, size);
+    ConvertOldLayoutSave(size);
 }
 
 bool Port_SaveIsAvailable(void)
