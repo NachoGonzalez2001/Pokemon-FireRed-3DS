@@ -37,7 +37,10 @@ own dump of your own Pokémon FireRed cartridge.
    `FireRed3DS-Forwarder.cia`, when a release has one, for a HOME Menu icon).
 
 Needs a 3DS / 2DS family console with custom firmware (Luma3DS). Saves are in
-`/3ds/firered3ds/firered3ds.sav`; updating never touches them.
+`/3ds/firered3ds/firered3ds.sav`, in the GBA's format: the same 128 KB file
+moves between the 3DS, GBA emulators and a cartridge dump. (v0.2.3 converts a
+save from an earlier version once, keeping the original as
+`firered3ds.sav.bak`.)
 
 **Linux, macOS or a Chromebook (Linux).** The builder is plain Python: with
 Python 3.11+ and Pillow, use the `payload` folder from the release ZIP and the
