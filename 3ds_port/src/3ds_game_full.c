@@ -728,6 +728,7 @@ static void DebugGrant(void)
 #endif
 
 #ifdef CTR_DEBUG_BATTLE
+#include "battle.h"
 #include "battle_setup.h"
 #include "quest_log.h"
 #include "script.h"
@@ -735,7 +736,8 @@ static void DebugGrant(void)
 #include "constants/items.h"
 #include "constants/species.h"
 /* Diagnostic: once the field takes input (after CTR_DEBUG_WARP's warp, when
- * there is one), a wild Pidgey: a battle to look at without walking for one. */
+ * there is one), a wild Pidgey: a battle to look at without walking for one.
+ * CTR_DEBUG_BATTLE_TRAINER=<id> battles that trainer instead. */
 static void DebugBattle(void)
 {
     static bool8 done;
@@ -761,9 +763,16 @@ static void DebugBattle(void)
     if (sFrames - idleSince < 120)
         return;
     done = TRUE;
+#ifdef CTR_DEBUG_BATTLE_TRAINER
+    CtrLog_Write(CTR_LOG_GAME, "debug battle: trainer %d", CTR_DEBUG_BATTLE_TRAINER);
+    LockPlayerFieldControls();
+    gTrainerBattleOpponent_A = CTR_DEBUG_BATTLE_TRAINER;
+    StartTrainerBattle();
+#else
     CtrLog_Write(CTR_LOG_GAME, "debug battle: a wild Pidgey");
     CreateScriptedWildMon(SPECIES_PIDGEY, 5, ITEM_NONE);
     StartWildBattle();
+#endif
 }
 #endif
 
