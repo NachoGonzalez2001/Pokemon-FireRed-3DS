@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="3ds_port/assets/artwork/FireRed%203DS.png" alt="FireRed 3DS" width="560">
+</p>
+
 # Pokémon FireRed 3DS (voxel)
 
 A native Nintendo 3DS port of Pokémon FireRed that uses both screens, with an
@@ -9,12 +13,52 @@ technical groundwork of
 **This repository and its releases do not contain the game.** You need your
 own dump of your own Pokémon FireRed cartridge.
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/dual-screen.png" alt="Cerulean City on the top screen, the region map, menu and party on the bottom screen" width="400">
+</p>
+
+<table>
+  <tr>
+    <td><img src="docs/screenshots/route-25.png" alt="Route 25 with Eevee following"><br><sub>Route 25</sub></td>
+    <td><img src="docs/screenshots/vermilion.png" alt="Vermilion City harbour with Squirtle following"><br><sub>Vermilion City, morning</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/cerulean-dusk.png" alt="Cerulean City at dusk with Psyduck following"><br><sub>Cerulean City, dusk</sub></td>
+    <td><img src="docs/screenshots/lavender-night.png" alt="Lavender Town at night with Gengar following"><br><sub>Lavender Town, night</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/cinnabar-dusk.png" alt="Cinnabar Island at dusk with Arcanine following"><br><sub>Cinnabar Island, dusk</sub></td>
+    <td><img src="docs/screenshots/fuchsia.png" alt="Fuchsia City with Snorlax following"><br><sub>Fuchsia City</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/viridian-forest.png" alt="Viridian Forest with Butterfree following"><br><sub>Viridian Forest</sub></td>
+    <td><img src="docs/screenshots/mt-moon.png" alt="Mt. Moon with Clefairy following"><br><sub>Mt. Moon</sub></td>
+  </tr>
+</table>
+
+**Day and night.** Outdoors the light follows the console's clock (or a day
+that passes in 24 minutes, or stays off - OPTIONS > DAY/NIGHT):
+
+<table>
+  <tr>
+    <td><img src="docs/screenshots/pallet-dawn.png" alt="Pallet Town at dawn"><br><sub>Dawn</sub></td>
+    <td><img src="docs/screenshots/pallet-day.png" alt="Pallet Town by day"><br><sub>Day</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/pallet-dusk.png" alt="Pallet Town at dusk"><br><sub>Dusk</sub></td>
+    <td><img src="docs/screenshots/pallet-night.png" alt="Pallet Town at night"><br><sub>Night</sub></td>
+  </tr>
+</table>
+
 ## Features
 
 - **The whole game, native on the 3DS**, at the console's own frame rate.
 - **A 3D overworld**: towns, routes, caves and interiors rebuilt in 3D from
   the game's own drawing - buildings, trees, relief, furniture - with lighting,
-  shadows and an adjustable camera. The classic 2D field is one option away.
+  shadows, a day/night cycle and an adjustable camera. The classic 2D field
+  is one option away.
 - **3D battles** (optional): the battle in front of the voxel world.
 - **A bottom screen like a Pokédex**: region map, party, quick menu keys, the
   battle's moves and actions to touch; menus run on it while the top screen
