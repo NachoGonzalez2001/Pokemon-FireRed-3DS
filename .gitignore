@@ -11,6 +11,5 @@ __pycache__/
 3ds_port/forwarder/dist/
 # the official logo (a Nintendo trademark) stays out of the repository
 3ds_port/assets/artwork/logo.png
-3ds_port/assets/artwork/banner.png
 # release outputs (tools/build_release.py)
 /dist/

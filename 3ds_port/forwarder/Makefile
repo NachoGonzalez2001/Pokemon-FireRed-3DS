@@ -6,9 +6,8 @@
 # Needs devkitARM + libctru, makerom and bannertool (on PATH, in ../tools-bin,
 # or given as MAKEROM= / BANNERTOOL=).
 #
-# The banner (../assets/artwork/banner.png, 256x128) is not in the repository:
-# it is made from the official FireRed logo, a Nintendo trademark. Put your own
-# picture there to build the CIA.
+# The banner (../assets/artwork/banner.png, 256x128) is the project's logo,
+# "FireRed 3DS.png", scaled down.
 .SUFFIXES:
 DEVKITPRO ?= /opt/devkitpro
 DEVKITARM ?= $(DEVKITPRO)/devkitARM

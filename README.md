@@ -77,8 +77,9 @@ that passes in 24 minutes, or stays off - OPTIONS > DAY/NIGHT):
    Rev 1), SHA-1 `dd5945db9b930750cb39d00c84da8571feebf417` - and your 3DS's SD
    card. The builder generates the game's data from your ROM on your computer
    and installs it in `/3ds/firered3ds/`. The ROM is never uploaded or copied.
-3. Start the game from the Homebrew Launcher (or install
-   `FireRed3DS-Forwarder.cia`, when a release has one, for a HOME Menu icon).
+3. Start the game from the Homebrew Launcher, or install
+   `FireRed3DS-Forwarder.cia` once with FBI for a HOME Menu icon (it starts
+   the installed game, so updates don't need a new CIA).
 
 Needs a 3DS / 2DS family console with custom firmware (Luma3DS). Saves are in
 `/3ds/firered3ds/firered3ds.sav`, in the GBA's format: the same 128 KB file
