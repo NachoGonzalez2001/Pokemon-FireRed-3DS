@@ -653,10 +653,19 @@ def interior_relief(layout):
                             lattice[key] = min(cap[y][x], up[key], sides)
                         v = lattice[key]
                     say[key] = min(say.get(key, v), v)
+    # the room's south edge drawn as a lip over the black past it (Tanoby's
+    # chambers): stood up, its black was a wall hiding the floor before it
+    def lip(x, y):
+        if y != H - 1 or kind[y][x] != 1:
+            return False
+        px = image(layout.metatile(x, y))
+        black = sum(1 for j in range(16) for i in range(16) if px[i, j] == (0, 0, 0))
+        return black >= 96
+
     out = {}
     for y in range(H):
         for x in range(W):
-            if kind[y][x] == 2:
+            if kind[y][x] == 2 or lip(x, y):
                 continue
             grid = [int(round(say[(x * (SIDE - 1) + a, y * (SIDE - 1) + c)]))
                     for c in range(SIDE) for a in range(SIDE)]

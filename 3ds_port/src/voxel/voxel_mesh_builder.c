@@ -1445,6 +1445,22 @@ static bool BorderOnRelief(VoxelBuilder *builder, int x, int y)
         }
     return true;
 }
+
+/* A border cell BorderOnRelief draws: some point of it past a lifted edge.
+ * The block beside one is open on that side otherwise - where the lifted
+ * strip dips under the block's top, the clear showed through it, black. */
+static bool BorderLifted(int x, int y)
+{
+    const VoxelMapInstance *inst = VoxelWorld_Instance(0);
+
+    if (inst == NULL || !BorderAt(x, y))
+        return false;
+    for (int c = 0; c <= LATTICE; ++c)
+        for (int a = 0; a <= LATTICE; ++a)
+            if (EdgeLift(inst, x * LATTICE + a, y * LATTICE + c) > 0.0f)
+                return true;
+    return false;
+}
 #undef LATTICE
 
 void VoxelMesh_EmitBorder(VoxelBuilder *builder, int x0, int y0, int x1, int y1)
@@ -1496,9 +1512,9 @@ void VoxelMesh_EmitBorder(VoxelBuilder *builder, int x0, int y0, int x1, int y1)
                     VoxelMesh_Top(builder, wx, wz, 0.0f, 0.0f, u0, v0, u1, v1, SHADE_TOP);
                 continue;
             }
-            south = !BorderAt(x, y + 1);
-            east = !BorderAt(x + 1, y);
-            west = !BorderAt(x - 1, y);
+            south = !BorderAt(x, y + 1) || BorderLifted(x, y + 1);
+            east = !BorderAt(x + 1, y) || BorderLifted(x + 1, y);
+            west = !BorderAt(x - 1, y) || BorderLifted(x - 1, y);
             if (MetatileUV(builder, VoxelWorld_BorderMetatile(x, y - VOXEL_BORDER_COURSES + 1),
                            &u0, &v0, &u1, &v1))
                 VoxelMesh_Top(builder, wx, wz, (float)VOXEL_BORDER_COURSES, 0.0f,
