@@ -404,6 +404,13 @@ ROOM_OBJECTS = {
         ([[0x28D]], 16, {"keep": HARBOR_RAIL}), ([[0x2A5]], 16, {"keep": HARBOR_RAIL}),
         ([[0x2AD]], 16),
     ],
+    # the S.S. Anne's pier (an indoor map drawn with Vermilion's tiles): the
+    # cart by the gangway, the crates of plants, the rocks in the sea
+    "gTileset_VermilionCity": [
+        ([[0x313, 0x314, None], [0x315, 0x316, 0x317], [0x318, 0x319, 0x31A]], 0, {"model": (28, 20)}),
+        ([[0x31F]], 8),
+        ([[0x212, 0x213], [0x21A, 0x21B]], 32),
+    ],
 }
 # Partitions: walls drawn inside a room (Silph Co.'s offices, the Rocket
 # Hideout's corridors), by tileset. Each run of them down a column stands
