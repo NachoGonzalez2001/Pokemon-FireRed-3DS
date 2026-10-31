@@ -1006,35 +1006,39 @@ def fuchsia_house(art):
     return [walls, roof], art
 
 
-def thatch_house(cells, rows):
+def thatch_house(cells, rows, edge=53):
     """Fuchsia's thatched houses (the Warden's, the Safari Zone's gate):
 
         rows  9-52   the thatch, flat, its tufts every 8 rows from 13;
                      borders x 0-9 and the last 9 columns
         rows 53-56   the thatch's front edge; rows 57-60 a grey fascia
         rows 61-     facade
+
+    The Safari Zone's rest houses draw the same with less thatch: its front
+    edge at row `edge`, everything under it as many rows higher.
     """
     width, height = cells * 16, rows * 16
+    up = 53 - edge
 
     def parts(art):
         front_z, back_z = height, 16
-        wall_top = height - 61
-        plaster = Tile(3, 72, 19, 77, top=wall_top)
+        wall_top = height - (61 - up)
+        plaster = Tile(3, 72 - up, 19, 77 - up, top=wall_top)
         walls = Prism(
             "walls", 0, width,
             [(front_z, 0), (front_z, wall_top), (back_z, wall_top), (back_z, 0)],
-            edges={0: Proj(61, height), 2: plaster}, skip=(1, 3),
+            edges={0: Proj(61 - up, height), 2: plaster}, skip=(1, 3),
             caps=[Band(0, wall_top + 1, plaster, front_z)])
-        roof = flat_roof("roof", 0, width, front_z, back_z, wall_top, (53, 61),
-                         Strip((13, 53), repeat=(13, 21), start=20, tail=(9, 13)),
-                         Tile(12, 53, 20, 61))
+        roof = flat_roof("roof", 0, width, front_z, back_z, wall_top, (edge, 61 - up),
+                         Strip((13, edge), repeat=(13, 21), start=20, tail=(9, 13)),
+                         Tile(12, edge, 20, 61 - up))
         return [walls, roof], art
     return parts
 
 
-def thatch_exact(cells, rows):
-    width, height = cells * 16, rows * 16
-    return [(0, 61, width, height), (0, 53, width, 61), (0, 13, width, 53)]
+def thatch_exact(cells, rows, edge=53):
+    width, height, up = cells * 16, rows * 16, 53 - edge
+    return [(0, 61 - up, width, height), (0, edge, width, 61 - up), (0, 13, width, edge)]
 
 
 FUCHSIA_GROUND = [GRASS, 0x008, 0x009, 0x010, 0x001, 0x004, 0x0CE, 0x0BE, 0x0EE, 0x0F5,
@@ -1822,6 +1826,15 @@ SPECS += [
         "ground": FUCHSIA_GROUND,
         "parts": thatch_house(6, 6),
         "exact": thatch_exact(6, 6),
+    },
+    # the Safari Zone's rest houses (North, East, Center: the same hut)
+    {
+        "name": "safari_rest_house",
+        "layout": "LAYOUT_SAFARI_ZONE_NORTH",
+        "rect": (42, 5, 5, 4),
+        "ground": FUCHSIA_GROUND + [0x00D, 0x011],
+        "parts": thatch_house(5, 4, edge=37),
+        "exact": thatch_exact(5, 4, edge=37),
     },
 ]
 SPECS += [

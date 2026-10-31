@@ -287,6 +287,12 @@ ROOM_OBJECTS = {
         ([[0x2C6]], 30, {"crown": 1}), ([[0x2C7]], 30, {"crown": 1}),
         ([[0x320, 0x321], [0x328, 0x329], [0x330, 0x331]], 40, {"depth": 10}),
         ([[0x320, 0x321], [0x328, 0x329]], 28, {"depth": 10}),
+        # the glass cases, low boxes: their glass top (its edge drawn on the
+        # floor north of them) laid flat, the blue band and the base standing
+        ([[0x308, 0x309, 0x30A], [0x300, 0x301, 0x302]], 0, {"model": (0, 12), "roof": 12}),
+        ([[0x2F8, 0x2F9, 0x2FA], [0x300, 0x301, 0x302]], 0, {"model": (0, 12), "roof": 12}),
+        ([[0x308, 0x2F9, 0x2FA], [0x300, 0x301, 0x302]], 0, {"model": (0, 12), "roof": 12}),
+        ([[0x2F8, 0x2F9, 0x303], [0x300, 0x301, 0x302]], 0, {"model": (0, 12), "roof": 12}),
         ([[0x300, 0x301, 0x302]], 12), ([[0x31F, 0x31F], [0x327, 0x327]], 24, {"depth": 8}),
         ([[0x34B, 0x34C], [0x353, 0x354]], 24, {"depth": 8}),
         # the roof: its drink machines, boxes
@@ -322,6 +328,12 @@ ROOM_OBJECTS = {
         ([[0x2B7, 0x2F9], [0x2A5, 0x2A7]], 10),
     ],
     "gTileset_SafariZoneBuilding": [
+        # the rest houses' bar: the L of its counter, low, its yellow top
+        # laid flat (behind the benches, its top alone), and the benches
+        # before it - their cushions seen from above, the legs at the foot
+        ([[0x295], [0x2B6], [0x29C], [0x29C], [0x2A4]], 10),
+        ([[0x29D, 0x29D, 0x29D, 0x29D], [0x2A5, 0x2A5, None, None]], 10),
+        ([[0x2BB], [0x2AF], [0x29F], [0x2A6]], 6), ([[0x2BA], [0x2A6]], 6),
         ([[0x297], [0x29E]], 30), ([[0x297], [0x2A6]], 30), ([[0x29E]], 14), ([[0x2A6]], 14),
         ([[0x2A5, 0x2A5]], 10),
         ([[0x297], [0x2A3]], 30), ([[0x296]], 30, {"crown": 1}),
