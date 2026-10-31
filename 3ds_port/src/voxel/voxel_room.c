@@ -23,6 +23,8 @@
  *
  * A roof's building, drawn south of the roof's edge (ROOM_HANG), hangs down
  * from that edge instead: a pixel P rows south of it, P rows below it.
+ * A fence drawn on a diagonal (ROOM_SLANT) stands on that diagonal, its foot
+ * running from row `ybot` at the cell's west edge to row `top` at its east.
  */
 #include <stddef.h>
 
@@ -233,6 +235,19 @@ static void EmitCell(VoxelBuilder *b, const VoxelMapInstance *inst, unsigned i,
         VoxelBuilder_Quad(b,
             &(VoxelVertex){x0, ya, z, u0, v0, 1.0f}, &(VoxelVertex){x1, ya, z, u1, v0, 1.0f},
             &(VoxelVertex){x1, yb, z, u1, v1, 1.0f}, &(VoxelVertex){x0, yb, z, u0, v1, 1.0f});
+        return;
+    }
+    if (sRoomCells[i].flags & ROOM_SLANT)
+    {
+        /* a fence on a diagonal: its foot at row ybot on the cell's west
+         * edge, `top` on its east, each pixel standing over it */
+        const int te = sRoomCells[i].top;
+        float zw = oz + ybot / 16.0f, ze = oz + te / 16.0f;
+        float yw = (ybot - ly * 16) / 16.0f, ye = (te - ly * 16) / 16.0f;
+
+        VoxelBuilder_Quad(b,
+            &(VoxelVertex){x0, yw, zw, u0, v0, 1.0f}, &(VoxelVertex){x1, ye, ze, u1, v0, 1.0f},
+            &(VoxelVertex){x1, ye - 1.0f, ze, u1, v1, 1.0f}, &(VoxelVertex){x0, yw - 1.0f, zw, u0, v1, 1.0f});
         return;
     }
     if (ps < 0) ps = 0;

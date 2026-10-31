@@ -37,6 +37,9 @@ ROOF_RAIL = {(57, 106, 82), (90, 205, 115), (41, 156, 98)}
 PEWTER_ROCK = {"drop": {(197, 189, 139), (164, 139, 115), (131, 106, 82)}, "speck": 4}
 
 DECK_RAIL = {(82, 82, 106), (131, 131, 213), (98, 98, 172), (148, 148, 172)}
+# down the bow the hull's grey is drawn right under the rail: stood up with
+# it, it made grey teeth all along
+BOW_RAIL = DECK_RAIL - {(148, 148, 172)}
 HARBOR_RAIL = {(82, 82, 106), (106, 205, 164), (57, 156, 115), (180, 189, 189), (148, 156, 156), (106, 115, 115)}
 
 ROOM_OBJECTS = {
@@ -192,8 +195,16 @@ ROOM_OBJECTS = {
     "gTileset_SSAnne": [
         # the deck: its round tables, the barrels stacked by the cabin
         ([[0x377]], 14),
+        # the deck's cabin: the portholes' face standing, its roof on it
+        ([[0x35D] + [0x365] * 5] + [[0x382] + [0x383] * 5] * 5 + [[0x38A] + [0x38B] * 5,
+          [0x392] + [0x393] * 5, [0x39B, 0x39A, 0x39B, 0x39A, 0x39B, 0x39A]], 40),
         ([[0x3AE], [0x396]], 16), ([[0x3B3], [0x38F], [0x396]], 16),
         ([[0x387], [0x397]], 16), ([[0x387], [0x38F], [0x397]], 16),
+        # the railing down each side of the bow, a row every two cells: a
+        # fence along the diagonal, its posts' feet on it (stood up a cell
+        # at a time, square on, it came apart in teeth)
+        ([[0x351, 0x352], [0x359, 0x35A]], 16, {"keep": BOW_RAIL, "slope": -8}),
+        ([[0x378, 0x362], [0x369, 0x36A]], 16, {"keep": BOW_RAIL, "slope": 8}),
     ] + [
         # its railing, the rail and posts alone (the sea and the hull stay)
         ([[m]], 16, {"keep": DECK_RAIL}) for m in (0x35B, 0x35C, 0x3B0, 0x3B1, 0x3B2, 0x3B4, 0x376, 0x359,
@@ -480,6 +491,10 @@ FACADES = {
     "gTileset_TrainerTower": {0x33B, 0x321, 0x322, 0x328, 0x325, 0x326, 0x33C},
     "gTileset_Condominiums": {0x350, 0x351, 0x352, 0x353, 0x354, 0x355, 0x356},
     "gTileset_DepartmentStore": {0x343, 0x288, 0x33B},
+    # the S.S. Anne's hull below its deck's rail (not down its bow: hung
+    # from a cell's edge a row further on each column, it fell apart in
+    # strips with the black between them)
+    "gTileset_SSAnne": {0x37B, 0x37C},
 }
 VOID_SHARE = 0.85
 INDOOR = ("MAP_TYPE_INDOOR",)
@@ -1119,12 +1134,13 @@ def overlays(room, place_art):
 
 
 FLAG_WEST, FLAG_EAST, FLAG_NO_GROUND, FLAG_BARE, FLAG_ATLAS = 1, 2, 4, 8, 16
-FLAG_MODEL, FLAG_FLAT, FLAG_OVERLAY, FLAG_HANG = 32, 64, 128, 256
+FLAG_MODEL, FLAG_FLAT, FLAG_OVERLAY, FLAG_HANG, FLAG_SLANT = 32, 64, 128, 256, 512
 
 
 def facades(room, taken):
-    """Each column's run of building face below a roof (FACADES): blocked,
-    from its first row to the map's bottom. [(cells, x, edge pixel row)]"""
+    """Each column's run of building face below a roof (FACADES): from its
+    first row, as far down as it is blocked (to the map's bottom, or to the
+    sea round a ship). [(cells, x, edge pixel row)]"""
     ids = FACADES.get(room.L.primary, set()) | FACADES.get(room.L.secondary, set())
     out = []
     if not ids:
@@ -1133,8 +1149,12 @@ def facades(room, taken):
         y0 = next((y for y in range(room.h) if (x, y) not in taken and room.m(x, y) in ids), None)
         if y0 is None:
             continue
-        cells = [(x, y) for y in range(y0, room.h)]
-        if all(c not in taken and room.L.collision(*c) for c in cells):
+        cells = []
+        for y in range(y0, room.h):
+            if (x, y) in taken or not room.L.collision(x, y):
+                break
+            cells.append((x, y))
+        if cells:
             out.append((set(cells), x, y0 * 16))
     return out
 
@@ -1370,7 +1390,20 @@ def build(root, place_art):
             roof = opt.get("roof", 0)
             card = not model and h >= ybot_px - top_px - 4
             ss = (0, 0)
-            if kind == "object" and not card:
+            # a fence on a diagonal: the line under its posts' feet, falling
+            # `slope` pixels a cell eastward, every pixel drawn above it
+            slope = opt.get("slope")
+            foot = None
+            if slope is not None and masks:
+                low = {}
+                for (cx, cy), art in masks.items():
+                    for j in range(16):
+                        for i in range(16):
+                            if art[j][i]:
+                                u = (cx - x0) * 16 + i
+                                low[u] = max(low.get(u, 0), cy * 16 + j + 1)
+                foot = max(v - slope * u / 16.0 for u, v in low.items()) if low else None
+            if kind == "object" and not card and foot is None:
                 side = side_art(list(masks.values()))
                 if side:
                     ss = place_art(side)
@@ -1465,6 +1498,10 @@ def build(root, place_art):
                 else:
                     ground = floor_near(room, x, y, all_cells)
                 ts = tops.get(x, (0, 0))
+                if foot is not None:
+                    flags |= FLAG_SLANT
+                    ybot_px = int(round(foot + slope * (x - x0)))
+                    top_px = ybot_px + slope
                 rows.append(row(y=y, x=x, h=mh if model else h, flags=flags,
                                 depth=mdepth if (model or y == first) else 0,
                                 lift=on[0] if on else 0, cap=cap, inw=inw, ine=ine,
@@ -1505,7 +1542,8 @@ def write_table(rooms, path):
              "#define ROOM_MODEL 32    /* a box h tall, depth deep, its front the drawing */",
              "#define ROOM_FLAT 64     /* nothing stands: `ground` lies there */",
              "#define ROOM_OVERLAY 128 /* stands on the cell's piece, not its owner */",
-             "#define ROOM_HANG 256    /* hangs down from pixel row `ybot`: a roof's building */", "",
+             "#define ROOM_HANG 256    /* hangs down from pixel row `ybot`: a roof's building */",
+             "#define ROOM_SLANT 512   /* a card on a diagonal: its foot `ybot` west, `top` east */", "",
              "static const struct { unsigned short layout, first, count; } sRoomLayouts[] = {"]
     first = 0
     for index, lid, rows in rooms:
