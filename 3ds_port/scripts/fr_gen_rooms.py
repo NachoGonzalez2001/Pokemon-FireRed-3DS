@@ -472,6 +472,15 @@ WALL_MORE = {"gTileset_SilphCo": {0x2F8, 0x2FB, 0x2FC},
 # breaking the wall there stood the door's top alone, half the wall's height
 # and a row back - a notch over the door, a scrap of wall in it.
 WALL_DOORS = {"gTileset_GenericBuilding2": {0x291}}
+# A roof's building seen below its edge: the face's first row, each column's
+# own. From there to the map's bottom the column hangs down from the edge,
+# as far below it as it is drawn south of it - lying on the floor, the face
+# was a painted pavement in front of the roof.
+FACADES = {
+    "gTileset_TrainerTower": {0x33B, 0x321, 0x322, 0x328, 0x325, 0x326, 0x33C},
+    "gTileset_Condominiums": {0x350, 0x351, 0x352, 0x353, 0x354, 0x355, 0x356},
+    "gTileset_DepartmentStore": {0x343, 0x288, 0x33B},
+}
 VOID_SHARE = 0.85
 INDOOR = ("MAP_TYPE_INDOOR",)
 
@@ -1110,7 +1119,24 @@ def overlays(room, place_art):
 
 
 FLAG_WEST, FLAG_EAST, FLAG_NO_GROUND, FLAG_BARE, FLAG_ATLAS = 1, 2, 4, 8, 16
-FLAG_MODEL, FLAG_FLAT, FLAG_OVERLAY = 32, 64, 128
+FLAG_MODEL, FLAG_FLAT, FLAG_OVERLAY, FLAG_HANG = 32, 64, 128, 256
+
+
+def facades(room, taken):
+    """Each column's run of building face below a roof (FACADES): blocked,
+    from its first row to the map's bottom. [(cells, x, edge pixel row)]"""
+    ids = FACADES.get(room.L.primary, set()) | FACADES.get(room.L.secondary, set())
+    out = []
+    if not ids:
+        return out
+    for x in range(room.w):
+        y0 = next((y for y in range(room.h) if (x, y) not in taken and room.m(x, y) in ids), None)
+        if y0 is None:
+            continue
+        cells = [(x, y) for y in range(y0, room.h)]
+        if all(c not in taken and room.L.collision(*c) for c in cells):
+            out.append((set(cells), x, y0 * 16))
+    return out
 
 ROW_FIELDS = ("y", "x", "h", "flags", "depth", "lift", "cap", "inw", "ine", "ybot", "top",
               "tw", "te", "sx", "sy", "ground", "ssx", "ssy", "tsx", "tsy", "back")
@@ -1255,14 +1281,21 @@ def build(root, place_art):
         for pt in thick_walls(room, taken):
             taken |= pt[0]
             pieces.append((pt, "object"))
+        hanging = facades(room, taken)
+        for f in hanging:
+            taken |= f[0]
         for pt in partitions(room, taken, INNER_WALLS):
             taken |= pt[0]
             pieces.append((pt, "inner"))
         for pt in partitions(room, taken):
             taken |= pt[0]
             pieces.append((pt, "auto"))
-        all_cells = set().union(*[p[0][0] for p in pieces]) if pieces else set()
+        all_cells = set().union(*[p[0][0] for p in pieces], *[f[0] for f in hanging])
         rows = []
+        for cells, x, edge in hanging:
+            for (cx, cy) in sorted(cells, key=lambda c: c[1]):
+                rows.append(row(y=cy, x=cx, flags=FLAG_ATLAS | FLAG_NO_GROUND | FLAG_HANG,
+                                ybot=edge, sx=room.m(cx, cy)))
         # the bevelled corners left below the wall, squared off: floor
         if plain:
             for y in range(room.h):
@@ -1471,7 +1504,8 @@ def write_table(rooms, path):
              "#define ROOM_ATLAS 16    /* its art is metatile `sx` in the map's atlas */",
              "#define ROOM_MODEL 32    /* a box h tall, depth deep, its front the drawing */",
              "#define ROOM_FLAT 64     /* nothing stands: `ground` lies there */",
-             "#define ROOM_OVERLAY 128 /* stands on the cell's piece, not its owner */", "",
+             "#define ROOM_OVERLAY 128 /* stands on the cell's piece, not its owner */",
+             "#define ROOM_HANG 256    /* hangs down from pixel row `ybot`: a roof's building */", "",
              "static const struct { unsigned short layout, first, count; } sRoomLayouts[] = {"]
     first = 0
     for index, lid, rows in rooms:
@@ -1480,7 +1514,9 @@ def write_table(rooms, path):
     lines += ["};", "",
               "static const struct",
               "{",
-              "    unsigned char y, x, h, flags, depth, lift, cap;",
+              "    unsigned char y, x, h;",
+              "    unsigned short flags;",
+              "    unsigned char depth, lift, cap;",
               "    unsigned char inw, ine;     /* its sides this far in from the cell's edges */",
               "    unsigned short ybot, top;   /* pixels from the room's top */",
               "    unsigned short tw, te;      /* its drawing's first row at each edge */",

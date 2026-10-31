@@ -20,6 +20,9 @@
  * (`top`) down, its top that first row's strip stretched back, its sides the
  * side art the generator made for it. It is for things drawn front on
  * (shelves, a cooler, a television), whose drawing is no top at all.
+ *
+ * A roof's building, drawn south of the roof's edge (ROOM_HANG), hangs down
+ * from that edge instead: a pixel P rows south of it, P rows below it.
  */
 #include <stddef.h>
 
@@ -218,6 +221,18 @@ static void EmitCell(VoxelBuilder *b, const VoxelMapInstance *inst, unsigned i,
     if (sRoomCells[i].flags & ROOM_MODEL)
     {
         EmitModel(b, inst, i, u0, v0, u1, v1);
+        return;
+    }
+    if (sRoomCells[i].flags & ROOM_HANG)
+    {
+        /* a roof's building below its edge (row ybot): drawn as far south
+         * of the edge as it goes down, so it hangs there */
+        float z = oz + ybot / 16.0f;
+        float ya = (ybot - ly * 16) / 16.0f, yb = ya - 1.0f;
+
+        VoxelBuilder_Quad(b,
+            &(VoxelVertex){x0, ya, z, u0, v0, 1.0f}, &(VoxelVertex){x1, ya, z, u1, v0, 1.0f},
+            &(VoxelVertex){x1, yb, z, u1, v1, 1.0f}, &(VoxelVertex){x0, yb, z, u0, v1, 1.0f});
         return;
     }
     if (ps < 0) ps = 0;
