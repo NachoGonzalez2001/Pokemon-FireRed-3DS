@@ -411,6 +411,14 @@ static void GpuPresent(void)
     drawStart = svcGetSystemTick();
     /* Begin waits for the previous frame and paces to the screen's 60 Hz. */
     C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
+    /* The PICA's texture cache dropped before anything samples what the
+     * transfers above wrote. Citro3D asks for that only when a texture
+     * binding changes, and Citro2D rebinds only a texture other than the one
+     * it drew with last: a 2D screen draws sFrameTex frame after frame, and
+     * on hardware the GPU could go on sampling texels of an earlier frame
+     * (found by the Emerald port with hardware dumps; Azahar has no such
+     * cache). The same bit Citro3D's own context update writes. */
+    GPUCMD_AddMaskedWrite(GPUREG_TEXUNIT_CONFIG, 0x4, 1u << 16);
     beginTick = svcGetSystemTick();
     sStats.waitMs = (beginTick - drawStart) * 1000.0f / SYSCLOCK_ARM11;
     sVoxelUploads = 0;

@@ -103,7 +103,12 @@ bool CtrPlatform_Init(void)
 {
     /* A New 3DS runs at 804 MHz with its L2 cache; an Old 3DS ignores this. */
     osSetSpeedupEnable(true);
-    gfxInitDefault();
+    /* The bottom screen at RGB565 from the start: its frame buffers live in
+     * the linear heap, and gfxInitDefault made them BGR8 (450 KiB) before
+     * CtrLog_Init turned the screen to 565, which never shrinks them. The
+     * top screen stays BGR8: at 565 the Emerald port's top screen came out
+     * garbled on a New 3DS from the first frame (Azahar showed it fine). */
+    gfxInit(GSP_BGR8_OES, GSP_RGB565_OES, false);
     /* A New 3DS runs the application core at 804 MHz with its L2 cache when
      * asked; an Old 3DS ignores this. */
     osSetSpeedupEnable(true);
