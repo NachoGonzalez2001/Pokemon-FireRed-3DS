@@ -181,7 +181,7 @@ static bool sAtlasCapacityBlocked;
 static bool sReady;
 static DVLB_s *sDvlb;
 static shaderProgram_s sProgram;
-static int sUniProjection = -1, sUniModelView = -1;
+static int sUniProjection = -1, sUniModelView = -1, sUniOrigin = -1;
 static int sUniShadeTint = -1, sUniTintDiff = -1, sUniGrade = -1, sUniFog = -1;
 static int sUniDappleU = -1, sUniDappleV = -1;
 /* The tree crowns' brightness against the rest of the art, applied once as
@@ -1623,13 +1623,14 @@ bool CtrVoxel_Init(void)
     }
     sUniProjection = shaderInstanceGetUniformLocation(sProgram.vertexShader, "projection");
     sUniModelView = shaderInstanceGetUniformLocation(sProgram.vertexShader, "modelView");
+    sUniOrigin = shaderInstanceGetUniformLocation(sProgram.vertexShader, "origin");
     sUniShadeTint = shaderInstanceGetUniformLocation(sProgram.vertexShader, "shadeTint");
     sUniTintDiff = shaderInstanceGetUniformLocation(sProgram.vertexShader, "tintDiff");
     sUniGrade = shaderInstanceGetUniformLocation(sProgram.vertexShader, "grade");
     sUniFog = shaderInstanceGetUniformLocation(sProgram.vertexShader, "fog");
     sUniDappleU = shaderInstanceGetUniformLocation(sProgram.vertexShader, "dappleU");
     sUniDappleV = shaderInstanceGetUniformLocation(sProgram.vertexShader, "dappleV");
-    if (sUniProjection < 0 || sUniModelView < 0 || sUniShadeTint < 0
+    if (sUniProjection < 0 || sUniModelView < 0 || sUniOrigin < 0 || sUniShadeTint < 0
      || sUniTintDiff < 0 || sUniGrade < 0 || sUniFog < 0
      || sUniDappleU < 0 || sUniDappleV < 0)
     {
@@ -1846,7 +1847,7 @@ void CtrVoxel_Shutdown(void)
         DVLB_Free(sDvlb);
         sDvlb = NULL;
     }
-    sUniProjection = sUniModelView = -1;
+    sUniProjection = sUniModelView = sUniOrigin = -1;
     sAtlasCapped = false;
     sMeshMapGroup = sMeshMapNum = -1;
     sReady = false;
@@ -4829,13 +4830,32 @@ static void FitToLogicalSurface(C3D_Mtx *mtx)
     }
 }
 
+/*
+ * A whole tile near the camera, the same for every draw of a frame: modelView
+ * carries it, and each draw's own corner goes to the shader as whole tiles
+ * from it (`origin`, added to the position before the matrix). The edge two
+ * chunks share then comes out of one matrix as the same numbers on both
+ * sides. With the corner folded into each chunk's matrix, the console's
+ * 24-bit floats rounded the two matrices apart and the seam - a flat row on
+ * screen - let the background through for a frame here and there while
+ * walking, a thin dark or light line across the ground (found by the
+ * Emerald port).
+ */
+static int sDrawAnchorX, sDrawAnchorZ;
+
+static void SetOrigin(float x, float z)
+{
+    C3D_FVUnifSet(GPU_VERTEX_SHADER, sUniOrigin, x, 0.0f, z, 0.0f);
+}
+
 static void SetModelView(const C3D_Mtx *view, int worldX, int worldZ)
 {
     C3D_Mtx model;
 
     Mtx_Copy(&model, view);
-    Mtx_Translate(&model, (float)worldX, 0.0f, (float)worldZ, true);
+    Mtx_Translate(&model, (float)sDrawAnchorX, 0.0f, (float)sDrawAnchorZ, true);
     C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, sUniModelView, &model);
+    SetOrigin((float)(worldX - sDrawAnchorX), (float)(worldZ - sDrawAnchorZ));
 }
 
 /*
@@ -5390,6 +5410,7 @@ static void DrawRays(const VoxelLight *light, const VoxelLight *unlit)
     Mtx_Identity(&identity);
     C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, sUniProjection, &ortho);
     C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, sUniModelView, &identity);
+    SetOrigin(0.0f, 0.0f);
     /* The pattern in pixels, turned to the rays. */
     C3D_FVUnifSet(GPU_VERTEX_SHADER, sUniDappleU,
                   across[0] * CTR_GAME_WIDTH / VOXEL_RAY_ACROSS,
@@ -5991,6 +6012,7 @@ static void DrawFogBanks(const C3D_Mtx *view, const VoxelLight *light, bool cave
                       sCamera.ground + sFogBanks[bank].height,
                       floorf(sCamera.targetZ / period) * period + dz, true);
         C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, sUniModelView, &model);
+        SetOrigin(0.0f, 0.0f);
 
         /* 0: the fog colour, coverage = texture x shade, doubled. */
         env = C3D_GetTexEnv(0);
@@ -6078,6 +6100,8 @@ void CtrVoxel_Draw(C3D_RenderTarget *target, float eyeOffset)
     }
 #endif
     CameraMatrices(&projection, &view, true);
+    sDrawAnchorX = (int)floorf(sCamera.targetX);
+    sDrawAnchorZ = (int)floorf(sCamera.targetZ);
 
     C3D_BindProgram(&sProgram);
 
@@ -6613,6 +6637,7 @@ void CtrVoxel_StereoDraw(int eye, C3D_Tex *tex, VoxelStereoPass pass, float dx, 
     model.r[1].w = dy;
     C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, sUniProjection, &projection);
     C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, sUniModelView, &model);
+    SetOrigin(0.0f, 0.0f);
     /* Colour = shade / 2 (the row's share of the blur), no grade, no haze. */
     C3D_FVUnifSet(GPU_VERTEX_SHADER, sUniShadeTint, 0.5f, 0.5f, 0.5f, 0.0f);
     C3D_FVUnifSet(GPU_VERTEX_SHADER, sUniTintDiff, 0.0f, 0.0f, 0.0f, 0.0f);
