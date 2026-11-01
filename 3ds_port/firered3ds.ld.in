@@ -180,6 +180,12 @@ SECTIONS
 	{
 		/* The game's own variables: see .data. */
 		__ctr_game_bss = .;
+		/* Brock's defeat text (PewterCity_Gym_Text_BrockDefeat) is 388 bytes,
+		   longer than gDisplayedStringBattle[300]. On the GBA it runs into the
+		   unused sFlickerArray; here it hit the battle's scroll registers and
+		   the trainer battle's state, its end script among them. Room behind it. */
+		*build/root/src/battle_main.o(.bss.gDisplayedStringBattle)
+		. += 256;
 		EXCLUDE_FILE(*build/root/src/platform/*) *build/root/src/*(.bss .bss.* COMMON)
 		*build/root/data/*(.bss .bss.* COMMON)
 		. = ALIGN(4);
