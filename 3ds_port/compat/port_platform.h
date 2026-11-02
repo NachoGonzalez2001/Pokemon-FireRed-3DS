@@ -124,6 +124,112 @@ void Port_SetAssetDebugEx(u16 tag, u16 a, u16 b, u16 c, u16 d);
 /* A menu screen's main callback calls this every frame it runs: its picture
  * goes to the bottom screen while the top screen holds the world. */
 void Port_MenuOnBottom(void);
+/* A menu with a native page of its own on the bottom screen (fr_bottom_ui.c):
+ * the game runs it as ever, the page shows its state and turns taps into keys. */
+enum { PORT_PAGE_NONE, PORT_PAGE_PARTY, PORT_PAGE_BAG, PORT_PAGE_SUMMARY, PORT_PAGE_CARD, PORT_PAGE_DEX, PORT_PAGE_STORAGE };
+void Port_NativePage(u8 page);
+/* The region map, its picture zoomed to the whole screen. A tap at a place in
+ * the GBA picture moves its cursor; TRUE if the cursor was already there. */
+void Port_RegionMapOnBottom(void);
+bool8 Port_RegionMapIsFly(void);
+bool8 Port_RegionMapTap(int x, int y);
+enum { PORT_MENU_LIST, PORT_MENU_ACTIONS, PORT_MENU_QUANTITY, PORT_MENU_OTHER };
+#define PORT_MENU_MAX_ACTIONS 8
+#define PORT_NO_WINDOW 0xFF
+struct PortPartyView {
+    u8 mode;                /* PORT_MENU_* */
+    u8 chooseMultiple;
+    s8 slot, slot2;         /* the cursor, and where it went while switching */
+    u8 switching;
+    u8 numActions;
+    const u8 *actions[PORT_MENU_MAX_ACTIONS];
+    const u8 *desc[6];      /* what a slot shows in place of its HP */
+    u8 helpWindow;          /* the short prompt */
+    u8 windows[3];          /* others that may be up, or PORT_NO_WINDOW */
+};
+bool8 Port_PartyGetView(struct PortPartyView *view);
+void Port_PartyTapSlot(u8 slot);
+struct PortBagView {
+    u8 mode;                /* PORT_MENU_* */
+    u8 pocket, nItems;
+    u16 cursor;             /* the list's selected row; nItems is CANCEL */
+    u8 numActions;
+    const u8 *actions[4];
+    u8 actionRow[4];        /* the row of the game's menu each one is */
+    u8 windows[11];         /* those up, or PORT_NO_WINDOW */
+};
+bool8 Port_BagGetView(struct PortBagView *view);
+void Port_BagMoveCursor(u16 index);
+u8 Port_BagOpenWindow(u8 which);
+struct Pokemon;
+struct PortSummaryView {
+    u8 ready;               /* it takes a page flip now */
+    u8 selecting;           /* the moves page's cursor is up */
+    u8 cursorReady;         /* that cursor takes a move now */
+    u8 page, isEgg, swapping, moveCursor, ailment;
+    u16 species;
+    u16 moveIds[5];
+    u32 personality, otId, sig;
+    const struct Pokemon *mon;
+    const u8 *nickname, *speciesName, *otName, *dexNum, *idNum, *itemName, *gender, *level, *hp;
+    const u8 *expPoints, *expNext, *abilityName, *abilityDesc;
+    const u8 *stats[5], *moveName[5], *moveCurPp[5], *moveMaxPp[5], *movePower[5], *moveAccuracy[5];
+    u8 memoWindow;
+};
+bool8 Port_SummaryGetView(struct PortSummaryView *view);
+void Port_SummarySetMoveCursor(u8 row);
+struct PortCardView {
+    u8 ready;               /* it takes a key now */
+    u8 onBack, hasPokedex, hasHof, hasLink, hasTrades, stars;
+    u8 hasBadge[8];
+    u16 pic, trainerId, caught, hours, minutes, hofHours, hofMinutes, hofSeconds;
+    u16 wins, losses, trades;
+    u32 money, berryCrush, unionRoom;
+    u16 monSpecies[6];
+    const u8 *name, *badgeTiles;
+    const u8 *profile[4];
+};
+bool8 Port_CardGetView(struct PortCardView *view);
+enum { PORT_DEX_TOP, PORT_DEX_LIST, PORT_DEX_ENTRY };
+struct ListMenuItem;
+struct PortDexView {
+    u8 mode;                /* PORT_DEX_* */
+    u8 listTask, national;
+    u16 count, cursor, species, seenKanto, ownedKanto, seenNational, ownedNational;
+    u32 unlocked;
+    const struct ListMenuItem *items;
+};
+struct PokedexEntry;
+const struct PokedexEntry *Port_DexEntry(u16 natNum);
+bool8 Port_DexHasPage(void);
+/* The PC's boxes. The game's fixed windows: 1 its message, 2 an item's details. */
+#define PORT_STORAGE_MESSAGE_WINDOW 1
+#define PORT_STORAGE_ITEM_INFO_WINDOW 2
+#define PORT_STORAGE_LAST_FIXED_WINDOW 2
+struct PortStorageView {
+    u8 ready;               /* its main task takes input now */
+    u8 option, area, pos, currentBox, holding, itemMode;
+    u8 numMenu;             /* a menu of that many rows is up */
+    u8 chooseBox, chooseCurrent; /* the box chooser is up, and on which box */
+    u16 species, movingItem;
+    u32 personality;
+    const void *pal;
+    const u8 *nickname, *genderLevel, *itemName;
+    const u8 *menuText[7];
+};
+bool8 Port_StorageHasPage(void);
+bool8 Port_StorageGetView(struct PortStorageView *view);
+void Port_StorageSetCursor(s8 area, s8 pos);
+u8 Port_StorageChooseBox(u8 *current);
+bool8 Port_StorageCursor(struct PortStorageView *view);
+bool8 Port_DexGetView(struct PortDexView *view);
+/* list_menu.c: put a list's cursor on an item */
+void Port_ListSetCursor(u8 listTaskId, u16 index);
+/* menu.c: the menu now open in a window */
+u8 Port_MenuWindow(void);
+u8 Port_YesNoWindow(void);
+void Port_MenuGeometry(u8 *top, u8 *rowHeight, u8 *rows);
+void Port_MenuSetCursor(u8 row);
 
 /* A full-screen scene's main callback (evolution, trade, Hall of Fame...)
  * calls this every frame it runs: FireRed leaves the field's callback1 set
