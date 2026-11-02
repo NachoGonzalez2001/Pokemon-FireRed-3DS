@@ -60,9 +60,11 @@ that passes in 24 minutes, or stays off - OPTIONS > DAY/NIGHT):
   shadows, a day/night cycle and an adjustable camera. The classic 2D field
   is one option away.
 - **3D battles** (optional): the battle in front of the voxel world.
-- **A bottom screen like a Pokédex**: region map, party, quick menu keys, the
-  battle's moves and actions to touch; menus run on it while the top screen
-  keeps the world.
+- **A bottom screen made for touch**: region map, party and quick menu keys in
+  the field, with their own touch screens for the battle, the party, the bag,
+  the summary, the trainer card, the Pokédex, the PC's boxes and the fly map,
+  while the top screen keeps the world. Other menus show the game's own
+  picture there and use the console's buttons.
 - **Free movement** (optional): walk any way the circle pad points.
 - **A Pokémon that follows you** in the 3D world: the first of your party
   walks behind you, in eight directions, in Mystery Dungeon style (see below).
