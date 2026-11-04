@@ -24,7 +24,7 @@ fault the eye catches at once, and is found here pixel by pixel.
 
 The dump is built on the host, from 3ds_port (msys2 mingw64 gcc):
 
-    gcc -std=c99 -O2 -Iinclude -Isrc/voxel -D'PORT_LOG(...)=((void)0)'         -DVOXEL_HOST_FILES -DVOXEL_BUILDINGS_PATH='"romfs/voxel/buildings.bin"'         -DVOXEL_RELIEF_PATH='(getenv("VOXEL_RELIEF") ? getenv("VOXEL_RELIEF") : "romfs/voxel/relief.bin")'         -DSIGN_MASK_PATH='"romfs/voxel/signposts.bin"' tests/voxel_mesh_dump.c         src/voxel/voxel_mesh_builder.c src/voxel/voxel_tree.c src/voxel/voxel_sign.c         src/voxel/voxel_building.c src/voxel/voxel_relief.c src/voxel/voxel_grade.c         src/3ds_video_decode.c -lm -o build/voxel_mesh_dump.exe
+    gcc -std=c99 -O2 -Iinclude -Isrc/voxel -D'PORT_LOG(...)=((void)0)'         -DVOXEL_HOST_FILES -DVOXEL_BUILDINGS_PATH='"romfs/voxel/buildings.bin"'         -DVOXEL_RELIEF_PATH='(getenv("VOXEL_RELIEF") ? getenv("VOXEL_RELIEF") : "romfs/voxel/relief.bin")'         -DSIGN_MASK_PATH='"romfs/voxel/signposts.bin"' tests/voxel_mesh_dump.c         src/voxel/voxel_mesh_builder.c src/voxel/voxel_tree.c src/voxel/voxel_room.c src/voxel/voxel_sign.c         src/voxel/voxel_building.c src/voxel/voxel_relief.c src/voxel/voxel_grade.c         src/3ds_video_decode.c -lm -o build/voxel_mesh_dump.exe
 
 Modelled props (buildings.bin: sea rocks, boulders) are another pass the
 dump does not run; their cells show magenta and are not judged.
@@ -71,7 +71,7 @@ def layouts():
 def dump(layout_id):
     """[(x, y, z, u, v, shade) * 3] of the layout's terrain, as the game emits it."""
     L = layouts()
-    entry = next(e for e in L if e["id"] == layout_id)
+    entry = next(e for e in L if e.get("id") == layout_id)
     index = L.index(entry) + 1
     blocks = vb.read_u16(os.path.join(vb.ROOT, entry["blockdata_filepath"]))
     w, h = entry["width"], entry["height"]

@@ -10,5 +10,6 @@
 | `take_ours.py <file>...` | resolve merge conflicts keeping the port side |
 | `ui_icons.py <header>` | draw the bottom screen's icons (the port's own art) into `3ds_port/src/fr_ui_icons.h` |
 | `sizeof_scan.py` | count `sizeof()` uses on INCBIN arrays (stubs in this build) |
+| `3ds_port/scripts/voxel_view.py <layout> <x,y>` | a spot of a map as the console draws it, in seconds: run it from the build tree, keep its pictures local |
 
 Run the bash ones through devkitPro's MSYS2: `$env:MSYSTEM='MSYS'; & C:\devkitPro\msys2\usr\bin\bash.exe -l tools/dkp.sh /c/fr3ds bash tools/dev/mk.sh ...`
