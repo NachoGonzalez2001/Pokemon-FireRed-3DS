@@ -28,7 +28,7 @@ APP_TITLE := Pokemon FireRed 3DS
 APP_SHORT := FireRed 3DS
 APP_AUTHOR := pokefirered-3ds
 # Shown by FBI and the HOME Menu; bump with the forwarder, not with the game.
-APP_VERSION ?= 1.0.0
+APP_VERSION ?= 1.0.1
 CIA := dist/FireRed3DS-Forwarder.cia
 
 all: $(CIA)

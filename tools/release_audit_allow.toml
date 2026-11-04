@@ -12,8 +12,9 @@ paths = [
 
 [media]
 # Images and binary assets allowed in the repository, with their provenance.
-"3ds_port/assets/artwork/icon.png" = "HOME Menu icon: an original pixel-art Poke Ball by the FireRed 3DS author"
-"3ds_port/assets/artwork/icon_large.png" = "the same icon at 256x256"
+"3ds_port/assets/artwork/firered_3ds_icon_option_7.png" = "HOME Menu icon: a watercolour Poke Ball, supplied by the FireRed 3DS maintainer"
+"3ds_port/assets/artwork/icon.png" = "that icon, cropped and scaled to 48x48"
+"3ds_port/assets/artwork/icon_large.png" = "that icon, cropped and scaled to 256x256"
 "3ds_port/assets/artwork/banner-sound.wav" = "HOME Menu banner chime, synthesised for this project"
 
 [local_paths]
