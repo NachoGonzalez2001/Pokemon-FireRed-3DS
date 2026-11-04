@@ -126,7 +126,7 @@ void Port_SetAssetDebugEx(u16 tag, u16 a, u16 b, u16 c, u16 d);
 void Port_MenuOnBottom(void);
 /* A menu with a native page of its own on the bottom screen (fr_bottom_ui.c):
  * the game runs it as ever, the page shows its state and turns taps into keys. */
-enum { PORT_PAGE_NONE, PORT_PAGE_PARTY, PORT_PAGE_BAG, PORT_PAGE_SUMMARY, PORT_PAGE_CARD, PORT_PAGE_DEX, PORT_PAGE_STORAGE };
+enum { PORT_PAGE_NONE, PORT_PAGE_PARTY, PORT_PAGE_BAG, PORT_PAGE_SUMMARY, PORT_PAGE_CARD, PORT_PAGE_DEX, PORT_PAGE_STORAGE, PORT_PAGE_NAMING };
 void Port_NativePage(u8 page);
 /* The region map, its picture zoomed to the whole screen. A tap at a place in
  * the GBA picture moves its cursor; TRUE if the cursor was already there. */
@@ -139,6 +139,7 @@ enum { PORT_MENU_LIST, PORT_MENU_ACTIONS, PORT_MENU_QUANTITY, PORT_MENU_OTHER };
 struct PortPartyView {
     u8 mode;                /* PORT_MENU_* */
     u8 chooseMultiple;
+    u8 multi;               /* a link's layout: the partner's slots are out of reach */
     s8 slot, slot2;         /* the cursor, and where it went while switching */
     u8 switching;
     u8 numActions;
@@ -209,6 +210,7 @@ bool8 Port_DexHasPage(void);
 struct PortStorageView {
     u8 ready;               /* its main task takes input now */
     u8 option, area, pos, currentBox, holding, itemMode;
+    u8 multi;               /* several mons taken at once: the game's own cursor */
     u8 numMenu;             /* a menu of that many rows is up */
     u8 chooseBox, chooseCurrent; /* the box chooser is up, and on which box */
     u16 species, movingItem;
@@ -223,6 +225,28 @@ void Port_StorageSetCursor(s8 area, s8 pos);
 u8 Port_StorageChooseBox(u8 *current);
 bool8 Port_StorageCursor(struct PortStorageView *view);
 bool8 Port_DexGetView(struct PortDexView *view);
+/* The keyboard. Its cursor at x == columns is on the keys beside it: the next
+ * page, delete and OK. */
+enum { PORT_KB_LOWER, PORT_KB_UPPER, PORT_KB_SYMBOLS };
+enum { PORT_NAMING_NO_ICON, PORT_NAMING_PLAYER, PORT_NAMING_BOX, PORT_NAMING_MON, PORT_NAMING_RIVAL };
+#define PORT_NAMING_COLUMNS 8
+#define PORT_NAMING_ROWS 4
+#define PORT_NAMING_MESSAGE_WINDOW 0
+struct PortNamingView {
+    u8 ready;               /* it takes a key now */
+    u8 message;             /* its message that the mon went to the PC */
+    u8 next;                /* PORT_KB_*: the page after this one */
+    u8 columns;
+    s8 cursorX, cursorY;
+    u8 maxChars, caret, icon;
+    u16 species, gender;    /* for the player's name, species is their gender */
+    u32 personality;
+    const u8 *title;
+    const u8 *keys;         /* PORT_NAMING_ROWS rows of PORT_NAMING_COLUMNS */
+    u8 text[16];
+};
+bool8 Port_NamingGetView(struct PortNamingView *view);
+void Port_NamingSetCursor(s16 x, s16 y);
 /* list_menu.c: put a list's cursor on an item */
 void Port_ListSetCursor(u8 listTaskId, u16 index);
 /* menu.c: the menu now open in a window */
@@ -241,7 +265,7 @@ bool Port_SceneShown(void);
  * the bottom screen shows them as buttons, and the call returns the button
  * tapped (0-3, or 4 for the move menu's cancel), or -1. moveInfo is the
  * move menu's struct ChooseMoveStruct, NULL for the action menu. */
-enum { PORT_BATTLE_ACTION = 1, PORT_BATTLE_MOVE = 2 };
+enum { PORT_BATTLE_ACTION = 1, PORT_BATTLE_MOVE = 2, PORT_BATTLE_SWITCH = 3 };
 s8 Port_BattleMenu(u8 kind, const void *moveInfo);
 
 #endif

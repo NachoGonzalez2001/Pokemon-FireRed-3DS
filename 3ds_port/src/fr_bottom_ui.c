@@ -64,6 +64,7 @@
 #include "constants/items.h"
 #include "constants/moves.h"
 #include "constants/songs.h"
+#include "constants/trainers.h"
 #include "constants/region_map_sections.h"
 #include "port_platform.h"
 
@@ -195,6 +196,7 @@ typedef struct {
 typedef struct {
     u8 choose;       /* PORT_BATTLE_* the player is choosing, or 0 */
     u8 cursor;       /* the game's cursor in that menu */
+    u8 picked;       /* PORT_BATTLE_SWITCH: the move being moved */
     u8 balls[PARTY_SIZE]; /* 0 none, 1 able, 2 fainted or status */
     u16 moves[MAX_MON_MOVES];
     u8 pp[MAX_MON_MOVES], maxPp[MAX_MON_MOVES];
@@ -239,7 +241,7 @@ static u8 sOptTab, sOptSub, sOptPage;
 
 /* The battle menus (battle_controller_player.c, Port_BattleMenu) */
 static u32 sBattleMenuFrame = 0xFFFFFFF0;
-static u8 sBattleMenuKind;
+static u8 sBattleMenuKind, sBattleMenuBattler;
 static struct ChooseMoveStruct sBattleMoves;
 static s8 sBattleTap = -1;
 static u8 sBattleTapKind;
@@ -426,7 +428,7 @@ static void SnapshotBattle(ViewState *s)
     if (CtrGame_Frames() - sBattleMenuFrame <= 1)
     {
         s->b.choose = sBattleMenuKind;
-        if (sBattleMenuKind == PORT_BATTLE_MOVE)
+        if (sBattleMenuKind != PORT_BATTLE_ACTION)
             for (int i = 0; i < MAX_MON_MOVES; i++)
             {
                 s->b.moves[i] = sBattleMoves.moves[i];
@@ -436,9 +438,12 @@ static void SnapshotBattle(ViewState *s)
     }
     if (s->b.choose)
     {
-        u8 battler = GetBattlerAtPosition(B_POSITION_PLAYER_LEFT);
+        u8 battler = sBattleMenuBattler;
 
-        s->b.cursor = s->b.choose == PORT_BATTLE_MOVE ? gMoveSelectionCursor[battler] : gActionSelectionCursor[battler];
+        s->b.cursor = s->b.choose == PORT_BATTLE_ACTION ? gActionSelectionCursor[battler]
+                    : s->b.choose == PORT_BATTLE_MOVE ? gMoveSelectionCursor[battler] : gMultiUsePlayerCursor;
+        if (s->b.choose == PORT_BATTLE_SWITCH)
+            s->b.picked = gMoveSelectionCursor[battler];
     }
     for (int i = 0; i < PARTY_SIZE; i++)
     {
@@ -1586,6 +1591,7 @@ static void DrawMoves(const ViewState *s)
         u16 move = s->b.moves[i];
         u8 type, buf[16], *p;
         bool8 pressed = s->pressed == HIT_BATTLE + i, focus = s->b.cursor == i;
+        bool8 picked = s->b.choose == PORT_BATTLE_SWITCH && s->b.picked == i;
         int x, y, w, h;
         u16 colour;
 
@@ -1597,8 +1603,8 @@ static void DrawMoves(const ViewState *s)
         }
         type = gBattleMoves[move].type;
         colour = TypeColour(type);
-        if (focus)
-            RoundRect(x - 2, y - 2, w + 4, h + 4, 10, C_GOLD);
+        if (focus || picked)
+            RoundRect(x - 2, y - 2, w + 4, h + 4, 10, focus ? C_GOLD : C_BRIGHTRED);
         RoundBox(x, y, w, h, 8, pressed ? C_PINK : C_CARD, C_LINE);
         RoundRect(x + 1, y + 1, w - 2, 26, 7, colour);
         FillRect(x + 1, y + 20, w - 2, 7, colour);
@@ -1632,7 +1638,15 @@ static void DrawFighter(const FighterView *f, int x, int w)
 static void RenderBattle(const ViewState *s)
 {
     FillRect(0, HEADER_H, W, FOOTER_Y - HEADER_H, C_PAGE);
-    if (s->b.choose && s->b.player.present)
+    if (s->b.choose == PORT_BATTLE_SWITCH)
+    {
+        u8 title[32], *p = StringCopy(title, Ascii("Swap "));
+
+        p = StringCopy(p, gMoveNames[s->b.moves[s->b.picked]]);
+        StringCopy(p, Ascii(" with?"));
+        Header(title);
+    }
+    else if (s->b.choose && s->b.player.present)
     {
         u8 title[32], *p = StringCopy(title, Ascii("What will "));
 
@@ -1643,7 +1657,7 @@ static void RenderBattle(const ViewState *s)
     else
         Header(NULL);
     Footer();
-    if (s->b.choose == PORT_BATTLE_MOVE)
+    if (s->b.choose == PORT_BATTLE_MOVE || s->b.choose == PORT_BATTLE_SWITCH)
     {
         DrawMoves(s);
         DrawFighter(&s->b.player, 10, 150);
@@ -1668,6 +1682,7 @@ s8 Port_BattleMenu(u8 kind, const void *moveInfo)
 
     sBattleMenuFrame = CtrGame_Frames();
     sBattleMenuKind = kind;
+    sBattleMenuBattler = gActiveBattler;
     if (moveInfo)
         memcpy(&sBattleMoves, moveInfo, sizeof(sBattleMoves));
     if (sBattleTap >= 0 && sBattleTapKind == kind)
@@ -1875,7 +1890,8 @@ enum { PAGE_HIT_BACK = 1, PAGE_HIT_SLOT, PAGE_HIT_ACTION = PAGE_HIT_SLOT + PARTY
        PAGE_HIT_UP = PAGE_HIT_ROW + PAGE_MAX_ROWS, PAGE_HIT_DOWN, PAGE_HIT_FOOT, PAGE_HIT_MENU = PAGE_HIT_FOOT + 4,
        PAGE_HIT_DIALOG = PAGE_HIT_MENU + 16, PAGE_HIT_MOVE, PAGE_HIT_RAIL = PAGE_HIT_MOVE + 5,
        PAGE_HIT_BOX_CELL, PAGE_HIT_BOX_PARTY = PAGE_HIT_BOX_CELL + 30, PAGE_HIT_BOX_TITLE = PAGE_HIT_BOX_PARTY + PARTY_SIZE,
-       PAGE_HIT_BOX_LEFT, PAGE_HIT_BOX_RIGHT, PAGE_HIT_BOX_CHOOSE };
+       PAGE_HIT_BOX_LEFT, PAGE_HIT_BOX_RIGHT, PAGE_HIT_BOX_CHOOSE,
+       PAGE_HIT_NAME_KEY = PAGE_HIT_BOX_CHOOSE + 3, PAGE_HIT_NAME_SIDE = PAGE_HIT_NAME_KEY + PORT_NAMING_ROWS * PORT_NAMING_COLUMNS };
 
 typedef struct {
     u16 species, iconSpecies, hp, maxHp, item;
@@ -1886,6 +1902,7 @@ typedef struct {
 typedef struct {
     u8 page;         /* PORT_PAGE_* */
     u8 pressed;      /* PAGE_HIT_* under the finger */
+    u8 menuCursor;   /* the row of the game's menu, as the D-pad moves it */
     u8 cards[PAGE_MAX_CARDS];
     u8 cardCount;
     struct PortPartyView party;
@@ -1899,6 +1916,7 @@ typedef struct {
     struct PortDexView dex;
     struct PortStorageView box;
     u32 boxSig;
+    struct PortNamingView name;
 } PageView;
 
 static u8 sPage;
@@ -1912,6 +1930,9 @@ static s8 sWantPage = -1;      /* the summary's page chosen by touch */
 static u8 sWantTries;
 static s8 sWantMove = -1;      /* its move, once the moves page's cursor is up */
 static u16 sDexTop[2];
+/* What the D-pad says, and the directions the page takes itself (PageDpadKeys). */
+static u16 sDpadHeld, sPageDpad;
+extern u16 gKeyRepeatContinueDelay;
 
 void Port_NativePage(u8 page)
 {
@@ -2043,7 +2064,9 @@ static void FootKeyN(int i, int n, const u8 *label, bool8 focus, bool8 pressed)
 {
     int w = n > 3 ? 48 : FOOT_KEY_W, x = 6 + i * (w + (n > 3 ? 3 : 5));
 
-    RoundBox(x, BACK_Y, w, BACK_H, 6, pressed ? C_BAND : C_FLAT, focus ? C_WHITE : C_BAND_DK);
+    RoundBox(x, BACK_Y, w, BACK_H, 6, pressed ? C_BAND : C_FLAT, focus ? C_GOLD : C_BAND_DK);
+    if (focus)
+        RoundBox(x + 1, BACK_Y + 1, w - 2, BACK_H - 2, 5, pressed ? C_BAND : C_FLAT, C_GOLD);
     TextCentered(FONT_SMALL, label, x + w / 2, BACK_Y + 4, C_WHITE, C_BAND_DK);
 }
 
@@ -3164,6 +3187,14 @@ static void DrawStorageBase(const PageView *v)
     *p++ = CHAR_SLASH;
     ConvertIntToDecimalStringN(p, IN_BOX_COUNT, STR_CONV_MODE_LEFT_ALIGN, 2);
     TextRight(FONT_SMALL, count, BOX_GRID_X + IN_BOX_COLUMNS * BOX_CELL_W - BOX_ARROW_W - 6, BOX_BAR_Y + 3, C_WHITE, C_BAND_DK);
+    if (b->area == CURSOR_AREA_BOX_TITLE)
+    {
+        /* the cursor on its name, as on any key */
+        FillRect(BOX_GRID_X + 4, BOX_BAR_Y, IN_BOX_COLUMNS * BOX_CELL_W - 8, 1, C_GOLD);
+        FillRect(BOX_GRID_X + 4, BOX_BAR_Y + BOX_BAR_H - 1, IN_BOX_COLUMNS * BOX_CELL_W - 8, 1, C_GOLD);
+        FillRect(BOX_GRID_X, BOX_BAR_Y + 4, 1, BOX_BAR_H - 8, C_GOLD);
+        FillRect(BOX_GRID_X + IN_BOX_COLUMNS * BOX_CELL_W - 1, BOX_BAR_Y + 4, 1, BOX_BAR_H - 8, C_GOLD);
+    }
     /* the thirty places */
     RoundBox(BOX_GRID_X - 1, BOX_GRID_Y - 1, IN_BOX_COLUMNS * BOX_CELL_W + 2, IN_BOX_ROWS * BOX_CELL_H + 2, 4, C_CARD, C_LINE);
     for (int i = 1; i < IN_BOX_COLUMNS; i++)
@@ -3373,7 +3404,8 @@ static void StorageWalk(const struct PortStorageView *b)
         return;
     if (b->area == sBoxWantArea && b->pos == sBoxWantPos)
     {
-        Inject(sBoxWantKey);
+        if (sBoxWantKey)
+            Inject(sBoxWantKey);
         sBoxWantArea = -1;
     }
     else if (sBoxWantArea == CURSOR_AREA_IN_PARTY)
@@ -3398,10 +3430,192 @@ static void StorageWalk(const struct PortStorageView *b)
         Port_StorageSetCursor(sBoxWantArea, sBoxWantPos);
 }
 
+/* The keyboard: who is being named and the letters so far above, the game's
+ * keys below in the game's own order, so that the D-pad goes as it looks. */
+#define NAME_CARD_Y 29
+#define NAME_CARD_H 68
+#define NAME_SLOT_X 78
+#define NAME_SLOT_STEP 22
+#define NAME_KEY_Y 101
+#define NAME_ROW_H 34
+#define NAME_KEYS_W 240
+#define NAME_SIDE_X 250
+#define NAME_SIDE_W 64
+#define NAME_SIDE_STEP 46
+#define NAME_SIDE_H 44
+
+static void DrawNamingKey(const PageView *v, int row, int col)
+{
+    const struct PortNamingView *n = &v->name;
+    int step = NAME_KEYS_W / n->columns, x = 6 + col * step, y = NAME_KEY_Y + row * NAME_ROW_H, w = step - 2;
+    bool8 focus = n->cursorX == col && n->cursorY == row;
+    bool8 pressed = v->pressed == PAGE_HIT_NAME_KEY + row * PORT_NAMING_COLUMNS + col;
+    u16 fill = pressed ? C_BAND : focus ? C_FLAT : C_CARD;
+    u8 c[2] = { n->keys[row * PORT_NAMING_COLUMNS + col], EOS };
+
+    RoundBox(x, y, w, NAME_ROW_H - 2, 5, fill, focus || pressed ? C_BAND_DK : C_LINE);
+    if (c[0] == CHAR_SPACE)
+    {
+        /* the space: a little bracket lying on its back */
+        u16 ink = focus || pressed ? C_WHITE : C_MUTED;
+
+        FillRect(x + w / 2 - 6, y + 21, 13, 1, ink);
+        FillRect(x + w / 2 - 6, y + 18, 1, 3, ink);
+        FillRect(x + w / 2 + 6, y + 18, 1, 3, ink);
+    }
+    else
+        TextCentered(FONT_NORMAL, c, x + w / 2, y + 8, focus || pressed ? C_WHITE : C_TEXT, focus || pressed ? C_BAND_DK : C_TEXT_SH);
+}
+
+static void DrawNamingSideKey(const PageView *v, int i, const u8 *label, u16 colour)
+{
+    const struct PortNamingView *n = &v->name;
+    int y = NAME_KEY_Y + i * NAME_SIDE_STEP;
+    bool8 focus = n->cursorX == n->columns && n->cursorY == i;
+    bool8 pressed = v->pressed == PAGE_HIT_NAME_SIDE + i;
+    u16 fill = pressed ? Darker(colour, 2) : colour;
+
+    RoundBox(NAME_SIDE_X, y, NAME_SIDE_W, NAME_SIDE_H, 6, fill, focus ? C_GOLD : Darker(colour, 2));
+    if (focus)
+        RoundBox(NAME_SIDE_X + 1, y + 1, NAME_SIDE_W - 2, NAME_SIDE_H - 2, 5, fill, C_GOLD);
+    TextCentered(FONT_NORMAL, label, NAME_SIDE_X + NAME_SIDE_W / 2, y + (NAME_SIDE_H - 16) / 2, C_WHITE, Darker(colour, 3));
+}
+
+static void DrawNamingBase(const PageView *v)
+{
+    const struct PortNamingView *n = &v->name;
+    u8 title[32], count[8], *p;
+    int used = 0;
+
+    if (n->icon == PORT_NAMING_MON)
+    {
+        StringCopy(title, gSpeciesNames[n->species]);
+        StringAppendN(title, n->title, 15);
+    }
+    else
+        StringCopy(title, n->title);
+    Header(title);
+    FillRect(0, HEADER_H, W, H - HEADER_H, C_PAGE);
+    RoundBox(6, NAME_CARD_Y, W - 12, NAME_CARD_H, 6, C_CARD, C_LINE);
+    /* who it is for */
+    RoundRect(8, NAME_CARD_Y + 2, 66, NAME_CARD_H - 4, 5, n->icon == PORT_NAMING_MON ? Lighter(TypeColour(gSpeciesInfo[n->species].types[0]), 6) : C_EMPTY);
+    if (n->icon == PORT_NAMING_MON)
+        DrawPic(FALSE, n->species, n->personality, 0, 9, NAME_CARD_Y + 2);
+    else if (n->icon == PORT_NAMING_PLAYER)
+        DrawPic(TRUE, n->species == FEMALE ? TRAINER_PIC_LEAF : TRAINER_PIC_RED, 0, 0, 9, NAME_CARD_Y + 2);
+    else if (n->icon == PORT_NAMING_RIVAL)
+        DrawPic(TRUE, TRAINER_PIC_RIVAL_EARLY, 0, 0, 9, NAME_CARD_Y + 2);
+    else
+        DrawUiIcon(&sIconBall26, 28, NAME_CARD_Y + 21, TRUE);
+    /* its name so far */
+    while (used < n->maxChars && n->text[used] != EOS)
+        used++;
+    if (n->icon == PORT_NAMING_MON)
+    {
+        Text(FONT_SMALL, gSpeciesNames[n->species], NAME_SLOT_X, NAME_CARD_Y + 3, C_MUTED, C_CARD, TRUE);
+        if (n->gender != MON_GENDERLESS)
+            Text(FONT_SMALL, n->gender == MON_FEMALE ? gText_FemaleSymbol : gText_MaleSymbol,
+                 NAME_SLOT_X + GetStringWidth(FONT_SMALL, gSpeciesNames[n->species], 0) + 4, NAME_CARD_Y + 3,
+                 n->gender == MON_FEMALE ? C_BRIGHTRED : C_LENS, C_CARD, TRUE);
+    }
+    p = ConvertIntToDecimalStringN(count, used, STR_CONV_MODE_LEFT_ALIGN, 2);
+    *p++ = CHAR_SLASH;
+    ConvertIntToDecimalStringN(p, n->maxChars, STR_CONV_MODE_LEFT_ALIGN, 2);
+    TextRight(FONT_SMALL, count, W - 12, NAME_CARD_Y + 3, C_MUTED, C_CARD);
+    for (int i = 0; i < n->maxChars; i++)
+    {
+        int x = NAME_SLOT_X + i * NAME_SLOT_STEP, y = NAME_CARD_Y + 25;
+        bool8 caret = i == used;
+
+        RoundBox(x, y, NAME_SLOT_STEP - 2, 36, 4, caret ? C_PINK : i < used ? C_PAGE : C_EMPTY, caret ? C_FLAT : C_LINE);
+        if (i < used && n->text[i] != CHAR_SPACE)
+        {
+            u8 c[2] = { n->text[i], EOS };
+
+            TextCentered(FONT_NORMAL, c, x + (NAME_SLOT_STEP - 2) / 2, y + 10, C_TEXT, C_TEXT_SH);
+        }
+    }
+    /* the keys */
+    for (int row = 0; row < PORT_NAMING_ROWS; row++)
+        for (int col = 0; col < n->columns; col++)
+            DrawNamingKey(v, row, col);
+    DrawNamingSideKey(v, 0, n->next == PORT_KB_UPPER ? Ascii("ABC") : n->next == PORT_KB_LOWER ? Ascii("abc") : Ascii("1?!"), C_SLATE_HI);
+    DrawNamingSideKey(v, 1, Ascii("DEL"), C_SLATE_HI);
+    DrawNamingSideKey(v, 2, Ascii("OK"), C_FLAT);
+    if (n->message)
+    {
+        for (int x = 0; x < W; x++)
+        {
+            u16 *col = sCanvas + x * H;
+
+            for (int j = 0; j < H; j++)
+                col[j] = ((col[j] >> 1) & 0x7BEF) + ((C_SLATE >> 1) & 0x7BEF);
+        }
+    }
+}
+
+/* The game's message as it types, on a card of its own. */
+static void DrawNamingLive(const PageView *v)
+{
+    const struct WindowTemplate *t = &gWindows[PORT_NAMING_MESSAGE_WINDOW].window;
+    int x = (W - t->width * 8) / 2, y = 120;
+
+    if (!v->name.message)
+        return;
+    RoundBox(x - 6, y - 5, t->width * 8 + 12, t->height * 8 + 10, 7, C_CARD, C_FLAT);
+    DrawWindowPixels(PORT_NAMING_MESSAGE_WINDOW, x, y, TRUE, C_TEXT, C_TEXT_SH);
+}
+
+static u8 NamingHitTest(const PageView *v, int x, int y)
+{
+    const struct PortNamingView *n = &v->name;
+    int row, col;
+
+    if (n->message)
+        return PAGE_HIT_DIALOG;
+    if (y < NAME_KEY_Y)
+        return HIT_NONE;
+    if (x >= NAME_SIDE_X - 2)
+    {
+        row = (y - NAME_KEY_Y) / NAME_SIDE_STEP;
+        return PAGE_HIT_NAME_SIDE + (row > 2 ? 2 : row);
+    }
+    row = (y - NAME_KEY_Y) / NAME_ROW_H;
+    col = (x < 6 ? 0 : x - 6) / (NAME_KEYS_W / n->columns);
+    if (row >= PORT_NAMING_ROWS)
+        row = PORT_NAMING_ROWS - 1;
+    if (col >= n->columns)
+        col = n->columns - 1;
+    return PAGE_HIT_NAME_KEY + row * PORT_NAMING_COLUMNS + col;
+}
+
+static void NamingActivate(const PageView *v, u8 hit)
+{
+    const struct PortNamingView *n = &v->name;
+
+    if (hit == PAGE_HIT_DIALOG)
+        Inject(A_BUTTON);
+    else if (!n->ready)
+        return;
+    else if (hit >= PAGE_HIT_NAME_SIDE)
+    {
+        Port_NamingSetCursor(n->columns, hit - PAGE_HIT_NAME_SIDE);
+        Inject(A_BUTTON);
+    }
+    else if (hit >= PAGE_HIT_NAME_KEY)
+    {
+        Port_NamingSetCursor((hit - PAGE_HIT_NAME_KEY) % PORT_NAMING_COLUMNS, (hit - PAGE_HIT_NAME_KEY) / PORT_NAMING_COLUMNS);
+        Inject(A_BUTTON);
+    }
+}
+
 static bool8 SnapshotPage(PageView *v)
 {
     memset(v, 0, sizeof(*v));
     v->page = sPage;
+    v->menuCursor = Menu_GetCursorPos();
+    if (sPage == PORT_PAGE_NAMING)
+        return Port_NamingGetView(&v->name);
     if (sPage == PORT_PAGE_SUMMARY)
         return Port_SummaryGetView(&v->sum);
     if (sPage == PORT_PAGE_STORAGE)
@@ -3538,6 +3752,8 @@ static u8 CardHitTest(const PageView *v, int x, int y)
 
 static u8 PageHitTest(const PageView *v, int x, int y)
 {
+    if (v->page == PORT_PAGE_NAMING)
+        return NamingHitTest(v, x, y);
     if (y >= FOOTER_Y && x >= BACK_X - 4)
         return PAGE_HIT_BACK;
     if (v->page == PORT_PAGE_SUMMARY)
@@ -3614,8 +3830,10 @@ static u8 PageHitTest(const PageView *v, int x, int y)
 
 static void PageActivate(const PageView *v, u8 hit)
 {
+    if (v->page == PORT_PAGE_NAMING)
+        NamingActivate(v, hit);
     /* the card's back closes with A, and B turns it over */
-    if (hit == PAGE_HIT_BACK)
+    else if (hit == PAGE_HIT_BACK)
         Inject(v->page == PORT_PAGE_CARD && v->card.onBack ? A_BUTTON : B_BUTTON);
     else if (v->page == PORT_PAGE_SUMMARY)
         SummaryActivate(v, hit);
@@ -3678,14 +3896,268 @@ static void PageActivate(const PageView *v, u8 hit)
     }
 }
 
+/* ------------------------------------------------------------------------ */
+/* The D-pad on the pages                                                   */
+/* ------------------------------------------------------------------------ */
+
+/* Where a page's keys stand otherwise than in the GBA's menu, the page takes the
+ * D-pad itself and moves the game's cursor by what is on the screen. */
+static u16 PageDpadKeys(const PageView *v)
+{
+    if (v->page == PORT_PAGE_PARTY)
+        return v->party.mode == PORT_MENU_ACTIONS || (v->party.mode == PORT_MENU_LIST && !v->party.multi) ? DPAD_ANY : 0;
+    if (v->page == PORT_PAGE_BAG)
+        return v->bag.mode == PORT_MENU_ACTIONS ? DPAD_ANY : 0;
+    if (v->page == PORT_PAGE_STORAGE)
+    {
+        const struct PortStorageView *b = &v->box;
+
+        if (b->chooseBox || b->multi || v->cardCount)
+            return 0;
+        /* on the box's name, left and right turn to the other boxes, as ever */
+        return !b->numMenu && b->area == CURSOR_AREA_BOX_TITLE ? DPAD_UP | DPAD_DOWN : DPAD_ANY;
+    }
+    return 0;
+}
+
+/* A press, then the game's own repeat; one direction at a time. */
+static u16 DpadStep(void)
+{
+    static u16 last, timer;
+    u16 step = 0;
+
+    if (sDpadHeld != last)
+    {
+        step = sDpadHeld & ~last;
+        timer = gKeyRepeatStartDelay;
+    }
+    else if (sDpadHeld && --timer == 0)
+    {
+        step = sDpadHeld;
+        timer = gKeyRepeatContinueDelay;
+    }
+    last = sDpadHeld;
+    return step & DPAD_UP ? DPAD_UP : step & DPAD_DOWN ? DPAD_DOWN : step & DPAD_LEFT ? DPAD_LEFT : step & DPAD_RIGHT ? DPAD_RIGHT : 0;
+}
+
+/* A sheet of keys, four to a row. */
+static void SheetDpad(int count, u16 step)
+{
+    int cur = Menu_GetCursorPos(), next = cur;
+
+    if (count > 4 && (step & (DPAD_UP | DPAD_DOWN)))
+    {
+        next = step & DPAD_UP ? cur - 4 : cur + 4;
+        if (next < 0)
+            next = cur + 4 < count ? cur + 4 : count - 1;
+        else if (next >= count)
+            next = cur >= 4 ? cur - 4 : count - 1;
+    }
+    else if (step & (DPAD_UP | DPAD_LEFT))
+        next = cur ? cur - 1 : count - 1;
+    else
+        next = cur + 1 < count ? cur + 1 : 0;
+    if (next != cur)
+    {
+        PlaySE(SE_SELECT);
+        Port_MenuSetCursor(next);
+    }
+}
+
+/* The bag's actions, in a row along the footer; BACK is its CANCEL. */
+static void BagActionsDpad(const struct PortBagView *b, u16 step)
+{
+    int cur = 0;
+
+    if (b->numActions < 2)
+        return;
+    for (int i = 0; i < b->numActions; i++)
+        if (b->actionRow[i] == Menu_GetCursorPos())
+            cur = i;
+    cur = step & (DPAD_UP | DPAD_LEFT) ? (cur ? cur - 1 : b->numActions - 1) : (cur + 1 < b->numActions ? cur + 1 : 0);
+    PlaySE(SE_SELECT);
+    Port_MenuSetCursor(b->actionRow[cur]);
+}
+
+/* The party's two columns of three. BACK is its CANCEL; CONFIRM lies under them. */
+static void PartyDpad(const PageView *v, u16 step)
+{
+    const struct PortPartyView *p = &v->party;
+    int cur = p->switching ? p->slot2 : p->slot, next = cur, count = 0;
+
+    while (count < PARTY_SIZE && v->mons[count].species != SPECIES_NONE)
+        count++;
+    if (count == 0)
+        return;
+    if (cur >= PARTY_SIZE)
+        next = step & DPAD_UP ? count - 1 : step & DPAD_DOWN ? 0 : cur;
+    else if (step & DPAD_LEFT)
+        next = cur & 1 ? cur - 1 : cur + 1 < count ? cur + 1 : cur;
+    else if (step & DPAD_RIGHT)
+        next = !(cur & 1) && cur + 1 < count ? cur + 1 : cur & 1 ? cur - 1 : cur;
+    else if (step & DPAD_DOWN)
+    {
+        if (cur + 2 < count)
+            next = cur + 2;
+        else if (count - 1 > cur && (count - 1) / 2 > cur / 2)
+            next = count - 1; /* nothing under it, but the row has one */
+        else if (p->chooseMultiple)
+            next = PARTY_SIZE;
+        else
+            next = cur & 1;
+    }
+    else if (cur >= 2)
+        next = cur - 2;
+    else
+    {
+        /* up from the top: the column's last */
+        next = cur;
+        while (next + 2 < count)
+            next += 2;
+    }
+    if (next != cur)
+        Port_PartyTapSlot(next);
+}
+
+/* The boxes: a ring of the thirty places and, where the game lets the cursor
+ * into it, the party beside them; the box's name over and under the places. */
+static void StorageDpad(const struct PortStorageView *b, u16 step)
+{
+    static s8 column = 2;
+    bool8 ring = b->option == OPTION_MOVE_MONS || b->option == OPTION_MOVE_ITEMS;
+    s8 area = b->area, pos = b->pos;
+
+    if (b->area == CURSOR_AREA_IN_BOX)
+    {
+        bool8 leftEdge = pos % IN_BOX_COLUMNS == 0, rightEdge = pos % IN_BOX_COLUMNS == IN_BOX_COLUMNS - 1;
+        bool8 upperRows = pos / IN_BOX_COLUMNS <= 2;
+
+        if (step & (DPAD_UP | DPAD_DOWN))
+        {
+            pos += step & DPAD_UP ? -IN_BOX_COLUMNS : IN_BOX_COLUMNS;
+            if (pos < 0 || pos >= IN_BOX_COUNT)
+            {
+                column = b->pos % IN_BOX_COLUMNS;
+                area = CURSOR_AREA_BOX_TITLE;
+                pos = 0;
+            }
+        }
+        else if (step & DPAD_LEFT)
+        {
+            if (!leftEdge)
+                pos--;
+            else if (ring)
+            {
+                area = CURSOR_AREA_IN_PARTY;
+                pos = upperRows ? 2 : 5;
+            }
+            else
+                pos += IN_BOX_COLUMNS - 1;
+        }
+        else
+        {
+            if (!rightEdge)
+                pos++;
+            else if (ring)
+            {
+                area = CURSOR_AREA_IN_PARTY;
+                pos = upperRows ? 0 : 3;
+            }
+            else
+                pos -= IN_BOX_COLUMNS - 1;
+        }
+    }
+    else if (b->area == CURSOR_AREA_BOX_TITLE)
+    {
+        if (step & (DPAD_LEFT | DPAD_RIGHT))
+            return;
+        area = CURSOR_AREA_IN_BOX;
+        pos = (step & DPAD_UP ? IN_BOX_COUNT - IN_BOX_COLUMNS : 0) + column;
+    }
+    else if (b->area == CURSOR_AREA_IN_PARTY && pos < PARTY_SIZE)
+    {
+        if (step & (DPAD_UP | DPAD_DOWN))
+            pos = pos < 3 ? pos + 3 : pos - 3;
+        else if (step & DPAD_LEFT)
+        {
+            if (pos % 3)
+                pos--;
+            else if (ring)
+            {
+                area = CURSOR_AREA_IN_BOX;
+                pos = (pos < 3 ? 2 : 4) * IN_BOX_COLUMNS + IN_BOX_COLUMNS - 1;
+            }
+            else
+                pos += 2;
+        }
+        else
+        {
+            if (pos % 3 != 2)
+                pos++;
+            else if (ring)
+            {
+                area = CURSOR_AREA_IN_BOX;
+                pos = (pos < 3 ? 2 : 4) * IN_BOX_COLUMNS;
+            }
+            else
+                pos -= 2;
+        }
+    }
+    else if (b->area == CURSOR_AREA_IN_PARTY)
+        pos = 0; /* off the party, on its CANCEL */
+    else
+    {
+        /* the game's buttons, on the way to somewhere: back among the places */
+        area = CURSOR_AREA_IN_BOX;
+        pos = IN_BOX_COUNT - IN_BOX_COLUMNS + column;
+    }
+    StorageWant(area, pos, 0);
+}
+
+static void PageDpad(const PageView *v, u16 step)
+{
+    static u16 pending;
+    static u8 age;
+
+    if (v->page == PORT_PAGE_STORAGE && !v->box.numMenu)
+    {
+        /* a step that comes as the cursor is still moving waits for it a moment */
+        if (step)
+        {
+            pending = step;
+            age = 0;
+        }
+        else if (pending && ++age > 16)
+            pending = 0;
+        if (pending && v->box.ready && sBoxWantArea < 0)
+        {
+            StorageDpad(&v->box, pending);
+            pending = 0;
+        }
+        return;
+    }
+    if (!step)
+        return;
+    if (v->page == PORT_PAGE_PARTY && v->party.mode == PORT_MENU_ACTIONS)
+        SheetDpad(v->party.numActions, step);
+    else if (v->page == PORT_PAGE_PARTY)
+        PartyDpad(v, step);
+    else if (v->page == PORT_PAGE_BAG)
+        BagActionsDpad(&v->bag, step);
+    else
+        SheetDpad(v->box.numMenu, step);
+}
+
 static void PageFrame(bool active, u16 x, u16 y)
 {
     static bool wasActive;
     static u8 downHit;
     PageView now;
     u32 hash = 0;
+    u16 step = DpadStep();
 
     sGameShown = FALSE;
+    sPageDpad = 0;
     if (!SnapshotPage(&now))
     {
         /* between the menu's own states the page keeps what it shows */
@@ -3699,6 +4171,9 @@ static void PageFrame(bool active, u16 x, u16 y)
     }
     if (now.page == PORT_PAGE_STORAGE)
         StorageWalk(&now.box);
+    sPageDpad = PageDpadKeys(&now);
+    if (sPageDpad)
+        PageDpad(&now, step & sPageDpad);
     /* a summary page chosen by touch: the game's own flips, one at a time */
     if (now.page == PORT_PAGE_SUMMARY)
     {
@@ -3758,6 +4233,8 @@ static void PageFrame(bool active, u16 x, u16 y)
         hash = hash * 31 + WindowHash(PORT_STORAGE_MESSAGE_WINDOW);
     if (now.page == PORT_PAGE_SUMMARY && now.sum.memoWindow < WINDOWS_MAX && gWindows[now.sum.memoWindow].tileData != NULL)
         hash = hash * 31 + WindowHash(now.sum.memoWindow);
+    if (now.page == PORT_PAGE_NAMING && now.name.message)
+        hash = hash * 31 + WindowHash(PORT_NAMING_MESSAGE_WINDOW);
     if (!sPageDrawn || memcmp(&now, &sPageShown, sizeof(now)) != 0)
     {
         switch (now.page)
@@ -3767,6 +4244,7 @@ static void PageFrame(bool active, u16 x, u16 y)
         case PORT_PAGE_SUMMARY: DrawSummaryBase(&now); break;
         case PORT_PAGE_CARD:    DrawCardBase(&now); break;
         case PORT_PAGE_STORAGE: DrawStorageBase(&now); break;
+        case PORT_PAGE_NAMING:  DrawNamingBase(&now); break;
         default:                DrawDexBase(&now); break;
         }
     }
@@ -3778,6 +4256,8 @@ static void PageFrame(bool active, u16 x, u16 y)
         DrawSummaryLive(&now);
     else if (now.page == PORT_PAGE_STORAGE)
         DrawStorageLive(&now);
+    else if (now.page == PORT_PAGE_NAMING)
+        DrawNamingLive(&now);
     else
         DrawCards(&now);
     CtrBottom_Blit(sCanvas, 0, W);
@@ -3792,7 +4272,7 @@ static void PageFrame(bool active, u16 x, u16 y)
 
 static u8 BattleHitTest(const ViewState *s, int x, int y)
 {
-    bool8 moves = s->b.choose == PORT_BATTLE_MOVE;
+    bool8 moves = s->b.choose == PORT_BATTLE_MOVE || s->b.choose == PORT_BATTLE_SWITCH;
 
     /* no menu up: a message goes on with a tap */
     if (!s->b.choose)
@@ -3852,7 +4332,7 @@ static void Activate(const ViewState *s, u8 hit)
         if (hit == HIT_SCENE)
             Inject(A_BUTTON);
         else if (s->b.choose && hit >= HIT_BATTLE && hit < HIT_BATTLE + 5
-         && (s->b.choose == PORT_BATTLE_MOVE || hit < HIT_BATTLE + 4))
+         && (s->b.choose != PORT_BATTLE_ACTION || hit < HIT_BATTLE + 4))
         {
             PlaySE(SE_SELECT);
             sBattleTap = hit - HIT_BATTLE;
@@ -4075,6 +4555,9 @@ uint16_t CtrBottom_InjectedKeys(void)
 
 uint16_t CtrBottom_FilterKeys(uint16_t held)
 {
+    sDpadHeld = held & DPAD_ANY;
+    if (PageActive())
+        held &= ~sPageDpad;
     return held;
 }
 
