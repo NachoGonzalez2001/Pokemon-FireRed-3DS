@@ -3366,8 +3366,10 @@ static void VisitView(float playerX, float playerZ, unsigned *missing, bool atla
     }
 
     /* The belt, on the current map's grid: only squares some tile of which
-     * belongs to no map at all. Indoors there is none; the clear is black. */
-    if (current == NULL || current->indoor)
+     * belongs to no map at all. Indoors there is none, the clear is black,
+     * unless the room is at sea: a ship's deck, a harbour. */
+    if (current == NULL || (current->indoor
+     && !VoxelWorld_BorderIsWater(current->originX - 1, current->originY - 1)))
         return;
     {
         VoxelAtlasSlot *atlas = FindAtlas(current);
@@ -6056,6 +6058,17 @@ static void PlaceGloom(const C3D_Mtx *projection, const C3D_Mtx *view)
     }
 }
 #endif
+
+uint32_t CtrVoxel_ClearColour(void)
+{
+    const VoxelMapInstance *inst = VoxelWorld_Instance(0);
+
+    /* Out of doors the gaps at the seams between maps are all in rock, where
+     * black is a hole and the rock's deepest shadow is not. */
+    if (inst != NULL && !inst->indoor && !inst->cave && !sBattle.on)
+        return 0xFF36304Au;     /* 0xAABBGGRR: C2D_Color32(0x4A, 0x30, 0x36, 255) */
+    return 0xFF000000u;
+}
 
 void CtrVoxel_Draw(C3D_RenderTarget *target, float eyeOffset)
 {

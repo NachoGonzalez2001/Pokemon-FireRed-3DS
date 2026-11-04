@@ -537,6 +537,42 @@ void VoxelTree_EmitInstance(VoxelBuilder *builder, const VoxelMapInstance *inst,
         }
 }
 
+/*
+ * Past a wood's edge: the border is a block of two by two cells and a tree is
+ * three wide, so it holds one column of crown every other cell - slices. The
+ * wood goes on there as the map draws it: its crowns' row and column, read
+ * off the map, three cells apart, every other row.
+ */
+static bool WoodBorderPhase(const VoxelMapInstance *inst, int *column, int *row)
+{
+    static int memoLayout = -1, memoColumn, memoRow;
+    static bool memoWood;
+
+    if (inst->layoutId != memoLayout)
+    {
+        int columns[3] = { 0, 0, 0 }, rows[2] = { 0, 0 };
+
+        memoLayout = inst->layoutId;
+        for (int y = inst->originY; y < inst->originY + inst->height; ++y)
+            for (int x = inst->originX; x < inst->originX + inst->width; ++x)
+            {
+                int id = VoxelWorld_GetMetatileId(x, y), crown = VoxelTree_Crown(inst->secondaryTileset, id);
+
+                if (crown >= 0 && WoodCell(inst->secondaryTileset, id) >= 0)
+                {
+                    ++columns[((x - crown) % 3 + 3) % 3];
+                    ++rows[y & 1];
+                }
+            }
+        memoWood = rows[0] + rows[1] > 0;
+        memoColumn = columns[1] > columns[0] ? (columns[2] > columns[1] ? 2 : 1) : (columns[2] > columns[0] ? 2 : 0);
+        memoRow = rows[1] > rows[0] ? 1 : 0;
+    }
+    *column = memoColumn;
+    *row = memoRow;
+    return memoWood;
+}
+
 void VoxelTree_EmitBorder(VoxelBuilder *builder, int x0, int y0, int x1, int y1)
 {
     const VoxelMapInstance *current = VoxelWorld_Instance(0);
@@ -546,10 +582,19 @@ void VoxelTree_EmitBorder(VoxelBuilder *builder, int x0, int y0, int x1, int y1)
     for (int y = y0; y < y1; ++y)
         for (int x = x0; x < x1; ++x)
         {
-            int metatileId, part, crown, prop;
+            int metatileId, part, crown, prop, column, row;
             if (VoxelWorld_GetInstanceAt(x, y) != NULL)
                 continue;
             metatileId = VoxelWorld_BorderMetatile(x, y);
+            if (WoodCell(current->secondaryTileset, metatileId) >= 0
+             && WoodBorderPhase(current, &column, &row))
+            {
+                /* any of the wood's cells that has a crown stands for its wood */
+                if ((y & 1) == row)
+                    EmitWoodCrown(builder, x, y, ((x - column) % 3 + 3) % 3,
+                                  sWoodCells[WoodCell(current->secondaryTileset, metatileId)].wood);
+                continue;
+            }
             part = VoxelTree_Part(current->secondaryTileset, metatileId);
             crown = VoxelTree_Crown(current->secondaryTileset, metatileId);
             prop = PropIndex(current->secondaryTileset, metatileId);

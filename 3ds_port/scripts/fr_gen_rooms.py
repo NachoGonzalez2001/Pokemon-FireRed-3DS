@@ -34,7 +34,8 @@ SILPH_CURB = {(123, 123, 123), (213, 213, 213), (255, 255, 255), (180, 180, 164)
 SILPH_POND = {(98, 139, 189), (123, 164, 189)}
 ROOF_RAIL = {(57, 106, 82), (90, 205, 115), (41, 156, 98)}
 # Pewter Gym's sand and earth round its rocks, the specks of grey in the sand
-PEWTER_ROCK = {"drop": {(197, 189, 139), (164, 139, 115), (131, 106, 82)}, "speck": 4}
+# (no sides: a straight plane stood off a round rock like a loose board)
+PEWTER_ROCK = {"drop": {(197, 189, 139), (164, 139, 115), (131, 106, 82)}, "speck": 4, "sides": False}
 
 DECK_RAIL = {(82, 82, 106), (131, 131, 213), (98, 98, 172), (148, 148, 172)}
 # down the bow the hull's grey is drawn right under the rail: stood up with
@@ -42,10 +43,20 @@ DECK_RAIL = {(82, 82, 106), (131, 131, 213), (98, 98, 172), (148, 148, 172)}
 BOW_RAIL = DECK_RAIL - {(148, 148, 172)}
 HARBOR_RAIL = {(82, 82, 106), (106, 205, 164), (57, 156, 115), (180, 189, 189), (148, 156, 156), (106, 115, 115)}
 
+# The sea round the S.S. Anne's rocks (left in their art, it stood up with them
+# and hung in the air past the map's edge)
+ANNE_ROCK = {"drop": {(49, 98, 180), (65, 123, 189), (74, 123, 222), (74, 148, 222)}, "speck": 4}
+
+# The Mart's till on the counter's arm: pixel row: (first column, last) of its
+# drawing, per row of the arm's cells.
+MART_TILL = [{11: (9, 15), 12: (8, 15), 13: (7, 15), 14: (4, 15), 15: (3, 15)},
+             {r: (2, 14) for r in range(12)}]
+MART_GLASS = (189, 230, 255)
+
 ROOM_OBJECTS = {
     # rocks in the sea round the S.S. Anne (General's own, an indoor map)
     "gTileset_General": [
-        ([[0x110, 0x111], [0x118, 0x119]], 32), ([[0x1CB, 0x1CC], [0x1D3, 0x1D4]], 32),
+        ([[0x110, 0x111], [0x118, 0x119]], 32, ANNE_ROCK), ([[0x1CB, 0x1CC], [0x1D3, 0x1D4]], 32, ANNE_ROCK),
     ],
     # the Power Plant's rubble
     "gTileset_PowerPlant": [([[0x2B6]], 12), ([[0x2B5]], 12), ([[0x2E2]], 12)],
@@ -150,13 +161,14 @@ ROOM_OBJECTS = {
         # end the front, the goods on their top
         ([[0x296, 0x297], [0x29E, 0x29F], [0x2A6, 0x2A7], [0x2AE, 0x2AF]], 16),
         ([[0x296], [0x29E], [0x2A6], [0x2AE]], 16),
-        # the counter's arm running back to the wall: the L's long side
-        ([[0x295], [0x29D], [0x2A5], [0x2AD]], 16),
-        # seen from above: low boxes, the glass their front
-        # (solid: their glass is the floor's blue, the mask would take it)
-        # the counters running across, drawn front on: stood up, cards
-        ([[0x2A8, 0x2A9, 0x2AA], [0x2B0, 0x2B1, 0x2B2]], 32),
-        ([[0x2B7, 0x2BC], [0x2C1, 0x2C2]], 32),
+        # the counter, an L of one height: seen from above, the glass and
+        # what lies on it its top, its base alone the front. Running back to
+        # the wall, the long side
+        ([[0x295], [0x29D], [0x2A5], [0x2AD]], 8, {"blank": (MART_TILL, MART_GLASS)}),
+        # and across; the crate behind it, drawn over the same cell, stands
+        # by itself
+        ([[0x2A8, 0x2A9, 0x2AA], [0x2B0, 0x2B1, 0x2B2]], 8, {"behind": (12, 8)}),
+        ([[0x2B7, 0x2BC], [0x2C1, 0x2C2]], 8),
         ([[0x2B6]], 16),                                          # the plant
     ],
     "gTileset_SilphCo": [
@@ -310,8 +322,11 @@ ROOM_OBJECTS = {
         ([[0x350], [0x358]], 16, {"keep": ROOF_RAIL}), ([[0x352], [0x35A]], 16, {"keep": ROOF_RAIL}),
     ],
     "gTileset_Museum": [
-        # the tall glass case, and the fossil's table
-        ([[0x293], [0x2A7], [0x2AF], [0x2B7]], 40),
+        # the fossil's table
+        # the yellow plinth beside the stairs, its oval at the end: low, seen
+        # from above (read as a glass case 40 tall, it stood as a yellow tower)
+        ([[0x29F], [0x293], [0x2A7], [0x2AF], [0x2B7]], 8, {"solid": True}),
+        ([[0x29F], [0x293], [0x2A7], [0x2AF]], 8, {"solid": True}),
         ([[0x2B8, 0x2B9], [0x2C0, 0x2C1], [0x2C8, 0x2C9]], 16),
         # pot plants, the leaves on the cell north of the pot
         ([[0x2AE], [0x2B6]], 30), ([[0x2CA], [0x2CB]], 30), ([[0x2AD], [0x2B5]], 30),
@@ -365,7 +380,7 @@ ROOM_OBJECTS = {
         ([[0x2D6]], 16), ([[0x2F0]], 16),
     ],
     "gTileset_PewterGym": [
-        ([[0x2B2]], 16), ([[0x2DE]], 16),
+        ([[0x2AF], [0x2B2]], 32), ([[0x2DE]], 16),      # the statues, whole
         # the rocks: low, their tops seen from above (stood up whole, as
         # partitions, they were sheets of paper side on)
         # (cut out by colour: the floor's own grey is the rocks', and taken
@@ -375,6 +390,12 @@ ROOM_OBJECTS = {
     ],
     "gTileset_CeladonGym": [
         ([[0x2B9]], 16),
+    ],
+    "gTileset_School": [
+        # the bookcase out of the wall, its white top reaching back to it
+        ([[0x29B, 0x29C], [0x2A3, 0x2A4]], 0,
+         {"model": (0, 16), "roof": 10, "drop": {(213, 189, 131)}}),
+        ([[0x281], [0x289]], 32), ([[0x282], [0x28A]], 32),      # the plants
     ],
     "gTileset_ViridianGym": [
         ([[0x2A9]], 16),
@@ -421,9 +442,37 @@ ROOM_OBJECTS = {
     "gTileset_VermilionCity": [
         ([[0x313, 0x314, None], [0x315, 0x316, 0x317], [0x318, 0x319, 0x31A]], 0, {"model": (28, 20)}),
         ([[0x31F]], 8),
-        ([[0x212, 0x213], [0x21A, 0x21B]], 32),
+        ([[0x212, 0x213], [0x21A, 0x21B]], 32, ANNE_ROCK),
     ],
 }
+# The potted plants the rooms still had lying flat: (top, foot) per tileset.
+for _ts, _plants in (("gTileset_DepartmentStore", [(0x31B, 0x323)]),
+                     ("gTileset_RestaurantHotel", [(0x281, 0x289)]),
+                     ("gTileset_Lab", [(0x2DF, 0x2E7)]),
+                     ("gTileset_SafariZoneBuilding", [(0x28F, 0x297), (0x2B2, 0x2BF)]),
+                     ("gTileset_FanClubDaycare", [(0x2D2, 0x2DA), (0x2D1, 0x2D9), (0x2B1, 0x2B9), (0x2B0, 0x2B8)]),
+                     ("gTileset_SeaCottage", [(0x29C, 0x2AF), (0x29B, 0x2A3)]),
+                     ("gTileset_SSAnne", [(0x30B, 0x313)]),
+                     ("gTileset_GameCorner", [(0x2E9, 0x2F1), (0x2EA, 0x2F2)])):
+    ROOM_OBJECTS.setdefault(_ts, []).extend(([[_a], [_b]], 32) for _a, _b in _plants)
+# the plant knocked over in the burgled house: low
+ROOM_OBJECTS["gTileset_BurgledHouse"].append(([[0x2AC, 0x2AD], [0x2AE, 0x2AF]], 20))
+
+# Chairs and stools one can walk past, lying flat: cards, chairs 14 high, stools 8.
+for _ts, _chairs, _stools in (
+        ("gTileset_BurgledHouse", [0x29A, 0x2A3], []), ("gTileset_CableClub", [0x293, 0x296], []),
+        ("gTileset_Condominiums", [0x2C8, 0x2C9], [0x2B4]), ("gTileset_DepartmentStore", [], [0x2DE]),
+        ("gTileset_FanClubDaycare", [0x2C0, 0x2C1, 0x2C8, 0x2C9], [0x307, 0x309]),
+        ("gTileset_GameCorner", [0x2AA, 0x2AB, 0x2B2, 0x2B3, 0x2BA, 0x2BB, 0x30F, 0x317], []),
+        ("gTileset_Lab", [0x2EA, 0x2EB], [0x2CB, 0x2D8, 0x30C, 0x310, 0x2F8]),
+        ("gTileset_Museum", [], [0x295, 0x29D]), ("gTileset_PokemonCenter", [0x2A7, 0x2AF], []),
+        ("gTileset_PokemonMansion", [0x2F0, 0x2F1], []),
+        ("gTileset_RestaurantHotel", [0x2B0, 0x2C0, 0x2C9, 0x2D7, 0x2E5, 0x2E6], []),
+        ("gTileset_SSAnne", [0x303, 0x334, 0x33C], []),
+        ("gTileset_SafariZoneBuilding", [0x2E1, 0x2E3], [0x291, 0x2A0, 0x2C2]),
+        ("gTileset_School", [], [0x288]), ("gTileset_SilphCo", [0x36A, 0x36B], [0x2E3, 0x2E4, 0x386])):
+    ROOM_OBJECTS.setdefault(_ts, []).extend([([[_c]], 14) for _c in _chairs] + [([[_c]], 8) for _c in _stools])
+
 # Partitions: walls drawn inside a room (Silph Co.'s offices, the Rocket
 # Hideout's corridors), by tileset. Each run of them down a column stands
 # as a wall PARTITION_H tall, its drawing above that its top; listed one
@@ -481,7 +530,7 @@ PARTITIONS.update({
 # each run down a column stands whole, as the room's own back wall does.
 INNER_WALLS = {
     "gTileset_PokemonLeague": {0x283, 0x284, 0x285, 0x286, 0x287},
-    "gTileset_SilphCo": {0x330, 0x338, 0x37F, 0x387, 0x35D, 0x365, 0x35E, 0x35F, 0x366, 0x367,
+    "gTileset_SilphCo": {0x289, 0x291, 0x330, 0x338, 0x37F, 0x387, 0x35D, 0x365, 0x35E, 0x35F, 0x366, 0x367,
                          0x33E, 0x346, 0x33F, 0x347, 0x37B, 0x37C, 0x37D, 0x385, 0x38A, 0x38B,
                          0x38C, 0x38D, 0x352, 0x353, 0x35A, 0x35B, 0x272, 0x273, 0x27A, 0x27B,
                          0x276, 0x277, 0x27E, 0x27F,
@@ -520,7 +569,7 @@ INDOOR = ("MAP_TYPE_INDOOR",)
 
 PARTITIONS.setdefault("gTileset_PokemonMansion", set()).update({0x2A0, 0x2A1, 0x2A2, 0x2A3, 0x2A4, 0x2A5, 0x2A8, 0x2A9, 0x2AA, 0x2AB, 0x2AC, 0x2AD, 0x2B1, 0x2B2, 0x2B3, 0x2B4, 0x2BD, 0x2BF, 0x2C5, 0x2C7, 0x2CD, 0x2ED, 0x2EE, 0x2EF, 0x2F3, 0x2F4, 0x2F5, 0x2F6, 0x2F7, 0x2F8, 0x2F9, 0x2FA, 0x2FB, 0x2FC, 0x300, 0x301, 0x302, 0x303, 0x304, 0x30C, 0x310, 0x311, 0x312, 0x317, 0x318, 0x319, 0x31A, 0x31D, 0x31E, 0x31F, 0x328, 0x32D, 0x32E, 0x330, 0x331, 0x332, 0x335, 0x336, 0x339, 0x33A, 0x340, 0x350, 0x354, 0x355, 0x356, 0x358, 0x360, 0x362, 0x367, 0x368, 0x36A, 0x370, 0x372, 0x374, 0x375, 0x376, 0x377, 0x380, 0x381})
 
-PARTITIONS.setdefault("gTileset_Condominiums", set()).update({0x099, 0x289, 0x28B, 0x28C, 0x290, 0x291, 0x293, 0x294, 0x29C, 0x29D, 0x29E, 0x29F, 0x2A8, 0x2AA, 0x2AB, 0x2B0, 0x2B5, 0x2B8, 0x2B9, 0x2BA, 0x2BB, 0x2C0, 0x2C1, 0x2C2, 0x2C3, 0x2CD, 0x2CF, 0x2D5, 0x2D6, 0x2D7, 0x2DD, 0x2DE, 0x2DF, 0x2E5, 0x2E6, 0x2E7, 0x2ED, 0x2EE, 0x2F4, 0x2F5, 0x2F6, 0x2FA, 0x2FB, 0x2FC, 0x31B, 0x337, 0x33C, 0x33D, 0x33E, 0x33F, 0x348, 0x349, 0x34A, 0x34B, 0x330, 0x331, 0x332, 0x333, 0x338, 0x33A, 0x33B})
+PARTITIONS.setdefault("gTileset_Condominiums", set()).update({0x2A0, 0x2A1, 0x099, 0x289, 0x28B, 0x28C, 0x290, 0x291, 0x293, 0x294, 0x29C, 0x29D, 0x29E, 0x29F, 0x2A8, 0x2AA, 0x2AB, 0x2B0, 0x2B5, 0x2B8, 0x2B9, 0x2BA, 0x2BB, 0x2C0, 0x2C1, 0x2C2, 0x2C3, 0x2CD, 0x2CF, 0x2D5, 0x2D6, 0x2D7, 0x2DD, 0x2DE, 0x2DF, 0x2E5, 0x2E6, 0x2E7, 0x2ED, 0x2EE, 0x2F4, 0x2F5, 0x2F6, 0x2FA, 0x2FB, 0x2FC, 0x31B, 0x337, 0x33C, 0x33D, 0x33E, 0x33F, 0x348, 0x349, 0x34A, 0x34B, 0x330, 0x331, 0x332, 0x333, 0x338, 0x33A, 0x33B})
 
 PARTITIONS.setdefault("gTileset_GameCorner", set()).update({0x28F, 0x297, 0x29B, 0x2A0, 0x2A1, 0x2A2, 0x2A3, 0x2A4, 0x2A5, 0x2A6, 0x2A7, 0x2AD, 0x2AE, 0x2AF, 0x2BC, 0x2BD, 0x2BE, 0x2CF, 0x2D7, 0x2EC, 0x2F4, 0x2F5, 0x2F6, 0x2F9, 0x2FA, 0x300, 0x301, 0x302, 0x30D, 0x30E, 0x315, 0x316, 0x2CC, 0x2CD, 0x2B8, 0x2B9, 0x2C0, 0x2C1})
 
@@ -783,11 +832,31 @@ PLAIN_WALL = {
     "gTileset_Mart": [0x287, 0x28F],
     # the labs' (in Building's own metatiles: without it, the houses')
     "gTileset_Lab": [0x069, 0x071],
+    # (its second row is all behind what stands against it)
+    "gTileset_School": [0x2A1, 0x2A1],
 }
 
 
 def plain_wall(room):
-    return PLAIN_WALL.get(room.L.secondary) or PLAIN_WALL.get(room.L.primary)
+    """The room's own wall. Named, or else read off the room: each of its first
+    rows' commonest cell (Building's, the houses', put cream blocks in the
+    corners of towers and offices drawn on that primary)."""
+    named = PLAIN_WALL.get(room.L.secondary)
+    if named or room.L.primary != "gTileset_Building":
+        return named or PLAIN_WALL.get(room.L.primary)
+    if "_plain" not in room.__dict__:
+        import collections
+        rows = [collections.Counter(), collections.Counter()]
+        for x in range(room.w):
+            y0 = next((y for y in range(room.h) if not room.void(x, y)), None)
+            if y0 is None:
+                continue
+            for k in range(2):
+                if y0 + k < room.h and room.L.collision(x, y0 + k) and not room.part_black(x, y0 + k):
+                    rows[k][room.m(x, y0 + k)] += 1
+        found = [r.most_common(1)[0][0] if r else None for r in rows]
+        room._plain = PLAIN_WALL[room.L.primary] if found[0] is None else [found[0], found[1] or found[0]]
+    return room._plain
 
 
 def walls(room, taken):
@@ -825,6 +894,7 @@ def walls(room, taken):
 
 
 THICK_WALLS = {"gTileset_SilphCo"}
+WALL_TOP_COLOUR = (82, 82, 106)
 WALL_TOP_BLACK = 0.2   # a wall's top: this share of the cell drawn black or more
 
 
@@ -1107,6 +1177,9 @@ def side_art(art_cells):
 # art is what the cells draw in colours the base metatiles never use.
 FLOWER_POT = {(82, 148, 197), (255, 255, 255), (106, 197, 106), (213, 197, 106), (172, 148, 65)}
 ROOM_OVERLAYS = {
+    # a dict: the rows of its drawing, a box this high (the counter's glass
+    # left under it: the "blank" of its piece)
+    "gTileset_Mart": [([[0x295], [0x29D]], 8, {"rows": MART_TILL, "h": 6})],
     "gTileset_PokemonCenter": [
         # (a set of colours instead of bases: the thing is drawn in those
         # alone - the counter's red shows through the petals, its white is
@@ -1122,8 +1195,9 @@ def overlays(room, place_art):
     for ts in (room.L.primary, room.L.secondary):
         for cells, lift, bases in ROOM_OVERLAYS.get(ts, ()):
             base_cols = set()
+            shape = bases if isinstance(bases, dict) else None
             keep = bases if isinstance(bases, set) else None
-            for b in ([] if keep else bases):
+            for b in ([] if keep or shape else bases):
                 im = room.L.metatile_image(b).convert("RGB").load()
                 base_cols |= {im[i, j] for j in range(16) for i in range(16)}
             R, C = len(cells), len(cells[0])
@@ -1135,6 +1209,11 @@ def overlays(room, place_art):
                     for j in range(R):
                         for i in range(C):
                             im = room.L.metatile_image(cells[j][i]).convert("RGB").load()
+                            if shape:
+                                span = shape["rows"][j]
+                                arts[(x + i, y + j)] = [[im[a, b] + (255,) if b in span and span[b][0] <= a <= span[b][1]
+                                                         else None for a in range(16)] for b in range(16)]
+                                continue
                             arts[(x + i, y + j)] = [[None if (im[a, b] not in keep if keep else im[a, b] in base_cols)
                                                      else im[a, b] + (255,)
                                                      for a in range(16)] for b in range(16)]
@@ -1143,12 +1222,17 @@ def overlays(room, place_art):
                     if not opaque:
                         continue
                     top, ybot = min(opaque), max(opaque) + 1
+                    side = place_art(side_art(list(arts.values()))) if shape else (0, 0)
                     for (cx, cy), art in sorted(arts.items(), key=lambda kv: (kv[0][1], kv[0][0])):
                         if not any(any(r) for r in art):
                             continue
                         sx, sy = place_art(art)
-                        rows.append(row(y=cy, x=cx, h=ybot - top, flags=FLAG_OVERLAY, lift=lift,
-                                        ybot=ybot, top=top, sx=sx, sy=sy))
+                        used = [a for a in range(16) if any(art[b][a] for b in range(16))]
+                        rows.append(row(y=cy, x=cx, h=shape["h"] if shape else ybot - top,
+                                        flags=FLAG_OVERLAY | (FLAG_WEST | FLAG_EAST if shape else 0), lift=lift,
+                                        inw=used[0] if shape else 0, ine=15 - used[-1] if shape else 0,
+                                        tw=top if shape else 0, te=top if shape else 0,
+                                        ybot=ybot, top=top, sx=sx, sy=sy, ssx=side[0], ssy=side[1]))
     return rows
 
 
@@ -1304,9 +1388,11 @@ def build(root, place_art):
             continue
         room.ts = fr_art.Tilesets(room.L.primary, room.L.secondary)
         object_mask(room, set(), set())         # builds room.floor_px
-        plain = plain_wall(room)
+        # the wall behind an object is keyed too: only a wall named for the room
+        # (read off the room, it took its inner walls' faces for floor as well)
+        plain = PLAIN_WALL.get(room.L.secondary) or PLAIN_WALL.get(room.L.primary)
         if plain:
-            for pm in plain:                    # the wall behind an object is keyed too
+            for pm in plain:
                 im = room.L.metatile_image(pm).convert("RGB").load()
                 for j in range(16):
                     for i in range(16):
@@ -1326,15 +1412,28 @@ def build(root, place_art):
         for pt in partitions(room, taken, INNER_WALLS):
             taken |= pt[0]
             pieces.append((pt, "inner"))
+        thick = {room.L.primary, room.L.secondary} & THICK_WALLS
         for pt in partitions(room, taken):
             taken |= pt[0]
+            if thick and any(black_share(room, *c) >= WALL_TOP_BLACK for c in pt[0]):
+                # a wall's long top, on to the black the floor north of it
+                # ends in: the wall's own colour, one piece
+                run = set(pt[0])
+                x, top = pt[1], min(c[1] for c in run)
+                if top > 0 and (x, top - 1) not in taken and not room.void(x, top - 1)                         and black_share(room, x, top - 1) >= WALL_TOP_BLACK:
+                    run.add((x, top - 1))
+                    taken.add((x, top - 1))
+                pieces.append(((run, x, x + 1, pt[3], pt[4], pt[5] | run, 0, False, None, {}), "object"))
+                continue
             pieces.append((pt, "auto"))
         all_cells = set().union(*[p[0][0] for p in pieces], *[f[0] for f in hanging])
         rows = []
         for cells, x, edge in hanging:
             for (cx, cy) in sorted(cells, key=lambda c: c[1]):
-                rows.append(row(y=cy, x=cx, flags=FLAG_ATLAS | FLAG_NO_GROUND | FLAG_HANG,
-                                ybot=edge, sx=room.m(cx, cy)))
+                # the drawing flat under it too: columns hung from different
+                # rows part, and between them there was only the black
+                rows.append(row(y=cy, x=cx, flags=FLAG_ATLAS | FLAG_HANG,
+                                ybot=edge, sx=room.m(cx, cy), ground=room.m(cx, cy)))
         # the bevelled corners left below the wall, squared off: floor
         if plain:
             for y in range(room.h):
@@ -1380,6 +1479,29 @@ def build(root, place_art):
                             drop_specks(masks[(x, y)], opt["speck"])
                 else:
                     masks = object_mask(room, cells, all_cells)
+            # A thick wall's top: the GBA's black, against the black round the
+            # room, read as a hole in the wall. The wall's own dark outline
+            if kind == "object" and masks and {room.L.primary, room.L.secondary} & THICK_WALLS                     and piece[5:] and len(piece) > 9 and piece[9] == {} and not model:
+                # its faces whole: keyed by the room's floor drawings (a mat's
+                # white, in the wall's white) they were full of holes
+                for (cx, cy) in list(masks):
+                    if cy > first:
+                        im = room.L.metatile_image(room.m(cx, cy)).convert("RGB").load()
+                        masks[(cx, cy)] = [[im[i, j] + (255,) for i in range(16)] for j in range(16)]
+                for art in masks.values():
+                    for line in art:
+                        for i, c in enumerate(line):
+                            if c and c[:3] == (0, 0, 0):
+                                line[i] = WALL_TOP_COLOUR + (255,)
+            # blank: a thing that stands on it (ROOM_OVERLAYS), its drawing
+            # taken off the piece's top for the piece's own colour
+            if opt.get("blank") and masks:
+                spans, colour = opt["blank"]
+                for (cx, cy), art in masks.items():
+                    if cy - first < len(spans):
+                        for r, (a, b) in spans[cy - first].items():
+                            for i in range(a, b + 1):
+                                art[r][i] = colour + (255,)
             # split: the last row's pixels from `cut` down are a thing of
             # their own in front of it (the SNES before the television)
             whole = dict(masks)
@@ -1391,6 +1513,15 @@ def build(root, place_art):
                     art = masks[c]
                     under[c] = [r if j >= cut else [None] * 16 for j, r in enumerate(art)]
                     masks[c] = [r if j < cut else [None] * 16 for j, r in enumerate(art)]
+            # behind: and the first row's pixels above `cut`, a thing behind it
+            # (the crate behind the Mart's counter)
+            back_part = {}
+            if opt.get("behind") and masks:
+                cut = opt["behind"][0]
+                for c in [c for c in cells if c[1] == first]:
+                    art = masks[c]
+                    back_part[c] = [r if j < cut else [None] * 16 for j, r in enumerate(art)]
+                    masks[c] = [r if j >= cut else [None] * 16 for j, r in enumerate(art)]
             # it stands where its drawing ends, not at its cells' foot
             top_px, ybot_px = 0, ybot * 16
             if masks:
@@ -1422,7 +1553,7 @@ def build(root, place_art):
                                 u = (cx - x0) * 16 + i
                                 low[u] = max(low.get(u, 0), cy * 16 + j + 1)
                 foot = max(v - slope * u / 16.0 for u, v in low.items()) if low else None
-            if kind == "object" and not card and foot is None:
+            if kind == "object" and not card and foot is None and opt.get("sides", True):
                 side = side_art(list(masks.values()))
                 if side:
                     ss = place_art(side)
@@ -1531,17 +1662,24 @@ def build(root, place_art):
                 if known.get(y):
                     g = max(set(known[y]), key=known[y].count)
                     rows[k] = rows[k][:15] + (g,) + rows[k][16:]
-            # the thing split off in front: a low piece of its own, on the
-            # cells' own floor
-            if under:
-                opaque = [cy * 16 + j for (cx, cy), art in under.items() for j in range(16) if any(art[j])]
+            # the thing split off in front or behind: a low piece of its own,
+            # on the cells' own floor
+            for part, key in ((under, "split"), (back_part, "behind")):
+                opaque = [cy * 16 + j for (cx, cy), art in part.items() for j in range(16) if any(art[j])]
                 if opaque:
                     utop, ubot = min(opaque), max(opaque) + 1
-                    for (x, y), art in sorted(under.items(), key=lambda kv: (kv[0][1], kv[0][0])):
+                    # behind the counter a box, not a sheet
+                    side = place_art(side_art(list(part.values()))) if key == "behind" else (0, 0)
+                    for (x, y), art in sorted(part.items(), key=lambda kv: (kv[0][1], kv[0][0])):
                         if any(any(r) for r in art):
                             sx, sy = place_art(art)
-                            rows.append(row(y=y, x=x, h=opt["split"][1], flags=FLAG_OVERLAY,
-                                            ybot=ubot, top=utop, sx=sx, sy=sy))
+                            used = [i for i in range(16) if any(art[j][i] for j in range(16))]
+                            box = key == "behind"
+                            rows.append(row(y=y, x=x, h=opt[key][1],
+                                            flags=FLAG_OVERLAY | (FLAG_WEST | FLAG_EAST if box else 0),
+                                            inw=used[0] if box else 0, ine=15 - used[-1] if box else 0,
+                                            tw=utop if box else 0, te=utop if box else 0,
+                                            ybot=ubot, top=utop, sx=sx, sy=sy, ssx=side[0], ssy=side[1]))
         rows += overlays(room, place_art)
         if rows:
             # a cell's own piece first, its wall before what stands in it

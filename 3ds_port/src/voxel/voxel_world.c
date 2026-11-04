@@ -315,6 +315,7 @@ static void FillInstance(VoxelMapInstance *inst, const struct MapHeader *header,
     inst->height = header->mapLayout->height;
     inst->indoor = header->mapType == MAP_TYPE_INDOOR
                 || header->mapType == MAP_TYPE_SECRET_BASE;
+    inst->cave = header->mapType == MAP_TYPE_UNDERGROUND;
 }
 
 /*

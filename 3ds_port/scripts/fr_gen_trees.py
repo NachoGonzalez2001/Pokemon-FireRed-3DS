@@ -61,6 +61,8 @@ def layer(ts, entries, which):
 # drawn under it is the same metatile without that layer.
 SIGNS = [0x002, 0x003, 0x160, 0x168, 0x161, 0x169]   # 160 over 168: the Gym's sign; 161 over 169
 ROCKS = [0x0A7, 0x0AF, 0x0B7]
+# the rocks in the sea, two by two, drawn on the upper layer over the water
+SEA_ROCKS = [0x110, 0x111, 0x118, 0x119, 0x1CB, 0x1CC, 0x1D3, 0x1D4, 0x1F8, 0x1F9, 0x200, 0x201]
 BUSHES = [0x005, 0x0FA, 0x0FB]
 FLOWERS = [0x004]
 FENCES = [0x0DE, 0x0DF] + list(range(0x0E6, 0x0F4)) + [0x0F6, 0x0F7, 0x0F8, 0x0F9, 0x0FC, 0x0FD,
@@ -69,20 +71,37 @@ MB_JUMP_SOUTH = 0x3B
 TIP_FENCES = {0x0D6: 0x010, 0x0D7: 0x011}
 # A town's own props that use none of General's tiles
 # the stone fence; the pens' sign
-EXTRA_PROPS = {"gTileset_FuchsiaCity": [0x28E, 0x28F, 0x296],
-               # the grey statues by Victory Road and the League: base, head
-               "gTileset_IndigoPlateau": [0x29F, 0x2EF, 0x2B6, 0x2B7]}
+EXTRA_PROPS = {"gTileset_FuchsiaCity": [0x28E, 0x28F, 0x296, 0x28A, 0x29F],
+               # the grey statues by Victory Road and the League: base, head;
+               # the white stone posts along Route 23
+               "gTileset_IndigoPlateau": [0x29F, 0x2EF, 0x2B6, 0x2B7, 0x2C6, 0x2C7, 0x2E8, 0x2E9, 0x2EA, 0x2EB],
+               # the blue railings before Saffron's apartments, and round its park
+               "gTileset_SaffronCity": [0x30D, 0x318, 0x319, 0x31A, 0x31C, 0x31D, 0x31E, 0x320, 0x322,
+                                        0x323, 0x325, 0x326, 0x329, 0x32D, 0x32E],
+               "gTileset_CeruleanCity": [0x2E9],                    # the bicycles
+               "gTileset_LavenderTown": [0x351, 0x354, 0x357],      # the Power Plant's pylons
+               "gTileset_CeladonCity": [0x32E, 0x32F],
+               # the harbours' red cranes
+               "gTileset_SeviiIslands123": [0x2A4, 0x2E7, 0x2C7, 0x2CD],
+               "gTileset_SeviiIslands45": [0x296, 0x297, 0x2D6, 0x2D7, 0x309, 0x30A],
+               "gTileset_SeviiIslands67": [0x290, 0x296]}
 # the ground under a prop whose own lower layer is not what it stands on (the
 # statues' pedestals draw an orange slab under them)
 PROP_GROUND = {"gTileset_IndigoPlateau": {0x29F: 0x010, 0x2EF: 0x010}}
 # A town's grey fences drawn on the lower layer over grass: keyed off the
 # grass, the cell's ground plain grass (Fuchsia's by the pond)
-LOWER_FENCES = {"gTileset_FuchsiaCity": {0x336: 0x010, 0x337: 0x010, 0x33F: 0x010}}
+LOWER_FENCES = {"gTileset_FuchsiaCity": {0x336: 0x010, 0x337: 0x010, 0x33F: 0x010, 0x338: 0x010, 0x339: 0x010},
+                "gTileset_CeruleanCity": {0x2E7: 0x010},
+                "gTileset_CeladonCity": {0x323: 0x010, 0x325: 0x010, 0x32B: 0x010, 0x32D: 0x010, 0x335: 0x010,
+                                         0x353: 0x010, 0x354: 0x010, 0x327: 0x010, 0x355: 0x010}}
 # Drawn from above, raised as a low block rather than stood up: the hedge
 # walls of Fuchsia's Pokemon pens
 LOWER_BLOCKS = {0x13D: 0x008, 0x13E: 0x008, 0x13F: 0x008}
 HEDGE_FACE = 9      # its first row of front face: above it, its top seen from above
-BLOCKS = {"gTileset_FuchsiaCity": [0x290, 0x291, 0x292, 0x293, 0x294, 0x295, 0x29B, 0x29C]}
+BLOCKS = {"gTileset_FuchsiaCity": [0x290, 0x291, 0x292, 0x293, 0x294, 0x295, 0x29B, 0x29C],
+          # Route 23's long stone causeways
+          "gTileset_IndigoPlateau": [0x28C, 0x28D, 0x28E, 0x294, 0x295, 0x297, 0x298, 0x299, 0x29C, 0x29D,
+                                     0x2A0, 0x2A1, 0x2AD, 0x2B0, 0x2B4, 0x2B5, 0x2B8, 0x2BC]}
 
 
 def south_ledges(root):
@@ -96,7 +115,7 @@ def south_ledges(root):
 
 def prop_ids(root):
     """The props, and every south-facing ledge."""
-    ids = SIGNS + ROCKS + BUSHES + FLOWERS + FENCES + south_ledges(root)
+    ids = SIGNS + ROCKS + SEA_ROCKS + BUSHES + FLOWERS + FENCES + south_ledges(root)
     return sorted(set(ids), key=ids.index)
 
 
@@ -126,13 +145,15 @@ WOOD_ROUND = {
     "ground_idx": {0xC, 0xD, 0xE, 0xF},     # palette 8: grass and its shadow
     "shade": 5,
     # the columns of the crown row; 296 and 29E carry a neighbour's edge
-    "crown": {0x290: 0, 0x291: 1, 0x292: 2, 0x2A0: 0, 0x2A1: 1, 0x2A2: 2, 0x296: 2, 0x29E: 0},
+    # (28E/28F: a tree by itself, grass either side of its crown)
+    "crown": {0x290: 0, 0x291: 1, 0x292: 2, 0x2A0: 0, 0x2A1: 1, 0x2A2: 2, 0x296: 2, 0x29E: 0,
+              0x28E: 0, 0x28F: 2},
     "base": {0x2A3: 0, 0x2A4: 1, 0x2A5: 2, 0x29E: 2},
     # the tips, the bumps (over grass, a ledge, tall grass, a path's edge)
     # and the rows between two trees: ground only
     "clear": [0x281, 0x283, 0x284, 0x286, 0x287, 0x288, 0x289, 0x28A, 0x298, 0x299, 0x29A],
     # cells whose lower layer draws leaves of the tree too: plain grass
-    "ground": {0x288: 0x008, 0x28A: 0x008, 0x296: 0x010},
+    "ground": {0x288: 0x008, 0x28A: 0x008, 0x296: 0x010, 0x28E: 0x008, 0x28F: 0x008},
 }
 # The Safari Zone's trees (Fuchsia's tileset) are drawn whole on the lower
 # layer, over a floor in their shade (palette 11): the top of the canopy

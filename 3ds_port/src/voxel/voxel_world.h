@@ -48,6 +48,7 @@ typedef struct
     int originX, originY;
     int width, height;
     bool indoor;
+    bool cave;
 } VoxelMapInstance;
 
 /* Cheap enough to call once per frame: no payload is touched. */

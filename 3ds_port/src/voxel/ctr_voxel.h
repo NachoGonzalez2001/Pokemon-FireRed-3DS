@@ -26,6 +26,9 @@ void CtrVoxel_NotifyTilesetAnimWrite(unsigned firstTile, unsigned tileCount);
 
 /* Draws into the given target. Never opens or closes a frame. */
 void CtrVoxel_Draw(C3D_RenderTarget *target, float eyeOffset);
+/* What the surface is cleared to first: what shows through where two maps do
+ * not quite close up. */
+uint32_t CtrVoxel_ClearColour(void);
 /* The GBA brightness effect (BLDY) of the frame about to be drawn, as the
  * compositor reads it: on the backgrounds and on the sprites, towards white
  * or black. The palette fade is read by the voxel module itself. */

@@ -1469,11 +1469,6 @@ void VoxelMesh_EmitBorder(VoxelBuilder *builder, int x0, int y0, int x1, int y1)
 
     if (builder->atlas == NULL)
         return;
-    /* Indoors the border is the black filler outside the rooms: stood up it
-     * was a black wall two tiles tall round the room, and the south one hid
-     * the doorway. The 2D game shows black there, and so does the clear. */
-    if (VoxelWorld_Instance(0) != NULL && VoxelWorld_Instance(0)->indoor)
-        return;
     for (int y = y0; y < y1; ++y)
         for (int x = x0; x < x1; ++x)
         {
@@ -1485,6 +1480,17 @@ void VoxelMesh_EmitBorder(VoxelBuilder *builder, int x0, int y0, int x1, int y1)
 
             if (!BorderAt(x, y))
                 continue;
+            /* Indoors the border is the black filler outside the rooms: stood
+             * up it was a black wall two tiles tall round the room, and the
+             * south one hid the doorway. The 2D game shows black there, and so
+             * does the clear. But a ship's deck, a harbour, is in the sea. */
+            if (VoxelWorld_Instance(0) != NULL && VoxelWorld_Instance(0)->indoor)
+            {
+                if (VoxelWorld_BorderIsWater(x, y)
+                 && MetatileUV(builder, VoxelWorld_BorderMetatile(x, y), &u0, &v0, &u1, &v1))
+                    VoxelMesh_Top(builder, wx, wz, 0.0f, 0.0f, u0, v0, u1, v1, SHADE_TOP);
+                continue;
+            }
             if (VoxelWorld_UsesTreeSprites(VoxelWorld_Instance(0))
              && VoxelTree_Part(VoxelWorld_Instance(0)->secondaryTileset,
                                VoxelWorld_BorderMetatile(x, y)) >= 0)
@@ -1505,8 +1511,11 @@ void VoxelMesh_EmitBorder(VoxelBuilder *builder, int x0, int y0, int x1, int y1)
             }
             if (BorderOnRelief(builder, x, y))
                 continue;
-            /* the sea past an island lies flat, at the water's level */
-            if (VoxelWorld_BorderIsWater(x, y))
+            /* the sea past an island lies flat, at the water's level; and so
+             * does a cave's rock past its edge: stood up as a block, its plain
+             * filler's faces were bare grey walls round the cave */
+            if (VoxelWorld_BorderIsWater(x, y)
+             || (VoxelWorld_Instance(0) != NULL && VoxelWorld_Instance(0)->cave))
             {
                 if (MetatileUV(builder, VoxelWorld_BorderMetatile(x, y), &u0, &v0, &u1, &v1))
                     VoxelMesh_Top(builder, wx, wz, 0.0f, 0.0f, u0, v0, u1, v1, SHADE_TOP);

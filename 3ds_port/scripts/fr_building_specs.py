@@ -747,7 +747,7 @@ LAVENDER_HOUSE_EXACT = [(0, 42, 80, 64), (0, 39, 80, 42), (0, 14, 80, 39)]
 
 # ── Vermilion City ─────────────────────────────────────────────────────────
 
-def shed_house(cells, ribs=(10, 38), eave=(38, 42), facade_top=42, rise=12):
+def shed_house(cells, ribs=(10, 38), eave=(38, 42), facade_top=42, rise=12, rows=4, tail=None):
     """A house under one corrugated slope falling to the front, its ribs
     running front to back (Vermilion's orange houses, the Fan Club):
 
@@ -759,13 +759,13 @@ def shed_house(cells, ribs=(10, 38), eave=(38, 42), facade_top=42, rise=12):
     width = cells * 16
 
     def parts(art):
-        front_z, back_z = 64, 16
+        front_z, back_z = rows * 16, 16
         wall_top = front_z - facade_top
-        plaster = Tile(4, 44, 12, 56, top=wall_top)
+        plaster = Tile(4, facade_top + 2, 12, facade_top + 14, top=wall_top)
         walls = Prism(
             "walls", 0, width,
             [(front_z, 0), (front_z, wall_top), (back_z, wall_top), (back_z, 0)],
-            edges={0: Proj(facade_top, 64), 2: plaster}, skip=(1, 3),
+            edges={0: Proj(facade_top, front_z), 2: plaster}, skip=(1, 3),
             caps=[Band(0, wall_top + 1, plaster, front_z)])
         y1 = wall_top + eave[1] - eave[0]
         a, b = ribs
@@ -773,16 +773,16 @@ def shed_house(cells, ribs=(10, 38), eave=(38, 42), facade_top=42, rise=12):
         roof = Prism(
             "roof", 0, width,
             [(front_z, wall_top), (front_z, y1), (back_z, y1 + rise), (back_z, wall_top)],
-            edges={0: Proj(*eave), 1: Strip((a, b), repeat=(a + 8, a + 12), tail=(a - 2, a)),
+            edges={0: Proj(*eave), 1: Strip((a, b), repeat=(a + 8, a + 12), tail=tail or (a - 2, a)),
                    2: rib_end},
             skip=(3,), caps=[Band(wall_top, y1 + rise + 1, rib_end, front_z)])
         return [walls, roof], art
     return parts
 
 
-def shed_exact(cells, ribs=(10, 38), facade_top=42):
+def shed_exact(cells, ribs=(10, 38), facade_top=42, rows=4):
     width = cells * 16
-    return [(0, facade_top, width, 64), (0, ribs[1], width, facade_top), (0, ribs[0] + 4, width, ribs[1])]
+    return [(0, facade_top, width, rows * 16), (0, ribs[1], width, facade_top), (0, ribs[0] + 4, width, ribs[1])]
 
 
 def canopy(art):
@@ -949,42 +949,51 @@ CELADON_BLOCKS = [(4, 4, 5, 8, 1), (18, 4, 7, 8, 1), (27, 4, 7, 8, 1),
 
 # ── General's route house ──────────────────────────────────────────────────
 
-def route_house(art):
+def route_house_w(width):
     """The blue-roofed house of General's own tiles (Celadon's restaurant,
-    the houses on Routes 2, 12 and 16), 96 x 48:
+    the houses on Routes 2, 12 and 16), `width` x 48:
 
         row   0      the ridge line
         rows  1-23   the front slope, courses ending in lines at 4/5,
-                     11/12 and 19/20; hips drawn as stripes, x 0-11 lit and
-                     84-95 shaded
+                     11/12 and 19/20; hips drawn as stripes, 12 columns each,
+                     the west lit and the east shaded
         rows 24-26   fascia; rows 27-31 the wall's top in the eave's shade
         rows 32-47   facade: windows, the door
     """
-    art, band0 = extend(art, 96)
-    hip_w = hip_band(art, band0, list(range(0, 12)), 15, 48)
-    hip_e = hip_band(art, band0 + 48, list(range(95, 83, -1)), 15, 48)
-    front_z, back_z = 48, 0
-    overhang = 2
-    wall_top = front_z + overhang - 27
-    courses = (12, 84)
-    roof = FrHipRoof(
-        "roof", 0, 96, zf=front_z + overhang, zb=back_z + 2, y0=wall_top,
-        fascia=Strip((24, 27), wrap=courses),
-        slope=KeepStrip((1, 24), repeat=(12, 20), start=19, wrap=courses, keep=(12, 84)),
-        teeth=(0, 1), cap=(0, 1), pitch=HOUSE_PITCH, run=12,
-        ridge_u=(12, 84), end_tile=Tile(12, 0, 13, 1),
-        hip_w=Strip(hip_w, wrap=(0, 40)), hip_e=Strip(hip_e, wrap=(0, 40)))
-    plaster = Tile(16, 27, 24, 48, top=wall_top)
-    corner = Tile(1, 27, 4, 48, top=wall_top)
-    walls = Prism(
-        "walls", 1, 95,
-        [(front_z, 0), (front_z, wall_top), (back_z + 4, wall_top), (back_z + 4, 0)],
-        edges={0: Proj(27, 48), 2: plaster}, skip=(1, 3),
-        caps=[Band(0, wall_top + 1, plaster, front_z, front=corner, back=corner, z1=back_z + 4)])
-    return [walls, roof], art
+    def parts(art):
+        art, band0 = extend(art, 96)
+        hip_w = hip_band(art, band0, list(range(0, 12)), 15, 48)
+        hip_e = hip_band(art, band0 + 48, list(range(width - 1, width - 13, -1)), 15, 48)
+        front_z, back_z = 48, 0
+        overhang = 2
+        wall_top = front_z + overhang - 27
+        courses = (12, width - 12)
+        roof = FrHipRoof(
+            "roof", 0, width, zf=front_z + overhang, zb=back_z + 2, y0=wall_top,
+            fascia=Strip((24, 27), wrap=courses),
+            slope=KeepStrip((1, 24), repeat=(12, 20), start=19, wrap=courses, keep=courses),
+            teeth=(0, 1), cap=(0, 1), pitch=HOUSE_PITCH, run=12,
+            ridge_u=courses, end_tile=Tile(12, 0, 13, 1),
+            hip_w=Strip(hip_w, wrap=(0, 40)), hip_e=Strip(hip_e, wrap=(0, 40)))
+        plaster = Tile(16, 27, 24, 48, top=wall_top)
+        corner = Tile(1, 27, 4, 48, top=wall_top)
+        walls = Prism(
+            "walls", 1, width - 1,
+            [(front_z, 0), (front_z, wall_top), (back_z + 4, wall_top), (back_z + 4, 0)],
+            edges={0: Proj(27, 48), 2: plaster}, skip=(1, 3),
+            caps=[Band(0, wall_top + 1, plaster, front_z, front=corner, back=corner, z1=back_z + 4)])
+        return [walls, roof], art
+    return parts
 
 
-ROUTE_HOUSE_EXACT = [(4, 27, 92, 48), (12, 1, 84, 24)]
+route_house = route_house_w(96)
+
+
+def route_house_exact(width):
+    return [(4, 27, width - 4, 48), (12, 1, width - 12, 24)]
+
+
+ROUTE_HOUSE_EXACT = route_house_exact(96)
 
 
 # ── Fuchsia City ───────────────────────────────────────────────────────────
@@ -1235,18 +1244,22 @@ def paint_door(art, x, y, w=16, h=28):
     return Tile(x, y, x + w, y + h, top=h)
 
 
-def gatehouse(cells, rows, side_doors=False, extra=0):
+def gatehouse(cells, rows, side_doors=False, extra=0, clear=()):
     """The route gates and the Underground Path's huts, General's own tiles:
     a grey corrugated roof falling to the front (rows 0..42, its ribs the
     same on every row), its eave (43..46), and the facade from row 47 down
     to the rect's bottom - glass, brick, the passage or a door, the pillars
-    at either end drawn on it."""
+    at either end drawn on it. `clear`: rectangles of the facade the map draws
+    something else on, filled with the rows just above them."""
     width, front_z = cells * 16, rows * 16
     s = 16 * extra                 # Route 2's gates have a row more of roof
 
     def parts(art):
         back_z = 16
         wall_top = front_z - 47 - s
+        art = art.copy()
+        for (x0, y0, x1, y1) in clear:
+            art.paste(art.crop((x0, y0 - (y1 - y0), x1, y0)), (x0, y0))
         brick = Tile(8, 61 + s, 24, 65 + s, top=wall_top)
         walls = Prism(
             "walls", 0, width,
@@ -1557,6 +1570,57 @@ def pokemon_tower_top(art):
         edges={0: rim, 1: Proj(80, 128), 2: rim}, skip=(3,),
         caps=[Band(y0, y1 + 1, rim, z)])
     return [cap], art
+
+
+def boxes(*blocks):
+    """A building as plain blocks, each read straight off the drawing: `name,
+    x0, x1, foot, top, back, base`: its wall's foot at art row `foot`, the
+    wall up to row `top`, its flat roof back to row `back`, on height `base`.
+    Every face is the GBA's projection, so the model is the drawing; the end
+    walls take the wall's own rows at the block's west end."""
+    def parts(art):
+        out = []
+        for (name, x0, x1, foot, top, back, base) in blocks:
+            z, h = foot + base, foot - top + base
+            side = Tile(x0 + 1, top, x0 + 5, foot, top=h)
+            out.append(Prism(name, x0, x1, [(z, base), (z, h), (back + h, h), (back + h, base)],
+                             edges={2: side}, skip=(3,), caps=[Band(base, h + 1, side, z)]))
+        return out, art
+    return parts
+
+
+def boxes_exact(*blocks):
+    return [(x0, top, x1, foot) for (_, x0, x1, foot, top, _, base) in blocks if base == 0]
+
+
+# The Power Plant, Route 10 (cells 3..11 x 35..41, the pylons in the columns
+# either side): its wings, the middle stepping forward, the four ducts on the
+# roof. The rows above are the mountain behind it, not the building.
+POWER_PLANT = [("wing_w", 16, 53, 91, 50, 2, 0), ("wing_e", 122, 160, 91, 50, 2, 0),
+               ("middle", 53, 122, 99, 55, 2, 0)] + [
+    ("duct%d" % i, x, x + 15, 41, 0, -6, 41) for i, x in enumerate((33, 65, 97, 129))] + [
+    ("pylon%d" % i, x, x + 16, foot, foot - 24, foot - 28, 0)
+    for i, (x, foot) in enumerate(((0, 38), (0, 78), (160, 38), (160, 86)))]
+# Trainer Tower's face, Seven Island's Trainer Tower map (cells 55..61 x 1..7):
+# a wall as high as the map shows, on its plinth, the door's porch before it.
+TRAINER_TOWER = [("tower", 0, 112, 84, 0, -40, 0), ("plinth", 0, 112, 96, 90, 84, 0),
+                 ("porch", 44, 68, 112, 88, 76, 0)]
+
+
+def thatch_roof_south(cells, rows):
+    """A thatched roof the map shows from behind, its building off the map's
+    south end (the Safari Zone's gate, from the Center): low at its back eave,
+    rising away, so that it hides nobody north of it."""
+    width, depth = cells * 16, rows * 16
+
+    def parts(art):
+        side = Tile(8, 10, 24, 14)
+        roof = Prism(
+            "roof", 0, width, [(depth, 0), (depth, 40), (0, 12), (0, 0)],
+            edges={1: Strip((10, 26), repeat=(10, 26)), 0: side, 2: side}, skip=(3,),
+            caps=[Band(0, 41, side, depth)])
+        return [roof], art
+    return parts
 
 
 def forest_gate_roof(art):
@@ -2033,6 +2097,105 @@ SPECS.append({
     "parts": saffron_house(3, 80),
     "exact": [(3, 43, 45, 80), (12, 9, 36, 40)],
 })
+# Left flat until the viewer's scan found them: blocked, drawn, nothing standing.
+ROUTE_GROUND = GATE_GROUND + [0x0D3, 0x0D4, 0x0D5, 0x0DC, 0x103, 0x102, 0x0C5, 0x0BD, 0x0BE, 0x0C3]
+SPECS += [
+    {"name": name, "layout": lid, "rect": (x, y, 5, 3), "ground": ROUTE_GROUND,
+     "owned": {(i, j) for i in range(5) for j in range(3)},
+     "parts": route_house_w(80), "exact": route_house_exact(80)}
+    for (name, lid, x, y) in (("route_house_2", "LAYOUT_ROUTE2", 14, 20),
+                              ("route_house_12", "LAYOUT_ROUTE12", 11, 84),
+                              ("route_house_16", "LAYOUT_ROUTE16", 9, 3))
+]
+SPECS += [
+    {"name": "gate_route8_hut", "layout": "LAYOUT_ROUTE8", "rect": (12, 1, 4, 4), "ground": ROUTE_GROUND,
+     "owned": {(i, j) for i in range(4) for j in range(4)},
+     "parts": gatehouse(4, 4), "exact": [(8, 47, 56, 64), (0, 43, 64, 47)]},
+    {"name": "gate_route16", "layout": "LAYOUT_ROUTE16", "rect": (21, 3, 6, 12), "ground": ROUTE_GROUND,
+     "owned": {(i, j) for i in range(6) for j in range(12)},
+     "parts": gatehouse(6, 12, extra=6), "exact": [(8, 143, 88, 192), (0, 139, 96, 143)]},
+]
+SAFARI_GROUND = FUCHSIA_GROUND + [0x00D, 0x011, 0x0DB, 0x0DC, 0x0DD, 0x0E3, 0x0E4, 0x0E5]
+SPECS += [
+    {"name": name, "layout": lid, "rect": (x, y, w, h), "ground": SAFARI_GROUND,
+     "owned": {(i, j) for i in range(w) for j in range(h)},
+     "parts": thatch_house(w, h, edge=edge), "exact": thatch_exact(w, h, edge=edge)}
+    for (name, lid, x, y, w, h, edge) in (
+        ("safari_hut_center", "LAYOUT_SAFARI_ZONE_CENTER", 28, 22, 5, 4, 40),
+        ("safari_hut_west", "LAYOUT_SAFARI_ZONE_WEST", 18, 15, 5, 4, 40),
+        ("safari_hall_west", "LAYOUT_SAFARI_ZONE_WEST", 10, 3, 6, 5, 48))
+]
+SPECS.append({
+    "name": "safari_gate_roof", "layout": "LAYOUT_SAFARI_ZONE_CENTER", "rect": (22, 31, 8, 5),
+    "ground": SAFARI_GROUND, "owned": {(i, j) for i in range(8) for j in range(5)},
+    "parts": thatch_roof_south(8, 5), "exact": [],
+})
+SPECS += [
+    {"name": "meadow_warehouse", "layout": "LAYOUT_FIVE_ISLAND_MEADOW", "rect": (9, 17, 6, 5),
+     "ground": SEVII_GROUND + [0x01C, 0x01D, 0x014, 0x015, 0x00D, 0x00E, 0x00F],
+     "owned": {(i, j) for i in range(6) for j in range(5)},
+     "parts": shed_house(6, ribs=(10, 46), eave=(46, 54), facade_top=54, rows=5),
+     "exact": [(0, 54, 96, 72)]},
+    {"name": "resort_house", "layout": "LAYOUT_FIVE_ISLAND_RESORT_GORGEOUS", "rect": (38, 5, 5, 4),
+     "ground": SEVII_GROUND + [0x1E3, 0x1EB], "owned": {(i, j) for i in range(5) for j in range(4)},
+     "parts": shed_house(5, ribs=(20, 42), eave=(42, 46), facade_top=46, tail=(8, 20)),
+     "exact": [(0, 46, 80, 64)]},
+]
+SPECS += [
+    {"name": "sevii_house_%s_%d_%d" % (lid[7:].lower(), x, y), "layout": lid, "rect": (x, y, 5, 4),
+     "ground": SEVII_GROUND + [0x0BD, 0x0D3, 0x0D4, 0x0D5, 0x0DC, 0x0C3, 0x005, 0x002, 0x00D],
+     "owned": {(i, j) for i in range(5) for j in range(4)},
+     "parts": sevii_house, "exact": [(2, 46, 78, 64), (4, 21, 76, 43)]}
+    for (lid, x, y) in (("LAYOUT_SIX_ISLAND_WATER_PATH", 4, 10), ("LAYOUT_SIX_ISLAND_WATER_PATH", 10, 16),
+                        ("LAYOUT_SEVEN_ISLAND_SEVAULT_CANYON", 13, 58), ("LAYOUT_TWO_ISLAND_CAPE_BRINK", 11, 13))
+]
+SPECS += [
+    # Seven Island's Mart: the same, under another top row
+    {"name": "seven_island_mart", "layout": "LAYOUT_SEVEN_ISLAND", "rect": (3, 6, 4, 4), "ground": TOWN_GROUND,
+     "owned": {(i, j) for i in range(4) for j in range(4)}, "parts": poke_mart, "exact": MART_EXACT},
+    # and its Center, whose first row of art is off the map's north end
+    {"name": "seven_island_center", "layout": "LAYOUT_SEVEN_ISLAND", "rect": (10, 0, 5, 4), "ground": TOWN_GROUND,
+     "owned": {(i, j) for i in range(5) for j in range(4)},
+     "parts": lambda art: (center_or_mart(80, 64, (0, 24), (0, 1), Strip((48, 64), wrap=(25, 31)),
+                                          Strip((29, 36), wrap=(12, 20))), art),
+     "exact": [(8, 24, 72, 64)]},
+    {"name": "power_plant", "layout": "LAYOUT_ROUTE10", "rect": (2, 35, 11, 7),
+     "ground": ROUTE_GROUND, "owned": {(i, j) for i in range(11) for j in range(7)},
+     "parts": boxes(*POWER_PLANT), "exact": []},
+    {"name": "trainer_tower_face", "layout": "LAYOUT_SEVEN_ISLAND_TRAINER_TOWER", "rect": (55, 1, 7, 7),
+     "ground": ROUTE_GROUND, "owned": {(i, j) for i in range(7) for j in range(7) if j < 6 or i in (3, 4)},
+     "parts": boxes(*TRAINER_TOWER), "exact": []},
+]
+# Two Island's market, row by row from the awning on its two posts
+SPECS.append({
+    "name": "two_island_market", "layout": "LAYOUT_TWO_ISLAND", "rect": (25, 0, 8, 6),
+    "ground": SEVII_GROUND + [0x0BD, 0x0D3, 0x0D4, 0x0D5, 0x002, 0x00D, 0x0C3],
+    "owned": ({(i, 1) for i in range(2, 7)} | {(i, 2) for i in range(1, 7)}
+              | {(i, 3) for i in range(0, 8)} | {(i, 4) for i in range(1, 7)}),
+    "parts": boxes(("awning", 33, 95, 48, 40, 16, 16), ("post_w", 36, 40, 64, 48, 46, 0),
+                   ("post_e", 90, 94, 64, 48, 46, 0), ("crate_ne", 96, 112, 48, 36, 24, 0),
+                   ("blue", 16, 32, 48, 36, 32, 0), ("crate_w", 1, 16, 64, 54, 48, 0),
+                   ("stall_w", 16, 32, 64, 54, 48, 0), ("crate_e", 112, 128, 64, 54, 48, 0),
+                   ("flowers_e", 96, 112, 64, 58, 48, 0), ("pots", 17, 47, 80, 68, 62, 0),
+                   ("crate_s", 81, 96, 80, 70, 64, 0), ("flowers_s", 96, 112, 80, 74, 64, 0)),
+    "exact": [],
+})
+SPECS += [
+    # Celadon's fountain: its basin, low, the spout standing in it
+    {"name": "celadon_fountain", "layout": "LAYOUT_CELADON_CITY", "rect": (12, 18, 3, 4), "ground": CELADON_GROUND, "force_ground": GRASS,
+     "owned": {(i, j) for i in range(3) for j in range(4)},
+     "parts": boxes(("basin", 4, 44, 57, 50, 13, 0), ("spout", 18, 30, 38, 24, 23, 7)), "exact": []},
+    # the Memorial Pillar, Five Island
+    {"name": "memorial_pillar", "layout": "LAYOUT_FIVE_ISLAND_MEMORIAL_PILLAR", "rect": (8, 40, 2, 4),
+     "ground": SEVII_GROUND + [0x0D9, 0x0DA, 0x0D3, 0x0D4, 0x0D5, 0x0DC], "owned": {(i, j) for i in range(2) for j in range(4)},
+     "parts": boxes(("pillar", 0, 32, 64, 12, 6, 0)), "exact": []},
+    # the shrines of the Tanoby Ruins, in their mounds of rock
+    {"name": "tanoby_shrine", "layout": "LAYOUT_SEVEN_ISLAND_TANOBY_RUINS", "rect": (31, 5, 3, 5), "match_rows": (1, 5),
+     "ground": SEVII_GROUND + [0x099, 0x09A, 0x0D9, 0x207],
+     "parts": boxes(("shrine", 0, 48, 80, 56, 24, 0)), "exact": []},
+]
+
+
 # Route 2's two gates, eight cells wide and a row of roof taller
 SPECS += [
     {
@@ -2045,6 +2208,16 @@ SPECS += [
     }
     for (name, y, rows) in (("gate_route2_north", 14, 6), ("gate_route2_south", 45, 7))
 ]
+# The gate at Viridian Forest's north edge, the road on to Pewter: as Route 2's
+# with more roof, its door's foot on the row the trees' tips are drawn on
+SPECS.append({
+    "name": "forest_gate_north",
+    "layout": "LAYOUT_VIRIDIAN_FOREST",
+    "rect": (0, 0, 11, 11),
+    "ground": GATE_GROUND,
+    "parts": gatehouse(11, 11, extra=4, clear=[(0, 160, 48, 176), (128, 160, 176, 176)]),
+    "exact": [(8, 111, 168, 160), (0, 107, 176, 111), (0, 4, 176, 104)],
+})
 SPECS += [
     {
         "name": "gate_route2_east",

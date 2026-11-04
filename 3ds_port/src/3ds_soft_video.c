@@ -463,7 +463,7 @@ static void GpuPresent(void)
     {
         C2D_Image world = { &sSurface, &sLogicalSub };
 
-        C2D_TargetClear(sLogical, C2D_Color32(0, 0, 0, 255));
+        C2D_TargetClear(sLogical, CtrVoxel_ClearColour());
         CtrVoxel_Draw(sLogical, 0.0f);
         if (sClean)
         {
