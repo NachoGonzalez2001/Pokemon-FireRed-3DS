@@ -292,7 +292,26 @@ def configure(argv: list[str] | None = None) -> None:
     parser.add_argument("--map", default=None, help="linker map of the port executable")
     parser.add_argument("--fs-dir", default=None, help="root of the packaged filesystem")
     parser.add_argument("--uri-prefix", default=URI_PREFIX, help="prefix written before every path")
+    parser.add_argument("--game-version", choices=("FIRERED", "LEAFGREEN"), default="FIRERED")
+    parser.add_argument("--game-language", choices=("ENGLISH", "SPANISH"), default="ENGLISH")
+    parser.add_argument("--game-revision", type=int, default=1)
     args = parser.parse_args(argv)
+
+    for version in ("FIRERED", "LEAFGREEN"):
+        KNOWN_DEFINES.pop(version, None)
+        KNOWN_UNDEFINED.add(version)
+    KNOWN_UNDEFINED.remove(args.game_version)
+    KNOWN_DEFINES[args.game_version] = 1
+
+    languages = {"JAPANESE": 1, "ENGLISH": 2, "FRENCH": 3, "ITALIAN": 4, "GERMAN": 5, "SPANISH": 7}
+    for language, number in languages.items():
+        KNOWN_DEFINES["LANGUAGE_" + language] = number
+        KNOWN_DEFINES.pop(language, None)
+        KNOWN_UNDEFINED.add(language)
+    KNOWN_UNDEFINED.remove(args.game_language)
+    KNOWN_DEFINES[args.game_language] = 1
+    KNOWN_DEFINES["GAME_LANGUAGE"] = languages[args.game_language]
+    KNOWN_DEFINES["REVISION"] = args.game_revision
 
     PORT_DIR = Path(args.port_dir).resolve()
     MAP_FILE = Path(args.map).resolve() if args.map else PORT_DIR / "build" / "firered3ds.map"

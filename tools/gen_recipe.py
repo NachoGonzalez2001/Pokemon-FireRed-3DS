@@ -634,6 +634,8 @@ def main() -> None:
 
     source_rom = load_rom(args.rom)
     rom, sha1 = source_rom.data, source_rom.sha1
+    if bytes.fromhex(sha1) != staging.build_rom_sha1(args.decomp):
+        raise SystemExit("ROM does not match this build profile.")
     abi, items = staging.compute_abi(args.romfs)
     cover = Cover(rom)
     hints = {}

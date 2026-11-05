@@ -1,0 +1,12 @@
+[pokefirered]
+repository = "https://github.com/pret/pokefirered.git"
+commit = "037335f4c725d7c9aecdac87066f2002b4bd7e14"
+target = "leafgreen"
+revision = 0
+
+[rom]
+name = "Pokemon LeafGreen (USA, Rev 0)"
+sha1 = "574fa542ffebb14be69902d1d36f1ec0a4afd71e"
+
+[pack]
+schema = 1

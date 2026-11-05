@@ -1,7 +1,7 @@
 """Recognise the player's ROM.
 
-A clean Pokémon FireRed (USA) rev 1 dump (BPRE, 16 MiB, by SHA-1) is
-recognised: the revision the port is built from. Building still requires a
+Clean dumps of the supported FireRed and LeafGreen editions are recognised
+by SHA-1. Building requires a
 recipe and executable made for the same ROM. A trimmed dump (trailing 0xFF
 removed) is padded back before it is checked; a .zip holding a single .gba is
 opened directly. The ROM is only ever read into memory: it is never copied,
@@ -20,7 +20,12 @@ from .errors import BuilderError
 
 SUPPORTED_SHA1 = "dd5945db9b930750cb39d00c84da8571feebf417"
 # Fingerprints: libretro-database/metadat/no-intro/Nintendo - Game Boy Advance.dat
-ROM_PROFILES = {"BPRE": SUPPORTED_SHA1}
+ROM_PROFILES = {
+    "BPRE": SUPPORTED_SHA1,
+    "BPRS": "ab8f6bfe0ccdaf41188cd015c8c74c314d02296a",
+    "BPGE": "574fa542ffebb14be69902d1d36f1ec0a4afd71e",
+    "BPGS": "f9ebee5d228cb695f18ef2ced41630a09fa9eb05",
+}
 ROM_SIZE = 16 * 1024 * 1024
 KNOWN_CODES = {
     "BPRE": "Pokemon FireRed (USA, Rev 1)",
@@ -29,7 +34,8 @@ KNOWN_CODES = {
     "BPRD": "Pokemon FireRed (Germany)",
     "BPRF": "Pokemon FireRed (France)",
     "BPRI": "Pokemon FireRed (Italy)",
-    "BPGE": "Pokemon LeafGreen",
+    "BPGE": "Pokemon LeafGreen (USA, Rev 0)",
+    "BPGS": "Pokemon LeafGreen (Spain)",
     "BPEE": "Pokemon Emerald",
     "AXVE": "Pokemon Ruby",
     "AXPE": "Pokemon Sapphire",

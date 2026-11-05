@@ -125,6 +125,20 @@ release: the recipe the builder rebuilds the data from (`tools/gen_recipe.py`),
 the payload, the standalone builder and an audit that nothing from the game
 is inside (`tools/release_audit.py`).
 
+For local development, select a game and language when bootstrapping. Each
+profile builds its own executable and requires its matching data pack.
+
+| Bootstrap options | ROM profile |
+|---|---|
+| Default | FireRed (USA, Rev 1) |
+| `--language es` | Edición Rojo Fuego (Spain) |
+| `--game leafgreen` | LeafGreen (USA, Rev 0) |
+| `--game leafgreen --language es` | Edición Verde Hoja (Spain) |
+
+The Spanish builds use the [European decompilation](https://github.com/Acimut/pokefirered/tree/pret_europe).
+The additional profiles are development builds. The ROM builder also needs a
+matching release recipe for each profile.
+
 | Path | What |
 |---|---|
 | `patches/pokefirered/` | the changes to the decomp, one patch per topic |

@@ -515,16 +515,33 @@ static void Snapshot(ViewState *s)
 }
 
 /* ------------------------------------------------------------------------ */
-/* Colours: a Pokédex - red shell, dark glass, charcoal keys                */
+/* Pokédex palette for the selected game edition                             */
 /* ------------------------------------------------------------------------ */
 
 /* 8-bit components to RGB565 */
 #define C8(r, g, b) ((u16)((((r) >> 3) << 11) | (((g) >> 2) << 5) | ((b) >> 3)))
 
-#define C_RED       C8(206, 40, 46)
-#define C_RED_HI    C8(236, 82, 82)
-#define C_RED_LO    C8(150, 24, 32)
-#define C_RED_DK    C8(92, 14, 20)
+/* The builder selects the executable matching the ROM. Its game version
+ * selects the shell and menu accents independently of the language. */
+#ifdef LEAFGREEN
+#define C_SHELL_HI  C8(81, 168, 92)
+#define C_SHELL_LO  C8(25, 102, 51)
+#define C_SHELL_DK  C8(13, 62, 34)
+#define C_FLAT      C8(38, 132, 66)
+#define C_BAND      C8(27, 102, 49)
+#define C_BAND_DK   C8(16, 67, 34)
+#define C_PRESSED   C8(228, 246, 231)
+#else
+#define C_SHELL_HI  C8(236, 82, 82)
+#define C_SHELL_LO  C8(150, 24, 32)
+#define C_SHELL_DK  C8(92, 14, 20)
+#define C_FLAT      C8(214, 48, 54)
+#define C_BAND      C8(176, 30, 40)
+#define C_BAND_DK   C8(116, 18, 26)
+#define C_PRESSED   C8(255, 236, 236)
+#endif
+
+#define C_BALL_TOP  C8(236, 82, 82)
 #define C_INK       C8(24, 22, 28)
 #define C_WHITE     C8(248, 248, 248)
 #define C_SHADOW    C8(70, 74, 84)
@@ -535,16 +552,11 @@ static void Snapshot(ViewState *s)
 #define C_YELLOW    C8(250, 200, 60)
 #define C_BRIGHTRED C8(240, 70, 70)
 #define C_OFF       C8(190, 194, 202)
-/* the pages: a red header and bands, a pale page, white cards, a dark footer */
-#define C_FLAT      C8(214, 48, 54)
-#define C_BAND      C8(176, 30, 40)
-#define C_BAND_DK   C8(116, 18, 26)
 #define C_PAGE      C8(242, 243, 247)
 #define C_CARD      C8(255, 255, 255)
 #define C_LINE      C8(212, 216, 224)
 #define C_TEXT      C8(44, 46, 56)
 #define C_TEXT_SH   C8(208, 210, 218)
-#define C_PINK      C8(255, 236, 236)
 #define C_EMPTY     C8(234, 236, 241)
 #define C_RIM       C8(200, 204, 212)
 #define C_SLATE     C8(44, 48, 58)
@@ -682,7 +694,7 @@ static void DrawUiIcon(const UiIcon *icon, int x, int y, bool8 on)
 
 static void Shell(int x, int y, int w, int h)
 {
-    Gradient(x, y, w, h, C_RED_HI, C_RED_LO);
+    Gradient(x, y, w, h, C_SHELL_HI, C_SHELL_LO);
 }
 
 /* The header across the top: the lens, a title, a darker slant on the right. */
@@ -1190,7 +1202,7 @@ static void DrawOptions(const ViewState *s)
         if (i)
             FillRect(x + 2, y - 1, w - 4, 1, C_LINE);
         if (kind != ROW_STEP && (pressed || pressedBack))
-            RoundRect(x, y, w, h, 4, C_PINK);
+            RoundRect(x, y, w, h, 4, C_PRESSED);
         Text(FONT_SMALL, r->opt >= 0 ? OptionName(r->opt) : Ascii(r->extra->name), x + 4, y + 3, ink, shade, TRUE);
         if (kind == ROW_TOGGLE)
         {
@@ -1215,10 +1227,10 @@ static void DrawOptions(const ViewState *s)
                 value = r->extra->text();
             else
                 value = Ascii(r->extra->values[CtrExtras_Value(r->extra)]);
-            RoundBox(x + w - 118, y + 2, 20, h - 4, 4, pressedBack ? C_PINK : C_PAGE, C_LINE);
+            RoundBox(x + w - 118, y + 2, 20, h - 4, 4, pressedBack ? C_PRESSED : C_PAGE, C_LINE);
             Arrow(x + w - 108, y + h / 2, TRUE, arrow);
             TextCentered(FONT_SMALL, value, x + w - 59, y + 3, live ? C_BAND : C_OFF, shade);
-            RoundBox(x + w - 22, y + 2, 20, h - 4, 4, pressed ? C_PINK : C_PAGE, C_LINE);
+            RoundBox(x + w - 22, y + 2, 20, h - 4, 4, pressed ? C_PRESSED : C_PAGE, C_LINE);
             Arrow(x + w - 12, y + h / 2, FALSE, arrow);
         }
     }
@@ -1359,7 +1371,7 @@ static void DrawDock(const ViewState *s)
         bool8 on = i == MENU_OPTION || ((s->enabled >> i) & 1), pressed = s->pressed == HIT_BUTTON + i && on;
         int x = DOCK_KEY_X + i * DOCK_STEP, dy = pressed ? 1 : 0;
 
-        RoundBox(x, DOCK_KEY_Y, DOCK_KEY_W, DOCK_KEY_H, 7, pressed ? C_PINK : on ? C_WHITE : C_EMPTY, C_BAND_DK);
+        RoundBox(x, DOCK_KEY_Y, DOCK_KEY_W, DOCK_KEY_H, 7, pressed ? C_PRESSED : on ? C_WHITE : C_EMPTY, C_BAND_DK);
         DrawUiIcon(sMenuIcons[i], x + (DOCK_KEY_W - 26) / 2, DOCK_KEY_Y + 1 + dy, on);
         TextCentered(FONT_SMALL, MenuLabel(s, i), x + DOCK_KEY_W / 2, DOCK_KEY_Y + 27 + dy,
                      on ? C_TEXT : C_MUTED, on ? C_TEXT_SH : C_EMPTY);
@@ -1417,7 +1429,7 @@ static void DrawParty(const ViewState *s)
             EmptyBall(x + PARTY_CARD_W / 2, y + PARTY_CARD_H / 2, 7);
             continue;
         }
-        RoundBox(x, y, PARTY_CARD_W, PARTY_CARD_H, 5, s->pressed == HIT_PARTY ? C_PINK : C_CARD, C_LINE);
+        RoundBox(x, y, PARTY_CARD_W, PARTY_CARD_H, 5, s->pressed == HIT_PARTY ? C_PRESSED : C_CARD, C_LINE);
         DrawMonIcon(m, x + (PARTY_CARD_W - 32) / 2, y - 1);
         if (!m->egg)
         {
@@ -1599,7 +1611,7 @@ static void DrawMoves(const ViewState *s)
         colour = TypeColour(type);
         if (focus)
             RoundRect(x - 2, y - 2, w + 4, h + 4, 10, C_GOLD);
-        RoundBox(x, y, w, h, 8, pressed ? C_PINK : C_CARD, C_LINE);
+        RoundBox(x, y, w, h, 8, pressed ? C_PRESSED : C_CARD, C_LINE);
         RoundRect(x + 1, y + 1, w - 2, 26, 7, colour);
         FillRect(x + 1, y + 20, w - 2, 7, colour);
         Text(FONT_NORMAL, gMoveNames[move], x + 8, y + 4, C_WHITE, Darker(colour, 3), TRUE);
@@ -1708,16 +1720,25 @@ static void RenderTitle(void)
     Header(NULL);
     Shell(0, HEADER_H + 1, W, H - HEADER_H - 1);
     /* the ball, a little shadow under it */
-    Disc(cx + 3, cy + 4, r + 3, C_RED_DK);
+    Disc(cx + 3, cy + 4, r + 3, C_SHELL_DK);
     Disc(cx, cy, r + 3, C_INK);
-    HalfDisc(cx, cy, r, TRUE, C_RED_HI);
+    HalfDisc(cx, cy, r, TRUE, C_BALL_TOP);
     HalfDisc(cx, cy, r, FALSE, C_WHITE);
     Disc(cx - r / 3, cy - r / 2, r / 6, C8(255, 150, 150));
     FillRect(cx - r, cy - 4, 2 * r + 1, 9, C_INK);
     Disc(cx, cy, 17, C_INK);
     Disc(cx, cy, 13, C_WHITE);
     Ring(cx, cy, 9, 1, C8(190, 194, 202));
-    TextCentered(FONT_NORMAL, Ascii("POKEMON FIRERED"), cx, cy + r + 14, C_WHITE, C_RED_DK);
+#if defined(LEAFGREEN) && defined(SPANISH)
+    const char *title = "POKEMON VERDE HOJA";
+#elif defined(LEAFGREEN)
+    const char *title = "POKEMON LEAFGREEN";
+#elif defined(SPANISH)
+    const char *title = "POKEMON ROJO FUEGO";
+#else
+    const char *title = "POKEMON FIRERED";
+#endif
+    TextCentered(FONT_NORMAL, Ascii(title), cx, cy + r + 14, C_WHITE, C_SHELL_DK);
     CtrBottom_Blit(sCanvas, 0, W);
 }
 
@@ -2100,9 +2121,9 @@ static void DrawPartyCard(const PageView *v, int i)
     if (source)
         RoundBox(x, y, SLOT_W, SLOT_H, 6, C8(255, 248, 220), C_GOLD);
     else
-        RoundBox(x, y, SLOT_W, SLOT_H, 6, cursor || v->pressed == PAGE_HIT_SLOT + i ? C_PINK : C_CARD, cursor ? C_FLAT : C_LINE);
+        RoundBox(x, y, SLOT_W, SLOT_H, 6, cursor || v->pressed == PAGE_HIT_SLOT + i ? C_PRESSED : C_CARD, cursor ? C_FLAT : C_LINE);
     if (cursor)
-        RoundBox(x + 1, y + 1, SLOT_W - 2, SLOT_H - 2, 5, C_PINK, C_FLAT);
+        RoundBox(x + 1, y + 1, SLOT_W - 2, SLOT_H - 2, 5, C_PRESSED, C_FLAT);
     DrawMonIcon((const MonView *)&(MonView){ m->species, m->iconSpecies, m->hp, m->maxHp, m->egg, m->level }, x + 3, y + 10);
     Text(FONT_SMALL, m->name, x + 38, y + 3, C_TEXT, C_TEXT_SH, TRUE);
     if (m->egg)
@@ -2274,7 +2295,7 @@ static void DrawBagBase(const PageView *v)
         if (index > b->nItems)
             break;
         if (cursor || v->pressed == PAGE_HIT_ROW + i)
-            RoundBox(66, y, 236, 25, 5, C_PINK, C_FLAT);
+            RoundBox(66, y, 236, 25, 5, C_PRESSED, C_FLAT);
         else if (i)
             FillRect(70, y, 228, 1, C_LINE);
         if (index == b->nItems)
@@ -2503,7 +2524,7 @@ static void DrawSummaryMoves(const PageView *v)
         bool8 cursor = s->selecting && i == s->moveCursor;
 
         if (cursor || v->pressed == PAGE_HIT_MOVE + i)
-            RoundBox(SUM_DIVIDER_X + 3, y, 192, SUM_MOVE_H - 1, 5, s->swapping && cursor ? C8(255, 248, 220) : C_PINK, s->swapping && cursor ? C_GOLD : C_FLAT);
+            RoundBox(SUM_DIVIDER_X + 3, y, 192, SUM_MOVE_H - 1, 5, s->swapping && cursor ? C8(255, 248, 220) : C_PRESSED, s->swapping && cursor ? C_GOLD : C_FLAT);
         else if (i)
             FillRect(SUM_RIGHT_X, y - 1, SUM_RIGHT_W, 1, C_LINE);
         if (s->moveIds[i] == MOVE_NONE)
@@ -2835,7 +2856,7 @@ static void DrawDexList(const PageView *v)
                 continue;
             }
             if (index == d->cursor || v->pressed == PAGE_HIT_ROW + i)
-                RoundBox(9, y, DEX_LIST_W - 16, DEX_ROW_H - 1, 5, C_PINK, C_FLAT);
+                RoundBox(9, y, DEX_LIST_W - 16, DEX_ROW_H - 1, 5, C_PRESSED, C_FLAT);
             Text(FONT_SMALL, d->items[index].label, 16, y + 4, locked ? C_OFF : C_TEXT, locked ? C_CARD : C_TEXT_SH, TRUE);
             continue;
         }
@@ -2843,7 +2864,7 @@ static void DrawDexList(const PageView *v)
         seen = (item >> 16) & 1;
         caught = (item >> 17) & 1;
         if (index == d->cursor || v->pressed == PAGE_HIT_ROW + i)
-            RoundBox(9, y, DEX_LIST_W - 16, DEX_ROW_H - 1, 5, C_PINK, C_FLAT);
+            RoundBox(9, y, DEX_LIST_W - 16, DEX_ROW_H - 1, 5, C_PRESSED, C_FLAT);
         else if (i)
             FillRect(13, y, DEX_LIST_W - 22, 1, C_LINE);
         {
@@ -3147,7 +3168,7 @@ static void DrawStorageBase(const PageView *v)
         bool8 cursor = b->area == CURSOR_AREA_IN_PARTY && b->pos == i;
 
         BoxPartyRect(i, &x, &y);
-        RoundBox(x, y, BOX_PARTY_W, BOX_PARTY_H - 1, 5, cursor || v->pressed == PAGE_HIT_BOX_PARTY + i ? C_PINK : sBoxParty[i].iconSpecies ? C_CARD : C_EMPTY, cursor ? C_FLAT : C_LINE);
+        RoundBox(x, y, BOX_PARTY_W, BOX_PARTY_H - 1, 5, cursor || v->pressed == PAGE_HIT_BOX_PARTY + i ? C_PRESSED : sBoxParty[i].iconSpecies ? C_CARD : C_EMPTY, cursor ? C_FLAT : C_LINE);
         if (sBoxParty[i].iconSpecies)
             DrawBoxIcon(&sBoxParty[i], x + 1, y + 3);
         else
@@ -3177,7 +3198,7 @@ static void DrawStorageBase(const PageView *v)
 
         BoxCellRect(i, &x, &y);
         if (cursor || v->pressed == PAGE_HIT_BOX_CELL + i)
-            RoundBox(x, y, BOX_CELL_W, BOX_CELL_H, 5, C_PINK, C_FLAT);
+            RoundBox(x, y, BOX_CELL_W, BOX_CELL_H, 5, C_PRESSED, C_FLAT);
         if (sBoxCells[i].iconSpecies)
             DrawBoxIcon(&sBoxCells[i], x, y - 3);
     }

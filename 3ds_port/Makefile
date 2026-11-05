@@ -25,9 +25,23 @@ APP_AUTHOR := pokefirered-3ds
 APP_VERSION := 0.3.0
 # The FireRed build the game units are compiled as (pokefirered's Makefile:
 # GAME_VERSION, GAME_REVISION, GAME_LANGUAGE). upstream.lock pins rev 1.
+-include profile.mk
 GAME_VERSION ?= FIRERED
 GAME_REVISION ?= 1
 GAME_LANGUAGE ?= ENGLISH
+export GAME_LANGUAGE GAME_REVISION GAME_VERSION
+ifeq ($(GAME_VERSION),LEAFGREEN)
+CPPFLAGS += -DCTR_ROM_LEAFGREEN=1
+APP_TITLE := Pokemon LeafGreen 3DS
+endif
+ifeq ($(GAME_LANGUAGE),SPANISH)
+CPPFLAGS += -DCTR_ROM_SPANISH=1
+ifeq ($(GAME_VERSION),LEAFGREEN)
+APP_TITLE := Pokemon Verde Hoja 3DS
+else
+APP_TITLE := Pokemon Rojo Fuego 3DS
+endif
+endif
 # 1: this 3DSX carries its game data in its own RomFS (development builds).
 # The release target always builds an executable without it.
 EMBED_DATA ?= 1

@@ -1,0 +1,13 @@
+[pokefirered]
+repository = "https://github.com/Acimut/pokefirered.git"
+commit = "6651454608dcc61356b60c20154214d773689730"
+target = "leafgreen_es"
+language = "SPANISH"
+revision = 0
+
+[rom]
+name = "Pokemon Edicion Verde Hoja (Spain)"
+sha1 = "f9ebee5d228cb695f18ef2ced41630a09fa9eb05"
+
+[pack]
+schema = 1
