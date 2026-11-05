@@ -76,13 +76,15 @@ def fetch(tree: Path, repo: str, commit: str) -> None:
         run(["git", "init", "-q"], cwd=tree)
         run(["git", "remote", "add", "origin", repo], cwd=tree)
     keep_lf(tree)
-    run(["git", "fetch", "-q", "--depth", "1", "origin", commit], cwd=tree)
+    run(["git", "fetch", "-q", "--depth", "1", repo, commit], cwd=tree)
     run(["git", "checkout", "-q", "--force", "--detach", commit], cwd=tree)
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--dir", type=Path, default=ROOT / "build" / "upstream")
+    ap.add_argument("--dir", type=Path)
+    ap.add_argument("--game", choices=("firered", "leafgreen"), default="firered")
+    ap.add_argument("--language", choices=("en", "es"), default="en")
     ap.add_argument("--clean", action="store_true", help="reset the tree to the pinned commit first")
     ap.add_argument("--make", action="store_true", help="build the tools and the 3DSX afterwards")
     ap.add_argument("--gba", action="store_true", help="build the stock GBA ROM (toolchain check)")
@@ -90,11 +92,19 @@ def main() -> int:
     ap.add_argument("--python", default=sys.executable, help="Python the build calls (PYTHON=)")
     args = ap.parse_args()
 
-    lock = tomllib.loads((ROOT / "upstream.lock").read_text(encoding="utf-8"))
+    suffix = (".leafgreen" if args.game == "leafgreen" else "") + (".es" if args.language == "es" else "")
+    lock_path = ROOT / f"upstream{suffix}.lock"
+    lock = tomllib.loads(lock_path.read_text(encoding="utf-8"))
     up = lock["pokefirered"]
     repo, commit, target = up["repository"], up["commit"], up.get("target", "firered")
-    tree = args.dir.resolve()
+    tree = (args.dir or ROOT / "build" / ("upstream" + suffix.replace(".", "-"))).resolve()
+    language = up.get("language", "ENGLISH")
+    revision = up.get("revision", 1)
+    profile = ["GAME_VERSION=" + args.game.upper(), "GAME_LANGUAGE=" + language, "GAME_REVISION=" + str(revision)]
     patches = sorted((ROOT / "patches" / "pokefirered").glob("*.patch"))
+    if args.language == "es":
+        overrides = ROOT / "patches" / "pokefirered-es"
+        patches = [overrides / p.name if (overrides / p.name).is_file() else p for p in patches]
     marker = tree / ".firered3ds-patches"
     digest = patch_digest(patches)
 
@@ -147,14 +157,16 @@ def main() -> int:
         if src.exists():
             shutil.copytree(src, tree / name, dirs_exist_ok=True,
                             ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "build", "dist"))
-    shutil.copy2(ROOT / "upstream.lock", tree / "upstream.lock")
+    shutil.copy2(lock_path, tree / "upstream.lock")
+    (tree / "3ds_port" / "profile.mk").write_text(
+        f"GAME_VERSION ?= {args.game.upper()}\nGAME_LANGUAGE ?= {language}\nGAME_REVISION ?= {revision}\n", encoding="utf-8")
     print("bootstrap: tree ready at %s" % tree)
 
     if args.gba:
-        run(["make", "%s_modern" % target, "-j%d" % args.jobs], cwd=tree)
+        run(["make", "%s_modern" % target, "-j%d" % args.jobs, *profile], cwd=tree)
     if args.make:
         run(["make", "tools", "-j%d" % args.jobs], cwd=tree)
-        run(["make", "generated", "-j%d" % args.jobs], cwd=tree)
+        run(["make", "generated", "-j%d" % args.jobs, *profile], cwd=tree)
         run(["make", "-C", "3ds_port", "-j%d" % args.jobs, "PYTHON=%s" % args.python], cwd=tree)
     return 0
 

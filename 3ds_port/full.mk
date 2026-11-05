@@ -249,7 +249,7 @@ build/maps.s build/map_layouts.inc $(ROMFS_MAP_OUT) &: $(SCRIPTS)/gen_map_data.p
 $(ROMFS_ASSET_OUTS) &: $(TARGET).elf $(SCRIPTS)/gen_asset_table.py
 	@mkdir -p romfs/assets
 	"$(PYTHON)" $(SCRIPTS)/gen_asset_table.py --port-dir . --map build/$(TARGET).map \
-		--fs-dir romfs --uri-prefix ""
+		--fs-dir romfs --uri-prefix "" --game-version $(GAME_VERSION) --game-language $(GAME_LANGUAGE) --game-revision $(GAME_REVISION)
 	"$(PYTHON)" scripts/verify_assets.py --fs-dir romfs
 
 # The reserved region must exist before the link; the payload needs the link.

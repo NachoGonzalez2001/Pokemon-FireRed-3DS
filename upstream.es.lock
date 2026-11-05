@@ -1,0 +1,13 @@
+[pokefirered]
+repository = "https://github.com/Acimut/pokefirered.git"
+commit = "6651454608dcc61356b60c20154214d773689730"
+target = "firered_es"
+language = "SPANISH"
+revision = 0
+
+[rom]
+name = "Pokemon - Edicion Rojo Fuego (Spain)"
+sha1 = "ab8f6bfe0ccdaf41188cd015c8c74c314d02296a"
+
+[pack]
+schema = 1

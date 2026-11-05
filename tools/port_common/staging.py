@@ -28,6 +28,7 @@ import fnmatch
 import shutil
 import struct
 import sys
+import tomllib
 import zlib
 from pathlib import Path
 
@@ -126,9 +127,18 @@ def cmd_engine(args) -> None:
     print("staging: engine RomFS -> %s" % args.out)
 
 
+def build_rom_sha1(root: Path = ROOT) -> bytes:
+    lock = root / "upstream.lock"
+    if lock.is_file():
+        return bytes.fromhex(tomllib.loads(lock.read_text(encoding="utf-8"))["rom"]["sha1"])
+    return SUPPORTED_ROM_SHA1
+
+
 def cmd_pak(args) -> None:
     abi, _ = compute_abi(args.romfs)
-    sha1 = pak.sha1_of(args.rom) if args.rom else SUPPORTED_ROM_SHA1
+    sha1 = build_rom_sha1()
+    if args.rom and pak.sha1_of(args.rom) != sha1:
+        raise SystemExit("ROM does not match this build profile.")
     files = ((rel, path.read_bytes()) for rel, path in data_files(args.romfs))
     info = pak.write_pak(args.out, files, abi, sha1)
     with pak.PakReader(args.out) as reader:
