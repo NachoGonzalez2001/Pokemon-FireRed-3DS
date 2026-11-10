@@ -469,6 +469,23 @@ static void EmitCell(VoxelBuilder *builder, int x, int y, int part, int crown, i
         EmitCrown(builder, x, y, crown);
 }
 
+/* The dark water drawn on a sea rock's own layer: not the rock, so it lies flat
+ * on the sea and rounds off the dark square round the rock. */
+static void EmitSeaRockWater(VoxelBuilder *builder, int x, int y, int metatileId)
+{
+    if (metatileId < 0x110 || metatileId > 0x201)
+        return;
+    for (unsigned i = 0; i < sizeof(sSeaRockArcs) / sizeof(sSeaRockArcs[0]); ++i)
+        if (sSeaRockArcs[i].id == metatileId)
+        {
+            float u = (float)sSeaRockArcs[i].x, v = (float)sSeaRockArcs[i].y;
+
+            VoxelMesh_Top(builder, (float)x, (float)y, 0.02f, 0.0f,
+                          TEX_U(u), TEX_V(v), TEX_U(u + 16), TEX_V(v + 16), 1.0f);
+            return;
+        }
+}
+
 void VoxelTree_EmitInstance(VoxelBuilder *builder, const VoxelMapInstance *inst,
                             int x0, int y0, int x1, int y1)
 {
@@ -498,6 +515,7 @@ void VoxelTree_EmitInstance(VoxelBuilder *builder, const VoxelMapInstance *inst,
                           ? PropIndex(inst->secondaryTileset, VoxelWorld_GetMetatileId(x, y + 1)) : -1;
                 builder->lift = VoxelRelief_CellLift(inst, x, y);
                 builder->shift = VoxelRelief_CellShift(inst, x, y);
+                EmitSeaRockWater(builder, x, y, metatileId);
                 int north = VoxelWorld_GetInstanceAt(x, y - 1) == inst
                           ? PropIndex(inst->secondaryTileset, VoxelWorld_GetMetatileId(x, y - 1)) : -1;
                 if (sProps[prop].kind == 1)

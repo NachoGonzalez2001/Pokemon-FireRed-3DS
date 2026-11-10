@@ -63,6 +63,10 @@ SIGNS = [0x002, 0x003, 0x160, 0x168, 0x161, 0x169]   # 160 over 168: the Gym's s
 ROCKS = [0x0A7, 0x0AF, 0x0B7]
 # the rocks in the sea, two by two, drawn on the upper layer over the water
 SEA_ROCKS = [0x110, 0x111, 0x118, 0x119, 0x1CB, 0x1CC, 0x1D3, 0x1D4, 0x1F8, 0x1F9, 0x200, 0x201]
+# the dark water drawn in their corners on that same layer: it stays down, flat
+# (it rounds off the square of dark water the lower layer draws round the rock)
+SEA_ROCK_WATER = {(49, 98, 180), (65, 123, 189)}
+SEA_ROCK_ARCS = []
 BUSHES = [0x005, 0x0FA, 0x0FB]
 FLOWERS = [0x004]
 FENCES = [0x0DE, 0x0DF] + list(range(0x0E6, 0x0F4)) + [0x0F6, 0x0F7, 0x0F8, 0x0F9, 0x0FC, 0x0FD,
@@ -79,6 +83,7 @@ EXTRA_PROPS = {"gTileset_FuchsiaCity": [0x28E, 0x28F, 0x296, 0x28A, 0x29F],
                "gTileset_SaffronCity": [0x30D, 0x318, 0x319, 0x31A, 0x31C, 0x31D, 0x31E, 0x320, 0x322,
                                         0x323, 0x325, 0x326, 0x329, 0x32D, 0x32E],
                "gTileset_CeruleanCity": [0x2E9],                    # the bicycles
+               "gTileset_Cave": [0x307, 0x317],                     # Victory Road's rock barrier
                "gTileset_LavenderTown": [0x351, 0x354, 0x357],      # the Power Plant's pylons
                "gTileset_CeladonCity": [0x32E, 0x32F],
                # the harbours' red cranes
@@ -344,6 +349,17 @@ def build_props(root, ts, metatile, image):
     def place(tiles, set_index, mid, e, plain, block=False, lower=None):
         top = layer(tiles, e, 1)
         base = layer(tiles, e, 0)
+        if set_index == 0 and mid in SEA_ROCKS:
+            arcs = {(x, y): top[y][x][0] for y in range(16) for x in range(16)
+                    if top[y][x][1] and top[y][x][0] in SEA_ROCK_WATER}
+            if arcs:
+                key = ("arcs",) + tuple(sorted(arcs.items()))
+                if key not in seen:
+                    seen[key] = next(slots)
+                    for (x, y), rgb in arcs.items():
+                        image[(seen[key][0] + x, seen[key][1] + y)] = rgb
+                SEA_ROCK_ARCS.append((mid,) + seen[key])
+            top = [[(rgb, 0 if rgb in SEA_ROCK_WATER else idx) for rgb, idx in line] for line in top]
         if lower is not None:
             # drawn on the lower layer: what is the grass's colour is ground
             top = [[(rgb, 0 if rgb in grass else 1) for rgb, idx in line] for line in base]
@@ -525,6 +541,10 @@ def write_table(props, sets, woods, wood_cells, path):
               "    unsigned short gx, gy;",
               "} sWoodCells[] = {"]
     lines += ["    { %d, 0x%03X, 0x%03X, %2d, %2d, 0x%04X, 0x%04X }," % c for c in wood_cells]
+    lines += ["};", "",
+              "/* The dark water in the corners of the rocks in the sea, laid flat */",
+              "static const struct { unsigned short id, x, y; } sSeaRockArcs[] = {"]
+    lines += ["    { 0x%03X, %3d, %3d }," % a for a in SEA_ROCK_ARCS]
     lines += ["};", "", "#endif", ""]
     path.write_text("\n".join(lines), encoding="utf-8", newline="\n")
 
@@ -569,7 +589,8 @@ def build_rooms(root, image):
     left: the same drawing shares one."""
     import fr_gen_rooms
     used = {(x // 16 * 16, y // 16 * 16) for (x, y) in image}
-    free = (s for s in prop_slots() if s not in used)
+    open_slots = [s for s in prop_slots() if s not in used]
+    free = iter(open_slots)
     seen = {}
 
     def place(art):
@@ -583,7 +604,9 @@ def build_rooms(root, image):
             seen[key] = (sx, sy)
         return seen[key]
 
-    return fr_gen_rooms.build(str(root), place)
+    rooms = fr_gen_rooms.build(str(root), place)
+    print("voxel rooms: %d art slots of %d" % (len(seen), len(open_slots)))
+    return rooms
 
 
 def pack(image):

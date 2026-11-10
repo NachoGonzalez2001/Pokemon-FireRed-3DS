@@ -45,7 +45,9 @@ HARBOR_RAIL = {(82, 82, 106), (106, 205, 164), (57, 156, 115), (180, 189, 189), 
 
 # The sea round the S.S. Anne's rocks (left in their art, it stood up with them
 # and hung in the air past the map's edge)
-ANNE_ROCK = {"drop": {(49, 98, 180), (65, 123, 189), (74, 123, 222), (74, 148, 222)}, "speck": 4}
+# (bare: the water its own cell draws, not the likeliest cell beside it: that
+# was a strip of the pier's edge, lying in the sea)
+ANNE_ROCK = {"drop": {(49, 98, 180), (65, 123, 189), (74, 123, 222), (74, 148, 222)}, "speck": 4, "bare": True}
 
 # The Mart's till on the counter's arm: pixel row: (first column, last) of its
 # drawing, per row of the arm's cells.
@@ -53,6 +55,8 @@ MART_TILL = [{11: (9, 15), 12: (8, 15), 13: (7, 15), 14: (4, 15), 15: (3, 15)},
              {r: (2, 14) for r in range(12)}]
 MART_GLASS = (189, 230, 255)
 
+# stands out of the wall, the cell at its feet still floor to walk on
+MACHINE = {"back": 3, "nostand": True}
 ROOM_OBJECTS = {
     # rocks in the sea round the S.S. Anne (General's own, an indoor map)
     "gTileset_General": [
@@ -172,37 +176,36 @@ ROOM_OBJECTS = {
         ([[0x2B6]], 16),                                          # the plant
     ],
     "gTileset_SilphCo": [
-        ([[0x356]], 16), ([[0x3EF], [0x062]], 30), ([[0x39D, 0x39E, 0x39F]], 10),
-        ([[0x3AD, 0x3B6, 0x3AE, 0x3B6, 0x3AF], [0x3B5, 0x3B6, 0x3A8, 0x3B6, 0x3B7],
-          [0x3BD, 0x3BE, 0x3BE, 0x3BE, 0x3BF]], 10),
+        ([[0x356]], 16), ([[0x39D, 0x39E, 0x39F]], 10),
+        # the machines against the walls, out of them: from their first drawn row
+        # down each a box, its white top back into the wall
+        ([[0x37D], [0x385], [0x37E]], 18, MACHINE), ([[0x2FF], [0x307], [0x30F]], 18, MACHINE),
+        ([[0x37B], [0x383]], 14, MACHINE), ([[0x37C], [0x384]], 14, MACHINE),
+        ([[0x305], [0x30D]], 14, MACHINE), ([[0x306], [0x30E]], 14, MACHINE),
+        ([[0x3EF], [0x062], [0x3F7]], 22, MACHINE),
+        ([[0x38A, 0x38B], [0x38C, 0x38D], [0x38E, 0x38F]], 19, MACHINE),
+        # the Hideout's robot at its console: as tall as it is drawn
+        ([[0x2AD, 0x2AF, None], [0x2B5, 0x2B6, 0x2B7], [0x2BD, 0x2BE, 0x2BF]], 40, MACHINE),
+        # the President's table: from the cell its top starts in; low round stools
+        ([[0x3A5, 0x3A6, 0x3A6, 0x3A6, 0x3A7], [0x3AD, 0x3B6, 0x3AE, 0x3B6, 0x3AF],
+          [0x3B5, 0x3B6, 0x3A8, 0x3B6, 0x3B7], [0x3BD, 0x3BE, 0x3BE, 0x3BE, 0x3BF]], 12, {"nostand": True, "sides": False}),
+        ([[0x312]], 6, {"sides": False}), ([[0x386]], 6, {"sides": False}), ([[0x2E3]], 6, {"sides": False}),
+        ([[0x2E4]], 6, {"sides": False}), ([[0x31A]], 6, {"sides": False}),
         ([[0x302]], 16),
         # plants: in the wall's foot, and free standing
-        ([[0x34F], [0x356]], 30), ([[0x355]], 16), ([[0x308]], 16), ([[0x309]], 16),
+        ([[0x34F], [0x356]], 30), ([[0x34E], [0x356]], 30), ([[0x34D], [0x355]], 30),
+        ([[0x300], [0x308]], 30), ([[0x301], [0x309]], 30),
+        ([[0x355]], 16), ([[0x308]], 16), ([[0x309]], 16),
         # tables: the glass one, the conference one, the sofa, a crate
         ([[0x343, 0x344], [0x34B, 0x34C]], 10),
-        ([[0x313, 0x314, 0x315], [0x31E, 0x31F, 0x31D], [0x323, 0x324, 0x325]], 10),
-        ([[0x313, 0x314, 0x315], [0x31B, 0x316, 0x317], [0x323, 0x324, 0x325]], 10),
-        ([[0x313, 0x314, 0x315], [0x323, 0x324, 0x325]], 10),
         ([[0x320, 0x321, 0x322]], 10), ([[0x099]], 12),
         ([[0x310, 0x311], [0x310, 0x311], [0x318, 0x319]], 14),
         ([[0x310, 0x311], [0x318, 0x319]], 14),
-        # the small desks: their top, its edge, the drawers in front
-        ([[0x36D, 0x36E, 0x36F], [0x323, 0x324, 0x325], [0x375, 0x376, 0x377]], 12, X),
-        ([[0x36D, 0x36F], [0x323, 0x325], [0x375, 0x377]], 12),
-        # with a computer on them
-        ([[0x36D, 0x36E, 0x36F], [0x323, 0x388, 0x389], [0x375, 0x376, 0x377]], 12),
-        ([[0x36D, 0x36E, 0x36F], [0x391, 0x31C, 0x31D], [0x323, 0x388, 0x389], [0x375, 0x376, 0x377]], 12),
-        ([[0x36D, 0x36E, 0x36E, 0x36F], [0x391, 0x31C, 0x31C, 0x31D], [0x323, 0x324, 0x388, 0x389],
-          [0x375, 0x376, 0x376, 0x377]], 12),
         # the lobby's ponds: the white curb round them, low; the fountain's
         # spray standing over the water
         ([[0x3DE], [0x3DF]], 24, {"drop": SILPH_POND}),
     ] + [([[m]], 4, {"keep": SILPH_CURB}) for m in (0x3CE, 0x3CC, 0x3CF, 0x3D2, 0x3D3, 0x3C7, 0x3C6, 0x3D0,
                                                      0x3D1, 0x3CA)] + [
-        # desks with their computers
-        ([[0x2BB, 0x2B9, 0x2C4], [0x2C3, 0x2B9, 0x2BA]], 12),
-        ([[0x2BB, 0x2B9, 0x2BA], [0x2C3, 0x2B9, 0x2C4]], 12),
-        ([[0x2B8, 0x2B9, 0x2C4]], 12), ([[0x2B8, 0x2B9, 0x2BA]], 12),
     ],
     "gTileset_SSAnne": [
         # the deck: its round tables, the barrels stacked by the cabin
@@ -530,7 +533,7 @@ PARTITIONS.update({
 # each run down a column stands whole, as the room's own back wall does.
 INNER_WALLS = {
     "gTileset_PokemonLeague": {0x283, 0x284, 0x285, 0x286, 0x287},
-    "gTileset_SilphCo": {0x289, 0x291, 0x330, 0x338, 0x37F, 0x387, 0x35D, 0x365, 0x35E, 0x35F, 0x366, 0x367,
+    "gTileset_SilphCo": {0x34F, 0x289, 0x291, 0x330, 0x338, 0x37F, 0x387, 0x35D, 0x365, 0x35E, 0x35F, 0x366, 0x367,
                          0x33E, 0x346, 0x33F, 0x347, 0x37B, 0x37C, 0x37D, 0x385, 0x38A, 0x38B,
                          0x38C, 0x38D, 0x352, 0x353, 0x35A, 0x35B, 0x272, 0x273, 0x27A, 0x27B,
                          0x276, 0x277, 0x27E, 0x27F,
@@ -657,10 +660,12 @@ class Room:
         self.side_mats = set()
         warps = self.warps()
         for wx, wy in warps:
-            if (wx, wy + 1) not in warps:
-                continue
             for ex in ((0,) if wx == 1 else (self.w - 1,) if wx == self.w - 2 else ()):
-                self.side_mats |= {(ex, wy + dy) for dy in (-1, 0, 1, 2) if 0 <= wy + dy < self.h}
+                # (one warp beside the edge too, when the drawing at the edge
+                # begins at that row: no wall above it, a mat stood up as one)
+                top = next((y for y in range(self.h) if not self.void(ex, y)), self.h)
+                if (wx, wy + 1) in warps or top >= wy - 1:
+                    self.side_mats |= {(ex, wy + dy) for dy in (-1, 0, 1, 2) if 0 <= wy + dy < self.h}
         # blocked cells the game draws as floor (Fuchsia Gym's invisible
         # walls): they lie flat, the maze as hidden as on the GBA
         hidden = FLOOR_BLOCKS.get(self.L.primary, set()) | FLOOR_BLOCKS.get(self.L.secondary, set())
@@ -895,6 +900,10 @@ def walls(room, taken):
 
 THICK_WALLS = {"gTileset_SilphCo"}
 WALL_TOP_COLOUR = (82, 82, 106)
+# A wall's long top, its face off at either end: all of it lid, as high as the
+# walls it joins (at 12 it met them a step down, its sides a sliver)
+WALL_LID = {"lid": True}
+WALL_H = 32
 WALL_TOP_BLACK = 0.2   # a wall's top: this share of the cell drawn black or more
 
 
@@ -905,6 +914,540 @@ def black_share(room, x, y):
         px = room.L.metatile_image(m).convert("RGB").getdata()
         cache[m] = sum(1 for p in px if p == (0, 0, 0)) / 256
     return cache[m]
+
+
+# Silph Co., the Hideout and the Warehouse are mazes of walls seen from every side,
+# so their walls are solid: one volume read pixel by pixel off the drawing, with
+# its top, its front, its back and its sides, and the floor running on under it.
+#
+# A wall's top is what is drawn black, the white trim round it and the white band
+# along the top of its face. At SOLID_H it lands on its own drawing from the GBA's
+# angle: a pixel at row P of the top stands at z = P + SOLID_H, and the face below
+# the top's last row, at row B, stands at z = B + SOLID_H. The cells the drawing
+# gives to the top are floor really, behind the wall, so the floor runs on there.
+SOLID_H = 27
+SOLID_BAND = 5         # the top's rows on a face's own cell
+SOLID_EXITS = {0x01A, 0x01B, 0x01C}
+SOLID_RUN = 64         # a side or back in pieces of at most this many pixels
+SOLID_MIN_TOP = 180    # pixels: the least of a wall's top
+SOLID_BRIDGE = 3       # the most rows of black that are a wall between two rooms
+SOLID_TRIM = {(82, 82, 106), (255, 255, 255), (180, 180, 164), (172, 172, 164)}
+SOLID_LID, SOLID_FRONT, SOLID_WEST, SOLID_EAST, SOLID_NORTH, SOLID_SOUTH, SOLID_BEHIND = range(7)
+ROOM_SOLIDS = {}
+ROOM_SOLID_HEIGHT = {}
+
+
+# The desks and tables of those rooms come in any size and shape, and join: every
+# connected group of these cells is one low box. Its first row starts on the floor
+# north of it, its top runs south, and its last row's first 8 pixels stand as the
+# front; the rest of that cell is floor. (By rows of the drawing, not by lists of
+# shapes: a shape not listed fell apart, its white top standing as a wall.)
+SOLID_DESK_H = 8
+SOLID_DESK_FRONTS = {0x380, 0x381, 0x382, 0x2C0, 0x2C1, 0x2C2, 0x375, 0x376, 0x377, 0x32B, 0x32C, 0x32D, 0x3EB}
+SOLID_DESKS = [
+    {0x378, 0x379, 0x37A, 0x2B0, 0x2B1, 0x2B2, 0x3B4, 0x3BC, 0x3E3, 0x3E5,
+     0x2B8, 0x2BB, 0x2C3, 0x2B9, 0x2BA, 0x2C4, 0x326, 0x327, 0x32E, 0x32F, 0x396, 0x397, 0x3F4,
+     0x380, 0x381, 0x382, 0x2C0, 0x2C1, 0x2C2, 0x2BC, 0x3E8, 0x398},
+    {0x36D, 0x36E, 0x36F, 0x313, 0x314, 0x315,
+     0x323, 0x324, 0x325, 0x391, 0x31C, 0x31D, 0x388, 0x389, 0x31E, 0x31F, 0x31B, 0x316, 0x317,
+     0x375, 0x376, 0x377, 0x32B, 0x32C, 0x32D, 0x3EB},
+]
+
+
+def solid_furniture(room, taken):
+    """The rooms' desks: a piece per column run of each connected group."""
+    out = []
+    for family in SOLID_DESKS:
+        cells = {(x, y) for y in range(room.h) for x in range(room.w)
+                 if (x, y) not in taken and room.m(x, y) in family}
+        while cells:
+            todo = [cells.pop()]
+            group = set()
+            while todo:
+                c = todo.pop()
+                group.add(c)
+                for n in ((c[0] + 1, c[1]), (c[0] - 1, c[1]), (c[0], c[1] + 1), (c[0], c[1] - 1)):
+                    if n in cells:
+                        cells.remove(n)
+                        todo.append(n)
+            for x in sorted({c[0] for c in group}):
+                col = sorted(c[1] for c in group if c[0] == x)
+                start = col[0]
+                for a, b in zip(col, col[1:] + [None]):
+                    # (a front ends a desk, though another follows on the next row)
+                    if b != a + 1 or room.m(x, a) in SOLID_DESK_FRONTS:
+                        run = {(x, y) for y in range(start, a + 1)}
+                        out.append((run, x, x + 1, a + 1, SOLID_DESK_H, group, 0, False, None,
+                                    {"desk": True, "back": 3, "nostand": True}))
+                        start = b
+    return out
+
+
+SOLID_BLACK = {"h": 27, "core": {(0, 0, 0)}, "trim": SOLID_TRIM, "band": SOLID_BAND, "black": True}
+# How each building draws its walls: h, the height of the face below the top; core,
+# the colours the top is made of (a run of them on a row); trim, those that go on
+# round it, and over band rows north and south of it. With a window nothing in the
+# h rows under a top is a top, however it is coloured (a skirting in the top's colour).
+SOLID_SETS = {
+    "gTileset_SilphCo": dict(SOLID_BLACK, desks=SOLID_DESKS),
+    "gTileset_Condominiums": SOLID_BLACK,
+    "gTileset_TrainerTower": SOLID_BLACK,
+    "gTileset_PokemonMansion": {"h": 42, "core": {(222, 148, 123), (164, 98, 74)}, "trim": {(82, 82, 106)},
+                                "band": 0, "window": True},
+    "gTileset_SSAnne": {"h": 24, "core": {(255, 255, 255)}, "band": 1, "window": True,
+                        "trim": {(222, 222, 230), (115, 115, 139), (82, 82, 106), (148, 148, 172)},
+                        "only": ("CORRIDOR", "KITCHEN")},
+    "gTileset_PowerPlant": {"h": 32, "core": {(205, 197, 189)}, "band": 2, "window": True, "thick": 4,
+                            "trim": {(230, 222, 197), (123, 123, 139), (82, 82, 106)}},
+    "gTileset_ViridianGym": {"h": 16, "core": {(180, 180, 164), (213, 213, 213)}, "band": 3, "window": True,
+                             "trim": {(123, 123, 123), (82, 82, 106)}},
+    "gTileset_CinnabarGym": {"h": 16, "core": {(205, 238, 115)}, "band": 4, "window": True,
+                             "trim": {(131, 197, 115), (90, 115, 90), (82, 82, 106)}},
+    "gTileset_SaffronGym": {"h": 26, "core": {(255, 255, 255), (82, 82, 106)}, "band": 1, "window": True,
+                            "trim": {(222, 205, 255), (148, 148, 156), (197, 189, 213)}},
+}
+
+
+# Any other room: its back wall is drawn as Silph's is, an outline, four rows of one
+# light colour along the top of its face, read off the room. Only what runs on from
+# the black round the room is that wall; whatever else in the room has that colour is
+# not. (Not the rooms that are outdoors or have buildings of their own on them.)
+SOLID_NOT_AUTO = ("ELEVATOR", "ROOF", "DECK", "EXTERIOR", "HARBOR", "TUNNEL")
+
+
+def solid_auto(room):
+    import collections
+    rows = max(WALL_ROWS_BY.get(room.L.primary, WALL_ROWS), WALL_ROWS_BY.get(room.L.secondary, WALL_ROWS))
+    first = collections.Counter()
+    for x in range(room.w):
+        y0 = next((y for y in range(room.h) if not room.void(x, y)), None)
+        if y0 is not None and room.L.collision(x, y0):
+            first[room.m(x, y0)] += 1
+    if not first:
+        return None
+    px = pixels(room, first.most_common(1)[0][0])
+    colour = px[16]
+    if len(set(px[:16])) != 1 or colour == (0, 0, 0):
+        return None
+    # its top: the rows of that one colour, however many
+    k = 1
+    while k < 8 and set(px[k * 16:k * 16 + 16]) == {colour}:
+        k += 1
+    if k < 3:
+        return None
+    return {"h": rows * 16 - k, "core": {colour}, "trim": {px[0]}, "band": 1, "window": True,
+            "backwall": True}
+
+
+def solid_cfg(room, lid):
+    """How the room's walls are drawn, if they are solid."""
+    if "_solid" not in room.__dict__:
+        cfg = SOLID_SETS.get(room.L.secondary)
+        if cfg is not None and cfg.get("only") and not any(k in lid for k in cfg["only"]):
+            cfg = None
+        if "ELEVATOR" in lid:
+            cfg = None
+        elif cfg is None and not any(k in lid for k in SOLID_NOT_AUTO):
+            cfg = solid_auto(room)
+        room._solid = cfg
+    return room._solid
+
+
+def solid_room(room, lid):
+    return solid_cfg(room, lid) is not None
+
+
+def room_floor(room):
+    """The floor the room is most made of."""
+    import collections
+    count = collections.Counter(room.m(x, y) for y in range(room.h) for x in range(room.w)
+                                if not room.L.collision(x, y) and not room.void(x, y)
+                                and not has_upper(room, room.m(x, y))
+                                and (0, 0, 0) not in pixels(room, room.m(x, y)))
+    return count.most_common(1)[0][0]
+
+
+def cut_cells(cut):
+    return {c // 16 for c in cut} and set()
+
+
+def solid_walls(room, objs, place_art, lid_id):
+    """The room's walls as a volume: (table rows, cells whose floor it takes, cells with nothing behind)."""
+    import collections
+    cfg = solid_cfg(room, lid_id)
+    SOLID_H, core, trim, band = cfg["h"], cfg["core"], cfg["trim"], cfg["band"]
+    black_top = cfg.get("black")
+    W, H = room.w * 16, room.h * 16
+
+    def band_cell(m):
+        px = pixels(room, m)
+        return all(px[k] in trim for k in range(16 * band)) if band else False
+
+    def core_in(m):
+        px = pixels(room, m)
+        for j in range(16):
+            run = 0
+            for i in range(16):
+                run = run + 1 if px[j * 16 + i] in core else 0
+                if run >= 4:
+                    return True
+        return False
+
+    def lies_on_wall(x, y):
+        # a thing against a wall: what the wall draws beside it
+        for step in (-1, 1):
+            nx = x + step
+            while 0 <= nx < room.w and (nx, y) in objs:
+                nx += step
+            if 0 <= nx < room.w and not room.void(nx, y) and room.L.collision(nx, y) \
+                    and (cfg.get("backwall") or not core_in(room.m(nx, y))):
+                return room.m(nx, y)
+        return None
+
+    view = {}
+    for y in range(room.h):
+        for x in range(room.w):
+            if not room.void(x, y):
+                view[(x, y)] = lies_on_wall(x, y) if (x, y) in objs else room.m(x, y)
+    # the black between one room's south wall and the next one's back wall is
+    # the same wall: its top, or there was a slit between the two
+    if black_top:
+        for x in range(room.w):
+            for y in range(1, room.h - 1):
+                if (x, y) in view or (x, y - 1) not in view or view[(x, y - 1)] is None:
+                    continue
+                if (0, 0, 0) not in pixels(room, view[(x, y - 1)])[240:]:
+                    continue
+                below = y + 1
+                while below < room.h and (x, below) not in view and below - y < SOLID_BRIDGE:
+                    below += 1
+                m = view.get((x, below))
+                if m is not None and (band_cell(m) or (0, 0, 0) in pixels(room, m)[:16]):
+                    for k in range(y, below):
+                        view[(x, k)] = room.m(x, k)
+
+    doors = WALL_DOORS.get(room.L.primary, set()) | WALL_DOORS.get(room.L.secondary, set())
+
+    def wall_cell(x, y):
+        return (x, y) in view and (room.L.collision(x, y) or (x, y) in objs or room.m(x, y) in doors
+                                   or room.wall_gap(x, y))
+
+    colour = bytearray(W * H)       # a pixel the colour of a top, by its row's run
+    for (x, y), m in view.items():
+        # (the black of the exit under its mat is no wall)
+        if m is None or m in SOLID_EXITS:
+            continue
+        px = pixels(room, m)
+        for j in range(16):
+            line = px[j * 16:j * 16 + 16]
+            i = 0
+            while i < 16:
+                if line[i] not in core:
+                    i += 1
+                    continue
+                s = i
+                while i < 16 and line[i] in core:
+                    i += 1
+                if i - s < 4:
+                    continue
+                a, e = s, i - 1
+                while a > 0 and line[a - 1] in trim | core:
+                    a -= 1
+                while e < 15 and line[e + 1] in trim | core:
+                    e += 1
+                for k in range(a, e + 1):
+                    colour[(y * 16 + j) * W + x * 16 + k] = 1
+
+    def px_at(c, r):
+        m = view.get((c // 16, r // 16))
+        return None if m is None else pixels(room, m)[(r % 16) * 16 + c % 16]
+
+    lid = bytearray(W * H)
+    for c in range(W):
+        r = 0
+        while r < H:
+            if not colour[r * W + c]:
+                r += 1
+                continue
+            s = r
+            while r < H and colour[r * W + c]:
+                r += 1
+            # (a line of the top's colour is the floor's grout, not a top)
+            if r - s < cfg.get("thick", 1):
+                continue
+            # on to the trim north and south of it
+            k = 0
+            while cfg.get("window") and k < band and s > 0 and px_at(c, s - 1) in trim:
+                s -= 1
+                k += 1
+            k = 0
+            while k < band and r < H and px_at(c, r) in trim and not colour[r * W + c]:
+                r += 1
+                k += 1
+            # (a run of trim may lead on to more of the top)
+            if r < H and colour[r * W + c]:
+                continue_from = s
+                while r < H and colour[r * W + c]:
+                    r += 1
+                k = 0
+                while k < band and r < H and px_at(c, r) in trim and not colour[r * W + c]:
+                    r += 1
+                    k += 1
+                s = continue_from
+            # (a wall with less face than that, an alcove's: all that is left of the
+            # colour is face, or the face stopped short of the floor, over a slit)
+            if cfg.get("backwall"):
+                foot = r
+                while foot < H and wall_cell(c // 16, foot // 16):
+                    foot = (foot // 16 + 1) * 16
+                if s < foot - SOLID_H < r:
+                    r = foot - SOLID_H
+            for q in range(s, r):
+                lid[q * W + c] = 1
+            if cfg.get("window"):
+                for q in range(r, min(H, r + SOLID_H)):
+                    colour[q * W + c] = 0
+    # (what is small is a thing's white or a tank's top, not a wall)
+    if cfg.get("window"):
+        seen = bytearray(W * H)
+        for r0 in range(H):
+            for c0 in range(W):
+                if not lid[r0 * W + c0] or seen[r0 * W + c0]:
+                    continue
+                group, todo = [], [(c0, r0)]
+                seen[r0 * W + c0] = 1
+                while todo:
+                    c, r = todo.pop()
+                    group.append((c, r))
+                    for nc, nr in ((c + 1, r), (c - 1, r), (c, r + 1), (c, r - 1)):
+                        if 0 <= nc < W and 0 <= nr < H and lid[nr * W + nc] and not seen[nr * W + nc]:
+                            seen[nr * W + nc] = 1
+                            todo.append((nc, nr))
+                small = len(group) < (60 if cfg.get("backwall") else SOLID_MIN_TOP)
+                # (a back wall runs on from the black round the room)
+                loose = cfg.get("backwall") and not any(
+                    r == 0 or (c // 16, (r - 1) // 16) not in view for c, r in group)
+                if small or loose:
+                    for c, r in group:
+                        lid[r * W + c] = 0
+    if cfg.get("backwall"):
+        def cell_lid(x, y):
+            return [[lid[(y * 16 + j) * W + x * 16 + i] for i in range(16)] for j in range(16)]
+        for x in range(room.w):
+            y = next((yy for yy in range(room.h) if (x, yy) in view), None)
+            if y is None or view[(x, y)] is None or any(any(l) for l in cell_lid(x, y)):
+                continue
+            sides = []
+            for step in (-1, 1):
+                for d in range(1, 4):
+                    n = x + step * d
+                    if (n, y) in view and any(any(l) for l in cell_lid(n, y)):
+                        sides.append(cell_lid(n, y))
+                        break
+            if len(sides) == 2:
+                for j in range(16):
+                    if sides[0][j][8]:
+                        for i in range(16):
+                            lid[(y * 16 + j) * W + x * 16 + i] = 1
+    for y in range(room.h):
+        for x in range(room.w):
+            m = view.get((x, y))
+            if m is None:
+                continue
+            px = pixels(room, m)
+            if (y == 0 or (x, y - 1) not in view) and band_cell(m):
+                for i in range(16):
+                    for j in range(band):
+                        lid[(y * 16 + j) * W + x * 16 + i] = 1
+
+    def at(c, r):
+        return 0 <= c < W and 0 <= r < H and lid[r * W + c]
+
+    # past the wall that closes the room, nothing: no floor behind it
+    behind = set()
+    for (x, y), m in view.items():
+        if m is not None and (y == 0 or (x, y - 1) not in view) \
+                and any(lid[(y * 16 + j) * W + x * 16 + i] for j in range(16) for i in range(16)):
+            behind |= {(x, y), (x, y + 1)}
+    out, claimed = [], set()
+    # a wall running off the map's south edge ends on it, not out over the black
+    cut = set()
+    for c in range(W):
+        if at(c, H - 1):
+            for r in range(H - SOLID_H, H):
+                lid[r * W + c] = 0
+                claimed.add((c // 16, r // 16))
+            cut.add(c)
+
+    # (a gate that shuts in the gap leaves the wall: only what a script lays over it goes)
+    live = set() if black_top else set(LIVE_CELLS.get(lid_id, ()))
+
+    def add(x, y, kind, c0=0, c1=0, r0=0, r1=0, a=0, b=0, z=0, sx=0, sy=0):
+        out.append((x, y, kind, c0, c1, r0, r1, a, b, z, sx, sy, room.m(x, y) if (x, y) in live else 0))
+
+    def art_of(m, top):
+        px = pixels(room, m)
+        art = [[None] * 16 for _ in range(16)]
+        for j in range(16):
+            for i in range(16):
+                if top is None or top[j][i]:
+                    c = px[j * 16 + i]
+                    art[j][i] = (WALL_TOP_COLOUR if black_top and c == (0, 0, 0) else c) + (255,)
+        return art
+
+    tops = {}
+    for (x, y), m in view.items():
+        if m is not None:
+            top = [[lid[(y * 16 + j) * W + x * 16 + i] for i in range(16)] for j in range(16)]
+            if any(any(line) for line in top):
+                tops[(x, y)] = top
+                claimed.add((x, y))
+    # and no floor ran on past such a wall, out beside the exit's mat
+    for (x, y) in tops:
+        if y == room.h - 1 or (x, y + 1) not in view:
+            behind.add((x, y))
+    # its front: under each column's top, the drawing's next h rows
+    fronts, plain_south = {}, {}
+    faces = collections.Counter()
+    for c in range(W):
+        for r in range(1, H + 1):
+            if not at(c, r - 1) or at(c, r):
+                continue
+            foot, rr, drawn = r + SOLID_H, r, 0
+            x = c // 16
+            if c in cut and r == H - SOLID_H:
+                plain_south.setdefault(H, []).append(c)
+                continue
+            seq = []
+            while rr < foot and rr < H and not at(c, rr):
+                y = rr // 16
+                m = view.get((x, y))
+                # (a door in the back wall a thing stands in front of: the wall above the thing)
+                shut = cfg.get("backwall") and m is not None and not wall_cell(x, y) \
+                    and y + 1 < room.h and room.L.collision(x, y + 1)
+                if m is None or (x, y) in room.side_mats or px_at(c, rr) == (0, 0, 0) \
+                        or not (shut or wall_cell(x, y)):
+                    break
+                r1 = min(foot, (y + 1) * 16)
+                fronts.setdefault((x, y, rr - y * 16, r1 - y * 16, foot), []).append(c % 16)
+                claimed.add((x, y))
+                seq += [pixels(room, m)[j * 16 + c % 16] for j in range(rr - y * 16, r1 - y * 16)]
+                drawn += r1 - rr
+                rr = r1
+            if len(seq) == SOLID_H:
+                faces[tuple(seq)] += 1
+            # (past a wall that closes the room to the south there is nothing to see it
+            # from: its outside stood over the black, below the floor's end)
+            if not drawn and r < H and px_at(c, r) not in (None, (0, 0, 0)):
+                plain_south.setdefault(foot, []).append(c)
+    # A cell drawn whole, its top's rows over its face's, needs no art of its own: it
+    # is a row of the table, drawn from the map's atlas (the texture has only so much)
+    atlas = {}
+    per_cell = collections.defaultdict(list)
+    for key, cols in fronts.items():
+        per_cell[key[:2]].append((key, cols))
+    for (x, y), m in view.items():
+        if m is None or m != room.m(x, y) or (x, y) in objs or (x, y) in cut_cells(cut):
+            continue
+        keys = per_cell.get((x, y), [])
+        top = tops.get((x, y))
+        if len(keys) > 1:
+            continue
+        if keys:
+            (_, _, r0, _, foot), cols = keys[0]
+            if len(cols) != 16:
+                continue
+            want = [[1 if j < r0 else 0 for _ in range(16)] for j in range(16)]
+            have = top or [[0] * 16 for _ in range(16)]
+            if want != have:
+                continue
+            rows_on_top = r0
+        elif top and all(all(line) for line in top):
+            foot, rows_on_top = (y + 1) * 16 + SOLID_H, 16
+        else:
+            continue
+        if (0, 0, 0) in pixels(room, m):
+            continue
+        atlas[(x, y)] = foot
+    for (x, y), top in sorted(tops.items(), key=lambda kv: (kv[0][1], kv[0][0])):
+        if (x, y) not in atlas:
+            sx, sy = place_art(art_of(view[(x, y)], top))
+            add(x, y, SOLID_LID, sx=sx, sy=sy)
+    for (x, y, r0, r1, foot), cols in sorted(fronts.items(), key=lambda kv: kv[0]):
+        if (x, y) in atlas:
+            continue
+        sx, sy = place_art(art_of(view[(x, y)], None))
+        a = cols[0]
+        for k, c in enumerate(cols):
+            if k + 1 == len(cols) or cols[k + 1] != c + 1:
+                add(x, y, SOLID_BEHIND if (x, y) in objs else SOLID_FRONT, a, c, r0, r1, foot, sx=sx, sy=sy)
+                if k + 1 < len(cols):
+                    a = cols[k + 1]
+    # its sides and back: the face all the wall shows most, one colour across
+    column = faces.most_common(1)[0][0] if faces else ((128, 128, 128),) * 16
+    side = place_art([[(WALL_TOP_COLOUR if black_top and column[j * len(column) // 16] == (0, 0, 0)
+                        else column[j * len(column) // 16]) + (255,)] * 16 for j in range(16)])
+
+    def run_pieces(a, b):
+        while a < b:
+            yield a, min(b, a + SOLID_RUN)
+            a += SOLID_RUN
+
+    def cell_of(c, z):
+        return min(c // 16, room.w - 1), min(z // 16, room.h - 1)
+
+    # its sides, where the top's edge runs north to south
+    for c in range(W + 1):
+        for west_of in (True, False):
+            r = 0
+            while r < H:
+                if at(c - 1, r) != at(c, r) and bool(at(c - 1, r)) == west_of:
+                    r0 = r
+                    while r < H and at(c - 1, r) != at(c, r) and bool(at(c - 1, r)) == west_of:
+                        r += 1
+                    # (a side stands on the floor: past its end it hung over the black)
+                    x_of = min(c, W - 1) // 16
+                    end = r + SOLID_H
+                    while end > r0 + SOLID_H and (x_of, (end - 1) // 16) not in view:
+                        end -= 1
+                    for a, b in run_pieces(r0 + SOLID_H, end):
+                        cx, cy = cell_of(min(c, W - 1), a)
+                        add(cx, cy, SOLID_EAST if west_of else SOLID_WEST, c - cx * 16, a=a, b=b,
+                            sx=side[0], sy=side[1])
+                else:
+                    r += 1
+    def closes(c, r):
+        while at(c, r):
+            r += 1
+        return r >= H or px_at(c, r) in (None, (0, 0, 0))
+
+    def has_back(c, r):
+        return at(c, r) and not at(c, r - 1) and (c // 16, (r - 1) // 16) in view and not closes(c, r)
+
+    # its back, and its south side where nothing is drawn to stand there
+    for r in range(H):
+        c = 0
+        while c < W:
+            if has_back(c, r):
+                c0 = c
+                while c < W and has_back(c, r):
+                    c += 1
+                for a, b in run_pieces(c0, c):
+                    cx, cy = cell_of(a, r + SOLID_H)
+                    add(cx, cy, SOLID_NORTH, a=a, b=b, z=r + SOLID_H, sx=side[0], sy=side[1])
+            else:
+                c += 1
+    for foot, cols in sorted(plain_south.items()):
+        cols = sorted(cols)
+        c0 = cols[0]
+        for k, c in enumerate(cols):
+            if k + 1 == len(cols) or cols[k + 1] != c + 1:
+                for a, b in run_pieces(c0, c + 1):
+                    cx, cy = cell_of(a, foot)
+                    add(cx, cy, SOLID_SOUTH, a=a, b=b, z=foot, sx=side[0], sy=side[1])
+                if k + 1 < len(cols):
+                    c0 = cols[k + 1]
+    return out, claimed, behind & claimed, atlas
 
 
 def thick_walls(room, taken):
@@ -1172,6 +1715,92 @@ def side_art(art_cells):
     return out
 
 
+def wall_side_art(room):
+    """A thick wall's side: the room's own wall, its 32 rows in the side's 16, so
+    that it runs round the corner and is not a bare panel."""
+    plain = plain_wall(room)
+    if not plain:
+        return None
+    rows = []
+    for pm in plain[:2]:
+        im = room.L.metatile_image(pm).convert("RGB").load()
+        rows += [im[8, j] + (255,) for j in range(16)]
+    return [[rows[j * len(rows) // 16]] * 16 for j in range(16)]
+
+
+# What scripts lay over a map as it loads, or as a switch is pressed: not in the
+# layouts, so they stand by the metatile the cell holds now (voxel_room.c DoorAt).
+# Per tileset: a layout to read the art from, then (metatiles, kind, rows, floor).
+# Kind 0 is a card's upper cell, standing on the row below; 1 a card's foot, on
+# its own row; 2 a thin gate running north to south, its drawing a lid on it;
+# 3 that gate's south end.
+DOOR_TOP, DOOR_FOOT, DOOR_THIN, DOOR_END = 0, 1, 2, 3
+ROOM_DOORS = {
+    "gTileset_SilphCo": ("LAYOUT_SILPH_CO_3F", [
+        ([0x3B0, 0x3B1], DOOR_TOP, 16, 0x334), ([0x3B8, 0x3B9], DOOR_FOOT, 16, 0x334),
+        ([0x3C0, 0x3C1, 0x3C2, 0x3C3], DOOR_THIN, 16, 0x334), ([0x3C4, 0x3C5], DOOR_END, 8, 0x334),
+        ([0x2C6, 0x2C7, 0x2CE, 0x2CF], DOOR_TOP, 16, 0x281), ([0x2D6, 0x2D7], DOOR_FOOT, 16, 0x281)]),
+    "gTileset_PokemonMansion": ("LAYOUT_POKEMON_MANSION_1F", [
+        ([0x2F8, 0x2F9, 0x2FA], DOOR_TOP, 16, 0x284), ([0x300, 0x301, 0x302], DOOR_FOOT, 16, 0x284),
+        ([0x354, 0x355, 0x356], DOOR_FOOT, 16, 0x286),
+        ([0x350, 0x358, 0x360, 0x362, 0x368, 0x36A, 0x370, 0x372], DOOR_THIN, 16, 0x284),
+        ([0x314, 0x34D], DOOR_FOOT, 16, 0x284), ([0x316, 0x34F], DOOR_FOOT, 16, 0x286)]),
+    "gTileset_VermilionGym": ("LAYOUT_VERMILION_CITY_GYM", [
+        ([0x2A9, 0x2AA, 0x285, 0x2AB, 0x2AC, 0x293, 0x296, 0x2BB, 0x2BC, 0x2BD, 0x2BE, 0x2BF], DOOR_TOP, 16, 0x281),
+        ([0x2B1, 0x2B2, 0x28D, 0x2B3, 0x2B4, 0x29B, 0x29E, 0x2C3, 0x2C4, 0x2C5, 0x2C6, 0x2C7], DOOR_FOOT, 16, 0x281)]),
+}
+DOOR_ROWS = []
+
+# Cells of a layout a script changes that hold a piece: it stands only while the
+# cell holds what the layout does, or an opened barrier stayed up. (Coordinates
+# only, listed here as the builder has no scripts to read them from.)
+LIVE_CELLS = {
+    "LAYOUT_CELADON_CITY_GAME_CORNER": [(16, 3), (17, 3)],
+    "LAYOUT_CINNABAR_ISLAND_GYM": [(5, 9), (5, 17), (6, 9), (6, 17), (11, 21), (11, 22), (17, 9),
+        (17, 16), (18, 9), (18, 16), (26, 9), (27, 9)],
+    "LAYOUT_POKEMON_MANSION_1F": [(22, 10), (22, 11), (23, 10), (23, 11), (24, 10), (24, 11), (27, 25),
+        (27, 26), (28, 25), (28, 26), (29, 25), (29, 26), (32, 25), (32, 26), (33, 25), (33, 26),
+        (34, 25), (34, 26)],
+    "LAYOUT_POKEMON_MANSION_2F": [(10, 28), (10, 29), (10, 30), (10, 31), (10, 32), (12, 4), (12, 5),
+        (24, 14), (24, 15), (25, 14), (25, 15), (26, 14), (26, 15)],
+    "LAYOUT_POKEMON_MANSION_3F": [(17, 11), (17, 12), (18, 11), (18, 12), (19, 11), (19, 12), (21, 4),
+        (21, 5)],
+    "LAYOUT_POKEMON_MANSION_B1F": [(12, 8), (12, 9), (12, 10), (12, 11), (12, 12), (16, 26), (16, 27),
+        (20, 22), (20, 23), (21, 22), (21, 23), (22, 22), (22, 23)],
+    "LAYOUT_SILPH_CO_3F": [(9, 11), (9, 13), (10, 11), (10, 13), (20, 11), (20, 13), (21, 11), (21, 13)],
+    "LAYOUT_SILPH_CO_5F": [(7, 8), (7, 10), (7, 17), (7, 19), (8, 8), (8, 10), (8, 17), (8, 19),
+        (18, 12), (18, 14), (19, 12), (19, 14)],
+    "LAYOUT_SILPH_CO_6F": [(5, 14), (5, 16), (6, 14), (6, 16)],
+    "LAYOUT_SILPH_CO_8F": [(5, 9), (5, 11), (6, 9), (6, 11)],
+    "LAYOUT_SILPH_CO_9F": [(2, 9), (2, 11), (3, 9), (3, 11), (12, 15), (12, 17), (13, 15), (13, 17)],
+    "LAYOUT_TRAINER_TOWER_LOBBY": [(17, 10)],
+    "LAYOUT_VERMILION_CITY_GYM": [(3, 6), (3, 7), (4, 6), (4, 7), (5, 6), (5, 7), (6, 6), (6, 7), (7, 6),
+        (7, 7)],
+}
+LIVE_ROWS = {}
+
+
+def door_rows(place_art):
+    """DOOR_ROWS: each gate cell's upper layer in the tree texture, by tileset."""
+    DOOR_ROWS[:] = []
+    for name, (lid, groups) in ROOM_DOORS.items():
+        room = Room(lid)
+        ts = fr_art.Tilesets(room.L.primary, room.L.secondary)
+        for ids, kind, rows, floor in groups:
+            for m in ids:
+                up = layer(ts, room.entries(m), 1)
+                art = [[up[j][i][0] + (255,) if up[j][i][1] and j < rows else None for i in range(16)]
+                       for j in range(16)]
+                cols = [i for i in range(16) if any(art[j][i] for j in range(16))]
+                if cols:
+                    sx, sy = place_art(art)
+                    DOOR_ROWS.append((name, m, kind, rows, cols[0], cols[-1], sx, sy, floor))
+
+
+def door_ids(room):
+    return {d[1] for d in DOOR_ROWS if d[0] in (room.L.primary, room.L.secondary)}
+
+
 # ROOM_OVERLAYS: small things standing on a piece, the piece not theirs - the
 # flowers on the Pokemon Center's counter. (cells, lift, base metatiles): the
 # art is what the cells draw in colours the base metatiles never use.
@@ -1238,6 +1867,8 @@ def overlays(room, place_art):
 
 FLAG_WEST, FLAG_EAST, FLAG_NO_GROUND, FLAG_BARE, FLAG_ATLAS = 1, 2, 4, 8, 16
 FLAG_MODEL, FLAG_FLAT, FLAG_OVERLAY, FLAG_HANG, FLAG_SLANT = 32, 64, 128, 256, 512
+FLAG_LIVE = 1024
+FLAG_NO_STAND = 2048
 
 
 def facades(room, taken):
@@ -1381,6 +2012,9 @@ def top_art(masks, cells, cx, top_px, ybot_px, roof=0):
 def build(root, place_art):
     """place_art(rgba16x16) -> (sx, sy). Returns [(layout index, [cell rows])]."""
     out = []
+    door_rows(place_art)
+    LIVE_ROWS.clear()
+    ROOM_SOLIDS.clear()
     for index, lid in indoor_layouts(root):
         try:
             room = Room(lid)
@@ -1391,6 +2025,13 @@ def build(root, place_art):
         # the wall behind an object is keyed too: only a wall named for the room
         # (read off the room, it took its inner walls' faces for floor as well)
         plain = PLAIN_WALL.get(room.L.secondary) or PLAIN_WALL.get(room.L.primary)
+        if solid_room(room, lid) and not solid_cfg(room, lid).get("backwall"):
+            # (the wall behind a plant, whatever the room's wall is)
+            import collections
+            plain = [m for m, _ in collections.Counter(
+                room.m(x, y) for y in range(room.h) for x in range(room.w)
+                if room.L.collision(x, y) and not room.void(x, y)
+                and (0, 0, 0) not in pixels(room, room.m(x, y))).most_common(4)]
         if plain:
             for pm in plain:
                 im = room.L.metatile_image(pm).convert("RGB").load()
@@ -1399,7 +2040,16 @@ def build(root, place_art):
                         room.floor_px[j * 16 + i].add(im[i, j])
         objects, taken = match_objects(room)
         seated = set().union(*[o[0] for o in objects if "on" in o[9]]) if objects else set()
-        wall = walls(room, taken | seated)
+        solid_cells = set()
+        if solid_room(room, lid):
+            if solid_cfg(room, lid).get("desks"):
+                for piece in solid_furniture(room, taken | seated):
+                    objects.append(piece)
+                    taken |= piece[0]
+            ROOM_SOLIDS[index], solid_cells, behind, solid_atlas = solid_walls(room, taken | seated, place_art, lid)
+            ROOM_SOLID_HEIGHT[index] = solid_cfg(room, lid)["h"]
+            taken |= solid_cells
+        wall = [] if solid_cells else walls(room, taken | seated)
         for w in wall:
             taken |= w[0]
         pieces = [(o, "object") for o in objects] + [(w, "wall") for w in wall]
@@ -1423,11 +2073,30 @@ def build(root, place_art):
                 if top > 0 and (x, top - 1) not in taken and not room.void(x, top - 1)                         and black_share(room, x, top - 1) >= WALL_TOP_BLACK:
                     run.add((x, top - 1))
                     taken.add((x, top - 1))
-                pieces.append(((run, x, x + 1, pt[3], pt[4], pt[5] | run, 0, False, None, {}), "object"))
+                # all lid only where it runs on into a wall's top (its last cell
+                # ends in black); a free end stands, or it overhung the floor,
+                # open underneath
+                joined = black_share(room, x, pt[3] - 1) > 0.6
+                pieces.append(((run, x, x + 1, pt[3], WALL_H, pt[5] | run, 0, False, None,
+                                WALL_LID if joined else {}), "object"))
                 continue
             pieces.append((pt, "auto"))
         all_cells = set().union(*[p[0][0] for p in pieces], *[f[0] for f in hanging])
         rows = []
+        if solid_cells:
+            # the floor runs on under a solid wall, and behind it
+            floor = room_floor(room)
+            objs = set().union(*[o[0] for o in objects]) if objects else set()
+            height = solid_cfg(room, lid)["h"]
+            for (x, y) in sorted(solid_cells - objs):
+                under = floor if solid_cfg(room, lid).get("black") else floor_near(room, x, y, solid_cells)
+                no_floor = FLAG_NO_GROUND if (x, y) in behind else 0
+                if (x, y) in solid_atlas:
+                    rows.append(row(y=y, x=x, h=height, flags=FLAG_ATLAS | FLAG_NO_STAND | no_floor,
+                                    ybot=solid_atlas[(x, y)], sx=room.m(x, y), ground=under))
+                else:
+                    rows.append(row(y=y, x=x, flags=FLAG_FLAT | no_floor, ground=under))
+            all_cells |= solid_cells
         for cells, x, edge in hanging:
             for (cx, cy) in sorted(cells, key=lambda c: c[1]):
                 # the drawing flat under it too: columns hung from different
@@ -1477,11 +2146,20 @@ def build(root, place_art):
                                           for i in range(16)] for j in range(16)]
                         if opt.get("speck"):
                             drop_specks(masks[(x, y)], opt["speck"])
+                elif opt.get("desk"):
+                    # keyed as one, so its floor goes the same on all sides; its
+                    # front cell's lower part is floor, whatever shade it has
+                    whole_desk = object_mask(room, group, all_cells)
+                    masks = {c: whole_desk[c] for c in cells}
+                    for c in cells:
+                        if room.m(*c) in SOLID_DESK_FRONTS:
+                            masks[c] = [line if j < SOLID_DESK_H else [None] * 16
+                                        for j, line in enumerate(masks[c])]
                 else:
                     masks = object_mask(room, cells, all_cells)
             # A thick wall's top: the GBA's black, against the black round the
             # room, read as a hole in the wall. The wall's own dark outline
-            if kind == "object" and masks and {room.L.primary, room.L.secondary} & THICK_WALLS                     and piece[5:] and len(piece) > 9 and piece[9] == {} and not model:
+            if not solid_cells and kind == "object" and masks and {room.L.primary, room.L.secondary} & THICK_WALLS                     and piece[5:] and len(piece) > 9 and piece[9] in ({}, WALL_LID) and not model:
                 # its faces whole: keyed by the room's floor drawings (a mat's
                 # white, in the wall's white) they were full of holes
                 for (cx, cy) in list(masks):
@@ -1530,6 +2208,8 @@ def build(root, place_art):
                     top_px, ybot_px = min(opaque), max(opaque) + 1
                 else:
                     top_px = first * 16
+            if opt.get("lid"):
+                ybot_px += h
             # back: stood this many pixels north of where its drawing ends -
             # "blocked", onto the south edge of its blocked cells, the floor
             # its drawing spills over left free to walk in front of it
@@ -1554,7 +2234,9 @@ def build(root, place_art):
                                 low[u] = max(low.get(u, 0), cy * 16 + j + 1)
                 foot = max(v - slope * u / 16.0 for u, v in low.items()) if low else None
             if kind == "object" and not card and foot is None and opt.get("sides", True):
-                side = side_art(list(masks.values()))
+                thick_wall = not solid_cells and {room.L.primary, room.L.secondary} & THICK_WALLS \
+                    and opt in ({}, WALL_LID) and not model
+                side = (thick_wall and wall_side_art(room)) or side_art(list(masks.values()))
                 if side:
                     ss = place_art(side)
             mh, mdepth = (model if model else (h, depth))
@@ -1625,6 +2307,8 @@ def build(root, place_art):
                     flags |= FLAG_EAST
                 if model:
                     flags |= FLAG_MODEL
+                if opt.get("nostand"):
+                    flags |= FLAG_NO_STAND
                 if on:
                     flags |= FLAG_OVERLAY
                     ground = 0
@@ -1634,8 +2318,7 @@ def build(root, place_art):
                     flags |= FLAG_NO_GROUND
                     ground = 0
                 elif kind == "object":
-                    ground, bare, sure = ground_for(room, x, y, all_cells,
-                                                    whole.get((x, y)) if not solid else None)
+                    ground, bare, sure = (m, True, True) if opt.get("bare") else                         ground_for(room, x, y, all_cells, whole.get((x, y)) if not solid else None)
                     if bare:
                         flags |= FLAG_BARE
                     if not sure:
@@ -1681,6 +2364,15 @@ def build(root, place_art):
                                             tw=utop if box else 0, te=utop if box else 0,
                                             ybot=ubot, top=utop, sx=sx, sy=sy, ssx=side[0], ssy=side[1]))
         rows += overlays(room, place_art)
+        if solid_cells:
+            rows = [r[:3] + (r[3] | FLAG_NO_GROUND,) + r[4:] if (r[1], r[0]) in behind else r for r in rows]
+        # a gate's cell is the gate's; a cell a script changes, marked
+        doors = door_ids(room)
+        rows = [r for r in rows if room.m(r[1], r[0]) not in doors]
+        changing = set(LIVE_CELLS.get(lid, ()))
+        rows = [r[:3] + (r[3] | FLAG_LIVE,) + r[4:] if (r[1], r[0]) in changing else r for r in rows]
+        for x, y in changing:
+            LIVE_ROWS[(lid, x, y)] = room.m(x, y)
         if rows:
             # a cell's own piece first, its wall before what stands in it
             rows.sort(key=lambda r: (r[0], r[1], 1 if r[3] & FLAG_OVERLAY else 0,
@@ -1700,7 +2392,9 @@ def write_table(rooms, path):
              "#define ROOM_FLAT 64     /* nothing stands: `ground` lies there */",
              "#define ROOM_OVERLAY 128 /* stands on the cell's piece, not its owner */",
              "#define ROOM_HANG 256    /* hangs down from pixel row `ybot`: a roof's building */",
-             "#define ROOM_SLANT 512   /* a card on a diagonal: its foot `ybot` west, `top` east */", "",
+             "#define ROOM_SLANT 512   /* a card on a diagonal: its foot `ybot` west, `top` east */",
+             "#define ROOM_LIVE 1024   /* stands only while the cell holds sRoomLive's metatile */",
+             "#define ROOM_NO_STAND 2048 /* its cell is floor to walk on, in front of it */", "",
              "static const struct { unsigned short layout, first, count; } sRoomLayouts[] = {"]
     first = 0
     for index, lid, rows in rooms:
@@ -1722,6 +2416,53 @@ def write_table(rooms, path):
     for index, lid, rows in rooms:
         for r in rows:
             lines.append("    { %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, 0x%03X, %d, %d, %d, %d, %d }," % r)
+    lines += ["};", "",
+              "/* The metatile a ROOM_LIVE row stands on, by row */",
+              "static const struct { unsigned short row, id; } sRoomLive[] = {"]
+    index = 0
+    for _, lid, rows in rooms:
+        for r in rows:
+            if r[3] & FLAG_LIVE:
+                lines.append("    { %d, 0x%03X }," % (index, LIVE_ROWS[(lid, r[1], r[0])]))
+            index += 1
+    lines += ["};", ""]
+    names = sorted({d[0] for d in DOOR_ROWS})
+    lines += ["extern const struct Tileset %s;" % n for n in names]
+    lines += ["",
+              "/* What scripts lay on a map, stood up by the metatile on the cell (ROOM_DOORS) */",
+              "static const struct",
+              "{",
+              "    const struct Tileset *set;",
+              "    unsigned short id;",
+              "    unsigned char kind, rows, c0, c1;  /* c0..c1: its drawn columns */",
+              "    unsigned short sx, sy, floor;",
+              "} sRoomDoors[] = {"]
+    lines += ["    { &%s, 0x%03X, %d, %d, %d, %d, %d, %d, 0x%03X }," % d
+              for d in sorted(DOOR_ROWS, key=lambda d: (d[0], d[1]))]
+    lines += ["};", "",
+              "/* The solid walls of Silph Co., the Hideout and the Warehouse (voxel_room.c) */",
+              "#define ROOM_SOLID_H %d /* Silph Co.'s gates, between its walls */" % SOLID_H,
+              "enum { SOLID_LID, SOLID_FRONT, SOLID_WEST, SOLID_EAST, SOLID_NORTH, SOLID_SOUTH, SOLID_BEHIND };",
+              "static const struct { unsigned short layout, first, count, h; } sRoomSolidLayouts[] = {"]
+    first = 0
+    for index, lid, rows in rooms:
+        if index in ROOM_SOLIDS:
+            lines.append("    { %d, %d, %d, %d }, /* %s */" % (index, first, len(ROOM_SOLIDS[index]),
+                                                               ROOM_SOLID_HEIGHT[index], lid))
+            first += len(ROOM_SOLIDS[index])
+    lines += ["};", "",
+              "static const struct",
+              "{",
+              "    unsigned char x, y, kind;   /* the cell it belongs to */",
+              "    unsigned char c0, c1;       /* a front: its columns of the cell; a side: c0 its column */",
+              "    unsigned char r0, r1;       /* a front: its rows of the cell */",
+              "    unsigned short a, b, z;     /* pixels from the room's corner: a front's foot in a; a side's z in a, b; a back's x in a, b */",
+              "    unsigned short sx, sy;      /* its art */",
+              "    unsigned short live;        /* stands only while the cell holds this, 0 always */",
+              "} sRoomSolids[] = {"]
+    for index, lid, rows in rooms:
+        for s in ROOM_SOLIDS.get(index, ()):
+            lines.append("    { %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, 0x%03X }," % s)
     lines += ["};", "", "#endif", ""]
     with open(path, "w", encoding="utf-8", newline="\n") as f:
         f.write("\n".join(lines))

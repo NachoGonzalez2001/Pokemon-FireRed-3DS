@@ -40,7 +40,7 @@
 #define TILESETS(X) X(ViridianForest) X(FuchsiaCity) X(BerryForest) X(PalletTown) \
     X(LavenderTown) X(ViridianCity) X(VermilionCity) X(SeviiIslands45) X(SeviiIslands123) \
     X(SeafoamIslands) X(SaffronCity) X(RockTunnel) X(NavelRock) X(MtEmber) X(IndigoPlateau) \
-    X(DiglettsCave) X(CeruleanCity) X(CeruleanCave) X(Cave) X(CeladonCity) X(SeviiIslands67)
+    X(DiglettsCave) X(CeruleanCity) X(CeruleanCave) X(Cave) X(CeladonCity) X(SeviiIslands67) X(SilphCo) X(PokemonMansion) X(VermilionGym)
 #define DEFINE(name) const char gTileset_##name[4];
 TILESETS(DEFINE)
 static const char sOtherTileset[4];

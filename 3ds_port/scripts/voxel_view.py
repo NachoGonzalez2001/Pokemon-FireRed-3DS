@@ -16,6 +16,8 @@ pictures local: they show art taken from the ROM.
         other views, nearer (see VIEWS)
     python voxel_view.py LAYOUT_PALLET_TOWN 12,8 --shape --crop 0.2,0.1,0.8,0.8
         each surface by the way it faces, its edges drawn, on part of the screen
+    python voxel_view.py LAYOUT_SILPH_CO_3F 9,14 --set 9,11,3C0
+        with a metatile a script lays there
     python voxel_view.py LAYOUT_PALLET_TOWN 12,8 --dump-only
         the triangle counts of each pass
 
@@ -98,13 +100,16 @@ def rgba(v):
 class Scene:
     """The dump's passes: [(triangles, texture, scale of its UVs)]."""
 
-    def __init__(self, layout_id):
+    def __init__(self, layout_id, changes=None):
+        """changes: {(x, y): metatile}, as scripts lay them on the map."""
         build_dump()
         entry = next(e for e in vl.layouts() if e.get("id") == layout_id)
         index = vl.layouts().index(entry) + 1
         self.w, self.h = entry["width"], entry["height"]
         self.layout_id = layout_id
-        blocks = vb.read_u16(os.path.join(vb.ROOT, entry["blockdata_filepath"]))
+        blocks = list(vb.read_u16(os.path.join(vb.ROOT, entry["blockdata_filepath"])))
+        for (cx, cy), m in (changes or {}).items():
+            blocks[cy * self.w + cx] = m
         border = vb.read_u16(os.path.join(vb.ROOT, entry["border_filepath"]))
         kind = map_type(layout_id)
         indoor = 1 if kind in ("MAP_TYPE_INDOOR", "MAP_TYPE_SECRET_BASE") else 2 if kind == "MAP_TYPE_UNDERGROUND" else 0
@@ -263,9 +268,15 @@ def main():
     ap.add_argument("--crop", help="part of each view: x0,y0,x1,y1 as fractions")
     ap.add_argument("--shape", action="store_true", help="surfaces by the way they face")
     ap.add_argument("--dump-only", action="store_true")
+    ap.add_argument("--set", action="append", default=[], metavar="X,Y,ID",
+                    help="a metatile a script lays on the map (ID in hex)")
     args = ap.parse_args()
     x, y = [int(v) for v in args.at.split(",")]
-    scene = Scene(args.layout)
+    changes = {}
+    for item in args.set:
+        cx, cy, mid = item.split(",")
+        changes[(int(cx), int(cy))] = int(mid, 16)
+    scene = Scene(args.layout, changes)
     print("%s %dx%d: %s" % (args.layout, scene.w, scene.h,
                             ", ".join("%d %s" % (len(p[1]), p[0]) for p in scene.passes)))
     if args.dump_only:

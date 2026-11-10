@@ -62,6 +62,18 @@ static int RoomRange(const VoxelMapInstance *inst, unsigned *first, unsigned *co
     return 1;
 }
 
+/* A row on a cell a script changes stands only while the cell holds what the
+ * layout does: or a barrier, opened, stays up. */
+static bool RowStands(unsigned i, int x, int y)
+{
+    if (!(sRoomCells[i].flags & ROOM_LIVE))
+        return true;
+    for (unsigned k = 0; k < sizeof(sRoomLive) / sizeof(sRoomLive[0]); ++k)
+        if (sRoomLive[k].row == i)
+            return VoxelWorld_GetMetatileId(x, y) == sRoomLive[k].id;
+    return true;
+}
+
 /* The cell's own piece: an overlay standing on it is not. */
 static int RoomCell(const VoxelMapInstance *inst, int x, int y)
 {
@@ -74,9 +86,54 @@ static int RoomCell(const VoxelMapInstance *inst, int x, int y)
     {
         if (sRoomCells[i].y > ly)
             break;
-        if (sRoomCells[i].y == ly && sRoomCells[i].x == lx && !(sRoomCells[i].flags & ROOM_OVERLAY))
+        if (sRoomCells[i].y == ly && sRoomCells[i].x == lx && !(sRoomCells[i].flags & ROOM_OVERLAY)
+         && RowStands(i, x, y))
             return (int)i;
     }
+    return -1;
+}
+
+/*
+ * What scripts lay on a map: Silph Co.'s and the Hideout's gates, the Mansion's
+ * barriers and statues, the beams of Vermilion's Gym. They come and go as it
+ * plays, so they are found by the metatile the cell holds now and not in the
+ * table of the layout's pieces. The entry in sRoomDoors of the one on the cell,
+ * or -1. (Sorted by tileset: the map's own run of them, remembered.)
+ */
+static bool DoorRange(const VoxelMapInstance *inst, unsigned *first, unsigned *end)
+{
+    enum { DOORS = sizeof(sRoomDoors) / sizeof(sRoomDoors[0]) };
+    static const void *lastSet;
+    static unsigned lastFirst, lastEnd;
+
+    if (inst->secondaryTileset != lastSet)
+    {
+        lastSet = inst->secondaryTileset;
+        lastFirst = lastEnd = 0;
+        for (unsigned d = 0; d < DOORS; ++d)
+            if ((const void *)sRoomDoors[d].set == lastSet)
+            {
+                if (lastEnd == 0)
+                    lastFirst = d;
+                lastEnd = d + 1;
+            }
+    }
+    *first = lastFirst;
+    *end = lastEnd;
+    return lastEnd != 0;
+}
+
+static int DoorAt(const VoxelMapInstance *inst, int x, int y)
+{
+    unsigned first, end;
+    int id;
+
+    if (!DoorRange(inst, &first, &end))
+        return -1;
+    id = VoxelWorld_GetMetatileId(x, y);
+    for (unsigned d = first; d < end; ++d)
+        if (sRoomDoors[d].id == id)
+            return (int)d;
     return -1;
 }
 
@@ -85,7 +142,12 @@ int VoxelRoom_Ground(const VoxelMapInstance *inst, int x, int y)
     int i = RoomCell(inst, x, y);
 
     if (i < 0)
-        return VOXEL_ROOM_NONE;
+    {
+        /* under a gate: the room's floor */
+        int d = DoorAt(inst, x, y);
+
+        return d < 0 ? VOXEL_ROOM_NONE : sRoomDoors[d].floor;
+    }
     if (sRoomCells[i].flags & ROOM_NO_GROUND)
         return VOXEL_ROOM_NO_GROUND;
     if (sRoomCells[i].flags & ROOM_BARE)
@@ -99,7 +161,7 @@ bool VoxelRoom_StandOn(const VoxelMapInstance *inst, int x, int y, float *rise, 
     int top, back;
 
     /* walls and nothing-there; and only a piece that stops low, furniture */
-    if (i < 0 || (sRoomCells[i].flags & (ROOM_NO_GROUND | ROOM_FLAT)) || sRoomCells[i].h == 0
+    if (i < 0 || (sRoomCells[i].flags & (ROOM_NO_GROUND | ROOM_FLAT | ROOM_NO_STAND)) || sRoomCells[i].h == 0
      || sRoomCells[i].h + sRoomCells[i].lift > 16)
         return false;
     top = sRoomCells[i].h + sRoomCells[i].lift;
@@ -342,11 +404,210 @@ void VoxelRoom_EmitAtlasCell(VoxelBuilder *builder, const VoxelMapInstance *inst
         EmitCell(builder, inst, (unsigned)i, u0, v0, u1, v1);
 }
 
+#define DOOR_LID_H 1.5f     /* a thin gate's height: the walls either side are 2 */
+#define DOOR_DEPTH (13.0f / 16.0f)   /* a gate across a solid wall: as thick as the wall */
+#define DOOR_BAND 5u        /* the rows of a gate's upper cell over its top */
+
+/* The same drawing as a door of a kind found by its metatile, or -1 */
+static int DoorOfId(unsigned first, unsigned end, unsigned id)
+{
+    for (unsigned d = first; d < end; ++d)
+        if (sRoomDoors[d].id == id)
+            return (int)d;
+    return -1;
+}
+
+/* A gate running north to south, its long side: the panels the gate across a
+ * corridor shows, a cell of them to a cell, its upper cell over its foot's. */
+static void EmitGateSide(VoxelBuilder *b, const VoxelMapInstance *inst, float x, float za, float zb,
+                         float h, bool east, float share)
+{
+    unsigned first, end;
+    int upper, foot;
+
+    if (!DoorRange(inst, &first, &end))
+        return;
+    upper = DoorOfId(first, end, 0x3B0);
+    foot = DoorOfId(first, end, 0x3B8);
+    if (upper < 0 || foot < 0)
+        return;
+    {
+        const float ua = TEX_U(sRoomDoors[upper].sx), ub = TEX_U(sRoomDoors[upper].sx + 16.0f * share);
+        const float uc = TEX_U(sRoomDoors[foot].sx), ud = TEX_U(sRoomDoors[foot].sx + 16.0f * share);
+
+        SideQuad(b, x, 1.0f, h, za, zb, ua, TEX_V(sRoomDoors[upper].sy + DOOR_BAND),
+                 ub, TEX_V(sRoomDoors[upper].sy + 16u), east);
+        SideQuad(b, x, 0.0f, 1.0f, za, zb, uc, TEX_V(sRoomDoors[foot].sy),
+                 ud, TEX_V(sRoomDoors[foot].sy + 16u), east);
+    }
+}
+
+/* A gate's cell: a wide one a card, its top row over its foot's, standing on
+ * the foot's south edge; a thin one running north, its top laid on it. */
+static void EmitDoor(VoxelBuilder *b, const VoxelMapInstance *inst, int x, int y, int d)
+{
+    const float wx = (float)x;
+    const unsigned sx = sRoomDoors[d].sx, sy = sRoomDoors[d].sy, rows = sRoomDoors[d].rows;
+    float u0 = TEX_U(sx), u1 = TEX_U(sx + 16), v0 = TEX_V(sy), v1 = TEX_V(sy + rows);
+
+    if (sRoomDoors[d].kind < 2)
+    {
+        bool upper = sRoomDoors[d].kind == 0;
+        float z = (float)y + (upper ? 2.0f : 1.0f), ya = upper ? 2.0f : 1.0f;
+
+        VoxelBuilder_Quad(b,
+            &(VoxelVertex){wx, ya, z, u0, v0, 1.0f}, &(VoxelVertex){wx + 1.0f, ya, z, u1, v0, 1.0f},
+            &(VoxelVertex){wx + 1.0f, ya - 1.0f, z, u1, v1, 1.0f}, &(VoxelVertex){wx, ya - 1.0f, z, u0, v1, 1.0f});
+        if (sRoomDoors[d].set == &gTileset_SilphCo)
+        {
+            /* as thick as the walls it shuts: its back and, up there, its top */
+            const float zb = z - DOOR_DEPTH;
+
+            VoxelBuilder_Quad(b,
+                &(VoxelVertex){wx + 1.0f, ya, zb, u1, v0, 0.7f}, &(VoxelVertex){wx, ya, zb, u0, v0, 0.7f},
+                &(VoxelVertex){wx, ya - 1.0f, zb, u0, v1, 0.7f}, &(VoxelVertex){wx + 1.0f, ya - 1.0f, zb, u1, v1, 0.7f});
+            if (upper)
+            {
+                const float ht = ROOM_SOLID_H / 16.0f, vt = TEX_V(sy + DOOR_BAND), vb = TEX_V(sy + DOOR_BAND + 1u);
+
+                VoxelBuilder_Quad(b,
+                    &(VoxelVertex){wx, ht, zb, u0, vt, 1.0f}, &(VoxelVertex){wx + 1.0f, ht, zb, u1, vt, 1.0f},
+                    &(VoxelVertex){wx + 1.0f, ht, z, u1, vb, 1.0f}, &(VoxelVertex){wx, ht, z, u0, vb, 1.0f});
+            }
+        }
+    }
+    else
+    {
+        const unsigned c0 = sRoomDoors[d].c0, c1 = sRoomDoors[d].c1;
+        /* between Silph's solid walls: as high as they are, and from its first
+         * cell on to the front of the wall north of it */
+        const bool solid = sRoomDoors[d].set == &gTileset_SilphCo;
+        const float lh = solid ? ROOM_SOLID_H / 16.0f : DOOR_LID_H;
+        float za = (float)y + lh, zb = za + rows / 16.0f;
+        float xa = wx + c0 / 16.0f, xb = wx + (c1 + 1) / 16.0f;
+        float su = TEX_U(sx + (c0 + c1) / 2 + 0.5f);
+
+        if (solid && (sRoomDoors[d].id & ~1u) == 0x3C0)
+            za = (float)y + 1.0f;
+        VoxelBuilder_Quad(b,
+            &(VoxelVertex){wx, lh, za, u0, v0, 1.0f}, &(VoxelVertex){wx + 1.0f, lh, za, u1, v0, 1.0f},
+            &(VoxelVertex){wx + 1.0f, lh, zb, u1, v1, 1.0f}, &(VoxelVertex){wx, lh, zb, u0, v1, 1.0f});
+        /* a side where its drawing stops short of the cell's edge: not where
+         * it goes on into the gate's other half */
+        if (c0 > 0)
+        {
+            if (solid)
+                EmitGateSide(b, inst, xa, za, zb, lh, false, rows / 16.0f);
+            else
+                SideQuad(b, xa, 0.0f, lh, za, zb, su, v0, su, v1, false);
+        }
+        if (c1 < 15)
+        {
+            if (solid)
+                EmitGateSide(b, inst, xb, za, zb, lh, true, rows / 16.0f);
+            else
+                SideQuad(b, xb, 0.0f, lh, za, zb, su, v0, su, v1, true);
+        }
+        if (sRoomDoors[d].kind == 3)
+        {
+            /* its south end: the gate's last row, down to the floor */
+            VoxelBuilder_Quad(b,
+                &(VoxelVertex){xa, lh, zb, su, v1, 0.85f}, &(VoxelVertex){xb, lh, zb, su, v1, 0.85f},
+                &(VoxelVertex){xb, 0.0f, zb, su, v1, 0.85f}, &(VoxelVertex){xa, 0.0f, zb, su, v1, 0.85f});
+        }
+    }
+}
+
+/*
+ * A solid wall's surfaces (fr_gen_rooms.py solid_walls). All of a wall stands in
+ * the real world: its top the layout's height up, cut out to its drawing, its front where
+ * the drawing's face ends, its sides and back from the face's rows.
+ */
+static void EmitSolid(VoxelBuilder *b, const VoxelMapInstance *inst, unsigned i, unsigned height)
+{
+    const float ox = (float)inst->originX, oz = (float)inst->originY;
+    const float h = height / 16.0f;
+    const unsigned sx = sRoomSolids[i].sx, sy = sRoomSolids[i].sy;
+    const float wx = ox + sRoomSolids[i].x, a = sRoomSolids[i].a / 16.0f, e = sRoomSolids[i].b / 16.0f;
+    const float z = oz + sRoomSolids[i].z / 16.0f;
+    const float u0 = TEX_U(sx), u1 = TEX_U(sx + 16), v0 = TEX_V(sy), v1 = TEX_V(sy + 16);
+
+    switch (sRoomSolids[i].kind)
+    {
+    case SOLID_LID:
+    {
+        float za = oz + sRoomSolids[i].y + h, zb = za + 1.0f;
+
+        VoxelBuilder_Quad(b,
+            &(VoxelVertex){wx, h, za, u0, v0, 1.0f}, &(VoxelVertex){wx + 1.0f, h, za, u1, v0, 1.0f},
+            &(VoxelVertex){wx + 1.0f, h, zb, u1, v1, 1.0f}, &(VoxelVertex){wx, h, zb, u0, v1, 1.0f});
+        break;
+    }
+    case SOLID_FRONT:
+    case SOLID_BEHIND:  /* the same, behind a thing that stands against the wall */
+    {
+        const unsigned c0 = sRoomSolids[i].c0, c1 = sRoomSolids[i].c1 + 1u;
+        const unsigned r0 = sRoomSolids[i].r0, r1 = sRoomSolids[i].r1;
+        const int top = sRoomSolids[i].y * 16;
+        float xa = wx + c0 / 16.0f, xb = wx + c1 / 16.0f;
+        float zf = oz + a - (sRoomSolids[i].kind == SOLID_BEHIND ? 2.0f / 16.0f : 0.0f);
+        float ya = (sRoomSolids[i].a - (top + (int)r0)) / 16.0f, yb = (sRoomSolids[i].a - (top + (int)r1)) / 16.0f;
+        float ua = TEX_U(sx + c0), ub = TEX_U(sx + c1), va = TEX_V(sy + r0), vb = TEX_V(sy + r1);
+
+        VoxelBuilder_Quad(b,
+            &(VoxelVertex){xa, ya, zf, ua, va, 1.0f}, &(VoxelVertex){xb, ya, zf, ub, va, 1.0f},
+            &(VoxelVertex){xb, yb, zf, ub, vb, 1.0f}, &(VoxelVertex){xa, yb, zf, ua, vb, 1.0f});
+        break;
+    }
+    case SOLID_WEST:
+    case SOLID_EAST:
+        SideQuad(b, wx + sRoomSolids[i].c0 / 16.0f, 0.0f, h, oz + a, oz + e, u0, v0, u1, v1,
+                 sRoomSolids[i].kind == SOLID_EAST);
+        break;
+    case SOLID_NORTH:
+        VoxelBuilder_Quad(b,
+            &(VoxelVertex){ox + e, h, z, u0, v0, 0.7f}, &(VoxelVertex){ox + a, h, z, u1, v0, 0.7f},
+            &(VoxelVertex){ox + a, 0.0f, z, u1, v1, 0.7f}, &(VoxelVertex){ox + e, 0.0f, z, u0, v1, 0.7f});
+        break;
+    default:
+        VoxelBuilder_Quad(b,
+            &(VoxelVertex){ox + a, h, z, u0, v0, 0.9f}, &(VoxelVertex){ox + e, h, z, u1, v0, 0.9f},
+            &(VoxelVertex){ox + e, 0.0f, z, u1, v1, 0.9f}, &(VoxelVertex){ox + a, 0.0f, z, u0, v1, 0.9f});
+        break;
+    }
+}
+
 void VoxelRoom_EmitInstance(VoxelBuilder *builder, const VoxelMapInstance *inst,
                             int x0, int y0, int x1, int y1)
 {
     unsigned first, count;
 
+    unsigned doorFirst, doorEnd;
+
+    if (DoorRange(inst, &doorFirst, &doorEnd))
+        for (int y = y0; y < y1; ++y)
+            for (int x = x0; x < x1; ++x)
+            {
+                int d = DoorAt(inst, x, y);
+
+                if (d >= 0)
+                    EmitDoor(builder, inst, x, y, d);
+            }
+    if (inst != NULL && inst->indoor)
+        for (unsigned l = 0; l < sizeof(sRoomSolidLayouts) / sizeof(sRoomSolidLayouts[0]); ++l)
+            if (sRoomSolidLayouts[l].layout == (unsigned)inst->layoutId)
+            {
+                for (unsigned i = sRoomSolidLayouts[l].first;
+                     i < (unsigned)sRoomSolidLayouts[l].first + sRoomSolidLayouts[l].count; ++i)
+                {
+                    int x = inst->originX + sRoomSolids[i].x, y = inst->originY + sRoomSolids[i].y;
+
+                    if (x >= x0 && x < x1 && y >= y0 && y < y1
+                     && (sRoomSolids[i].live == 0 || VoxelWorld_GetMetatileId(x, y) == sRoomSolids[i].live))
+                        EmitSolid(builder, inst, i, sRoomSolidLayouts[l].h);
+                }
+                break;
+            }
     if (!RoomRange(inst, &first, &count))
         return;
     for (unsigned i = first; i < first + count; ++i)
@@ -355,7 +616,7 @@ void VoxelRoom_EmitInstance(VoxelBuilder *builder, const VoxelMapInstance *inst,
 
         if (sRoomCells[i].flags & (ROOM_ATLAS | ROOM_FLAT))
             continue;
-        if (x >= x0 && x < x1 && y >= y0 && y < y1)
+        if (x >= x0 && x < x1 && y >= y0 && y < y1 && RowStands(i, x, y))
             EmitCell(builder, inst, i, TEX_U(sRoomCells[i].sx), TEX_V(sRoomCells[i].sy),
                      TEX_U(sRoomCells[i].sx + 16), TEX_V(sRoomCells[i].sy + 16));
     }
