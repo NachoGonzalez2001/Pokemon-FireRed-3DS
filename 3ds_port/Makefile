@@ -214,3 +214,8 @@ clean:
 	rm -rf build dist $(TARGET).elf $(TARGET).3dsx $(TARGET).smdh
 
 -include $(OBJECTS:.o=.d)
+
+# Host regression using the bootstrapped game's real battle-text declaration.
+.PHONY: verify-battle-string
+verify-battle-string:
+	"$(PYTHON)" tests/battle_string_capacity_test.py --tree ..
