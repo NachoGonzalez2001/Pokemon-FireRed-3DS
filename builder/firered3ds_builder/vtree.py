@@ -68,7 +68,22 @@ def map_json(rom: bytes, off: int, item: dict, meta: dict) -> dict:
     layouts = meta["layouts"]
     layout = layouts[layout_id - 1].get("id", "LAYOUT_NONE") if 0 < layout_id <= len(layouts) else "LAYOUT_NONE"
     return {"id": item["id"], "name": item["name"], "layout": layout,
-            "map_type": meta["map_types"].get(str(map_type), "MAP_TYPE_NONE")}
+            "map_type": meta["map_types"].get(str(map_type), "MAP_TYPE_NONE"),
+            "warp_events": warp_events(rom, off)}
+
+
+def warp_events(rom: bytes, off: int) -> list[dict]:
+    """The map's warps, where the room generator finds its doors and side
+    exits: MapHeader.events -> MapEvents.warps, each WarpEvent s16 x, s16 y
+    and four bytes more."""
+    events = _ptr(rom, off + 0x04)
+    if events is None:
+        return []
+    count = rom[events + 1]
+    warps = _ptr(rom, events + 0x08)
+    if warps is None:
+        return []
+    return [{"x": x, "y": y} for x, y in (struct.unpack_from("<hh", rom, warps + 8 * i) for i in range(count))]
 
 
 def headers(meta: dict) -> dict[str, str]:
