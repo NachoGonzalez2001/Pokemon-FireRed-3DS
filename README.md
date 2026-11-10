@@ -16,7 +16,7 @@ own dump of your own Pokémon FireRed cartridge.
 ## Screenshots
 
 <p align="center">
-  <img src="docs/screenshots/dual-screen.png" alt="Cerulean City on the top screen, the region map, menu and party on the bottom screen" width="400">
+  <img src="docs/screenshots/dual-screen.png" alt="Cerulean City with Charmeleon following on the top screen, the region map, party and menu on the bottom screen" width="400">
 </p>
 
 <table>
@@ -35,6 +35,10 @@ own dump of your own Pokémon FireRed cartridge.
   <tr>
     <td><img src="docs/screenshots/viridian-forest.png" alt="Viridian Forest with Butterfree following"><br><sub>Viridian Forest</sub></td>
     <td><img src="docs/screenshots/mt-moon.png" alt="Mt. Moon with Clefairy following"><br><sub>Mt. Moon</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/silph-co.png" alt="Silph Co. with Porygon following"><br><sub>Silph Co.</sub></td>
+    <td><img src="docs/screenshots/pokemon-mansion.png" alt="Pokémon Mansion with Growlithe following"><br><sub>Pokémon Mansion</sub></td>
   </tr>
 </table>
 
