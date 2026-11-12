@@ -10,6 +10,7 @@
 #include "3ds_platform.h"
 #include "characters.h"
 #include "event_data.h"
+#include "battle_mega.h"
 #include "item.h"
 #include "pokedex.h"
 #include "pokemon.h"
@@ -21,6 +22,7 @@
 const char *const gCtrExtrasOffOn[2] = {"OFF", "ON"};
 
 static const char *const sEncounterRate[] = {"NORMAL", "OFF", "1/4", "1/2", "2X"};
+static const char *const sTrainerTeams[] = {"CLASSIC", "RENEWED"};
 static const char *const sShinyOdds[] = {"1/8192", "1/4096", "1/1024", "1/256", "1/64", "ALWAYS"};
 
 /*
@@ -56,6 +58,18 @@ static void CompleteNationalDex(void)
 }
 
 static const char *const sDexDone[] = {"TAP TO SET"};
+
+/* Mega Evolution (CHEATS): the Key Stone, and a MEGA STONE and a MEGA STONE Y
+ * in the bag. */
+static void GiveMegaKit(void)
+{
+    FlagSet(FLAG_MEGA_KEY_STONE);
+    AddBagItem(ITEM_MEGA_STONE, 1);
+    AddBagItem(ITEM_MEGA_STONE_Y, 1);
+    PlaySE(SE_SUCCESS);
+}
+
+static const char *const sMegaKitText[] = {"TAP TO GET"};
 
 /*
  * Give items (CHEATS): a pocket, an item of it, a count, and GIVE puts them in
@@ -181,6 +195,7 @@ const CtrExtra gCtrExtras[] =
     {CTR_EXTRAS_ENHANCEMENTS, "TRADE EVO AT LV 40", "trade_evo", 2, 0, gCtrExtrasOffOn, NULL, NULL, NULL},
     {CTR_EXTRAS_ENHANCEMENTS, "HMS WITHOUT MOVE", "field_hms", 2, 0, gCtrExtrasOffOn, NULL, NULL, NULL},
     {CTR_EXTRAS_ENHANCEMENTS, "REUSABLE TMS", "reusable_tms", 2, 0, gCtrExtrasOffOn, NULL, NULL, NULL},
+    {CTR_EXTRAS_ENHANCEMENTS, "TRAINER TEAMS", "trainer_teams", 2, 1, sTrainerTeams, NULL, NULL, NULL},
     {CTR_EXTRAS_CHEATS, "WILD ENCOUNTERS", "encounter_rate", 5, 0, sEncounterRate, NULL, NULL, NULL},
     {CTR_EXTRAS_CHEATS, "SHINY ODDS", "shiny_odds", 6, 0, sShinyOdds, NULL, NULL, NULL},
     {CTR_EXTRAS_CHEATS, "ALWAYS CATCH", "always_catch", 2, 0, gCtrExtrasOffOn, NULL, NULL, NULL},
@@ -189,6 +204,7 @@ const CtrExtra gCtrExtras[] =
     {CTR_EXTRAS_CHEATS, "KANTO DEX FULL", "dex_kanto", 0, 0, sDexDone, CompleteKantoDex, NULL, NULL},
     {CTR_EXTRAS_CHEATS, "NATIONAL DEX ON", "dex_national_on", 0, 0, sDexDone, UnlockNationalDex, NULL, NULL},
     {CTR_EXTRAS_CHEATS, "NATIONAL DEX FULL", "dex_national", 0, 0, sDexDone, CompleteNationalDex, NULL, NULL},
+    {CTR_EXTRAS_CHEATS, "MEGA EVOLUTION KIT", "mega_kit", 0, 0, sMegaKitText, GiveMegaKit, NULL, NULL},
     {CTR_EXTRAS_CHEATS, "GIVE ITEMS", "give_open", 0, 0, sGiveOpenText, GiveOpen, NULL, NULL},
     {CTR_EXTRAS_SCREEN(CTR_EXTRAS_CHEATS, 1), "GIVE ITEMS", "give_back", 0, 0, sGiveBackText, GiveBack, NULL, NULL},
     {CTR_EXTRAS_SCREEN(CTR_EXTRAS_CHEATS, 1), "POCKET", "give_pocket", 5, 0, sGivePockets, NULL, NULL, NULL},

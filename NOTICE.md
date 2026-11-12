@@ -56,3 +56,30 @@ stay under the ignored `build/` directory.
 
 Pokémon FireRed is a trademark of Nintendo, Game Freak, Creatures and The
 Pokémon Company. This is an unofficial fan project.
+
+## Mega Evolution sprites
+
+The Mega Evolution battle sprites (`3ds_port/src/fr_mega_art.c`, made by
+`tools/dev/mega_sprites.py`) come from the
+[Gen VI: DS-Style 64x64 Pokémon Sprite Resource](https://www.pokecommunity.com/threads/gen-vi-ds-style-64x64-pokemon-sprite-resource.314422/)
+on PokéCommunity, which allows their use in fan projects with credit to that
+thread. The resource continues Chaos Rush's DS-Style 64x64 Pokémon Sprite
+Resource. As its credits list them, for the forms used here:
+
+- MrDollSteak: every sprite not listed below
+- Spherical Ice: Mega Beedrill front
+- leparagon: Mega Alakazam, Mega Mewtwo X, Mega Mewtwo Y
+- Wobblebuns: Mega Kangaskhan's baby
+- BlackWhiteRobin: Mega Blastoise back
+- The Cynical Poet: Mega Slowbro front
+- Criminon: quality check on Mega Blastoise
+- Chaos Rush: the original resource, continued with their permission
+- Layell: permission to use sprites from the Smogon XY Sprite Project
+
+Mega Dragonite comes from the
+[DS-style Gen VII and Beyond Pokémon Sprite Repository in 64x64](https://www.pokecommunity.com/threads/ds-style-gen-vii-and-beyond-pok%C3%A9mon-sprite-repository-in-64x64.368703/)
+on PokéCommunity, free to use with credit to its contributors:
+Axel_CodeInfinity (front), Lykeron (back), leParagon (quality check).
+
+The sprites are reduced to 16 colours for the GBA's battle screen. The MEGA
+key's Key Stone is the port's own icon.

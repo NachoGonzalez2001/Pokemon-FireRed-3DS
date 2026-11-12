@@ -737,6 +737,7 @@ static void DebugGrant(void)
 #include "battle_setup.h"
 #include "quest_log.h"
 #include "script.h"
+#include "event_scripts.h"
 #include "script_pokemon_util.h"
 #include "constants/items.h"
 #include "constants/species.h"
@@ -767,6 +768,32 @@ static void DebugBattle(void)
         idleSince = sFrames;
     if (sFrames - idleSince < 120)
         return;
+#ifdef CTR_DEBUG_BATTLE_TRAINERS
+    /* CTR_DEBUG_BATTLE_TRAINERS=a,b,...: each in turn, the party healed
+     * before each, the last one's outcome logged. */
+    {
+        static const u16 sTrainers[] = { CTR_DEBUG_BATTLE_TRAINERS };
+        static int next;
+
+        if (next > 0)
+            CtrLog_Write(CTR_LOG_GAME, "debug battle: trainer %d outcome %d", sTrainers[next - 1], gBattleOutcome);
+        if (next >= (int)ARRAY_COUNT(sTrainers))
+        {
+            done = TRUE;
+            CtrLog_Write(CTR_LOG_GAME, "debug battle: all %d done", next);
+            return;
+        }
+        idleSince = 0;
+        HealPlayerParty();
+        CtrLog_Write(CTR_LOG_GAME, "debug battle %d/%d: trainer %d", next + 1, (int)ARRAY_COUNT(sTrainers),
+                     sTrainers[next]);
+        /* the battle returns to this script, which gives the field back */
+        ScriptContext_SetupScript(EventScript_ReleaseEnd);
+        gTrainerBattleOpponent_A = sTrainers[next++];
+        StartTrainerBattle();
+        return;
+    }
+#endif
     done = TRUE;
 #ifdef CTR_DEBUG_BATTLE_TRAINER
     CtrLog_Write(CTR_LOG_GAME, "debug battle: trainer %d", CTR_DEBUG_BATTLE_TRAINER);

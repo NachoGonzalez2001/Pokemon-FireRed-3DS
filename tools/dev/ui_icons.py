@@ -172,7 +172,21 @@ def lens():
     return c.done((94, 12, 26))
 
 
-ALL = dict(Dex=dex, Ball=ball, Bag=bag, Card=card, Save=save, Gear=gear, Shoe=shoe, Lens=lens)
+def keystone():
+    """The Key Stone of Mega Evolution: a swirled stone set in a bracelet."""
+    c = Ic()
+    c.rr(1.2, 10.2, 26.8, 17.8, 3.6, (238, 242, 250), (132, 142, 164))
+    c.rr(1.2, 13.4, 26.8, 14.6, .5, (104, 114, 136))
+    c.circ(14, 14, 10.4, (252, 252, 255), (150, 160, 184))
+    stone = c.circ(14, 14, 8.2, (255, 112, 196), (110, 70, 220))
+    c.ell(5.4, 7.0, 15.6, 15.8, (110, 226, 150), None, clip=stone, alpha=215)
+    c.ell(12.4, 12.4, 23.0, 22.6, (84, 168, 255), None, clip=stone, alpha=215)
+    c.circ(14, 14, 3.2, (255, 238, 120), None, alpha=235)
+    c.ell(9.0, 7.8, 13.6, 11.6, (255, 255, 255), None, alpha=235)
+    return c.done((58, 36, 92))
+
+
+ALL = dict(Dex=dex, Ball=ball, Bag=bag, Card=card, Save=save, Gear=gear, Shoe=shoe, Lens=lens, Key=keystone)
 
 
 def get(name, size=None):
@@ -181,7 +195,7 @@ def get(name, size=None):
 
 
 SIZES = [('Dex', 26), ('Ball', 26), ('Bag', 26), ('Card', 26), ('Save', 26), ('Gear', 26), ('Shoe', 20), ('Lens', 22),
-         ('Bag', 28), ('Shoe', 28)]
+         ('Bag', 28), ('Shoe', 28), ('Key', 22)]
 
 
 def main(path):

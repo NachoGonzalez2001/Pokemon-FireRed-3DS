@@ -36,6 +36,7 @@
 #include "battle_anim.h"
 #include "battle_controllers.h"
 #include "battle_main.h"
+#include "battle_mega.h"
 #include "bg.h"
 #include "data.h"
 #include "decompress.h"
@@ -135,6 +136,8 @@ enum { MENU_POKEDEX, MENU_POKEMON, MENU_BAG, MENU_PLAYER, MENU_SAVE, MENU_OPTION
 #define BACK_Y 211
 #define BACK_W 56
 #define BACK_H 24
+#define MEGA_X (BACK_X - 92)
+#define MEGA_W 86
 /* a menu's GBA picture, 1:1 in a frame */
 #define GBA_W 240
 #define GBA_H 160
@@ -178,7 +181,7 @@ enum {
 
 /* Touch targets */
 enum { HIT_NONE, HIT_BUTTON, HIT_PARTY = HIT_BUTTON + MENU_COUNT, HIT_RUN, HIT_BATTLE,
-       HIT_TAB = HIT_BATTLE + 5, HIT_ROW = HIT_TAB + CTR_EXTRAS_PAGES, HIT_ROW_BACK = HIT_ROW + OPT_PAGE_ROWS,
+       HIT_TAB = HIT_BATTLE + 6, HIT_ROW = HIT_TAB + CTR_EXTRAS_PAGES, HIT_ROW_BACK = HIT_ROW + OPT_PAGE_ROWS,
        HIT_PAGE_PREV = HIT_ROW_BACK + OPT_PAGE_ROWS, HIT_PAGE_NEXT, HIT_BACK, HIT_SCENE, HIT_COUNT };
 
 typedef struct {
@@ -200,6 +203,7 @@ typedef struct {
     u8 balls[PARTY_SIZE]; /* 0 none, 1 able, 2 fainted or status */
     u16 moves[MAX_MON_MOVES];
     u8 pp[MAX_MON_MOVES], maxPp[MAX_MON_MOVES];
+    u8 mega;         /* the MEGA key: 0 hidden, 1 off, 2 on */
     FighterView player, opponent;
 } BattleView;
 
@@ -444,6 +448,8 @@ static void SnapshotBattle(ViewState *s)
                     : s->b.choose == PORT_BATTLE_MOVE ? gMoveSelectionCursor[battler] : gMultiUsePlayerCursor;
         if (s->b.choose == PORT_BATTLE_SWITCH)
             s->b.picked = gMoveSelectionCursor[battler];
+        if (s->b.choose == PORT_BATTLE_MOVE && Mega_CanToggle(battler))
+            s->b.mega = Mega_IsToggled(battler) ? 2 : 1;
     }
     for (int i = 0; i < PARTY_SIZE; i++)
     {
@@ -724,6 +730,19 @@ static void BackKey(bool8 pressed)
     RoundBox(BACK_X, BACK_Y, BACK_W, BACK_H, 6, pressed ? C_SLATE : C_SLATE_HI, C_SLATE_EDGE);
     Arrow(BACK_X + 10, BACK_Y + 12, TRUE, C_WHITE);
     Text(FONT_SMALL, Ascii("BACK"), BACK_X + 18, BACK_Y + 4, C_WHITE, C_SLATE_HI, TRUE);
+}
+
+/* The MEGA key: the Key Stone and MEGA; lit while Mega Evolution is chosen. */
+static void MegaKey(bool8 on, bool8 pressed)
+{
+    const UiIcon *icon = &sIconKey22;
+    u16 face = on ? C8(232, 92, 196) : C_SLATE_HI, edge = on ? C_GOLD : C_SLATE_EDGE;
+
+    if (on)
+        RoundRect(MEGA_X - 2, BACK_Y - 2, MEGA_W + 4, BACK_H + 4, 8, C_GOLD);
+    RoundBox(MEGA_X, BACK_Y, MEGA_W, BACK_H, 6, pressed ? C_SLATE : face, edge);
+    DrawUiIcon(icon, MEGA_X + 4, BACK_Y + (BACK_H - icon->size) / 2, TRUE);
+    Text(FONT_SMALL, Ascii("MEGA"), MEGA_X + 32, BACK_Y + 4, C_WHITE, pressed ? C_SLATE : face, TRUE);
 }
 
 static void HpBar(int x, int y, int w, int hp, int maxHp)
@@ -1498,6 +1517,11 @@ static void ActionRect(int i, int *x, int *y, int *w, int *h)
 
 static void MoveRect(int i, int *x, int *y, int *w, int *h)
 {
+    if (i == 5) /* MEGA, in the footer between the fighter and BACK */
+    {
+        *x = MEGA_X, *y = BACK_Y, *w = MEGA_W, *h = BACK_H;
+        return;
+    }
     if (i == 4)
     {
         *x = BACK_X, *y = BACK_Y, *w = BACK_W, *h = BACK_H;
@@ -1660,8 +1684,10 @@ static void RenderBattle(const ViewState *s)
     if (s->b.choose == PORT_BATTLE_MOVE || s->b.choose == PORT_BATTLE_SWITCH)
     {
         DrawMoves(s);
-        DrawFighter(&s->b.player, 10, 150);
+        DrawFighter(&s->b.player, 10, s->b.mega ? MEGA_X - 18 : 150);
         BackKey(s->pressed == HIT_BATTLE + 4);
+        if (s->b.mega)
+            MegaKey(s->b.mega == 2, s->pressed == HIT_BATTLE + 5);
     }
     else
     {
@@ -4277,7 +4303,7 @@ static u8 BattleHitTest(const ViewState *s, int x, int y)
     /* no menu up: a message goes on with a tap */
     if (!s->b.choose)
         return HIT_SCENE;
-    for (int i = 0; i < (moves ? 5 : 4); i++)
+    for (int i = 0; i < (moves ? (s->b.mega ? 6 : 5) : 4); i++)
     {
         int bx, by, bw, bh;
 
@@ -4331,7 +4357,7 @@ static void Activate(const ViewState *s, u8 hit)
     {
         if (hit == HIT_SCENE)
             Inject(A_BUTTON);
-        else if (s->b.choose && hit >= HIT_BATTLE && hit < HIT_BATTLE + 5
+        else if (s->b.choose && hit >= HIT_BATTLE && hit < HIT_BATTLE + 6
          && (s->b.choose != PORT_BATTLE_ACTION || hit < HIT_BATTLE + 4))
         {
             PlaySE(SE_SELECT);
