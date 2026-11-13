@@ -39,7 +39,7 @@ fichiers (dialogues, menus, noms, descriptions du Pokédex, écrans d'aide,
 script de terrain et de combat), soit 99,6 % des 6 517 chaînes dont les octets
 diffèrent entre les deux ROMs. Il extrait aussi les quatre polices latines avec
 leurs fichiers du port (`latin_normal`, `latin_male`, `latin_female`,
-`latin_small`) et la table de largeur de la petite police, puis les 63
+`latin_small`) et la table de largeur de la petite police, puis les 61
 graphismes dont les pixels diffèrent : écran titre (logo et bandeau
 « appuyez sur start »), tilesets général et Department Store, cartes de
 dresseur, Pokédex, Easy Chat, écran de résumé, machine à sous, Teachy TV,
