@@ -82,4 +82,6 @@ on PokéCommunity, free to use with credit to its contributors:
 Axel_CodeInfinity (front), Lykeron (back), leParagon (quality check).
 
 The sprites are reduced to 16 colours for the GBA's battle screen. The MEGA
-key's Key Stone is the port's own icon.
+key's Key Stone, the bag icons of the MEGA STONE, MEGA STONE Y and MEGA RING
+(tools/dev/mega_item_icons.py) and the Mega Evolution effect's orbs, sphere
+and shards (tools/dev/mega_fx.py) are the port's own, drawn by those scripts.
