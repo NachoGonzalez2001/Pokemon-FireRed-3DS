@@ -61,7 +61,18 @@ sont les bienvenus.
 
 ## Régénérer le manifeste
 
-Le manifeste est produit à partir de la décomp française de référence
+```sh
+python tools/locale_research/make_french_manifest.py \
+    --elf baserom.elf --english-rom "FireRed (USA, Rev 1).gba" \
+    --french-elf pokerougefeu.elf --french-rom "Rouge Feu (France).gba" \
+    --tree build/upstream
+```
+
+`--elf` est la ROM américaine compilée depuis l'amont épinglé (agbcc,
+`--emit-relocs`), `--french-elf` la décompilation française
+(`qigast/pokerougefeu`, qui reconstruit BPRF à l'octet près) : les noms de
+symboles communs donnent l'offset français de chaque symbole anglais. Le
+manifeste est produit à partir de la décomp française de référence
 (`qigast/pokerougefeu`, qui reconstruit BPRF à l'octet près), de l'ELF de la
 décomp épinglée et des deux ROMs propres. Chaque littéral source est ré-encodé
 et comparé aux octets de la ROM américaine avant d'être retenu : un texte qui

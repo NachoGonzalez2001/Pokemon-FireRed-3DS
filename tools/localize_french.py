@@ -24,10 +24,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "builder"))
-from firered3ds_builder.rom import load_rom
+from firered3ds_builder.rom import FRENCH_SHA1, load_rom
 from firered3ds_builder.recipe import lz77_decompress
 
-FRENCH_SHA1 = "fc663907256f06a3a09e2d6b967bc9af4919f111"
 def encoded(data: bytes) -> str:
     return ",".join("0x%02X" % byte for byte in data)
 
