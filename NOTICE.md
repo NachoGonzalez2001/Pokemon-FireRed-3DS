@@ -23,6 +23,13 @@ bootstrap and its `0004-platform-layer.patch`. Files in
 `3ds_port/src/voxel/` additionally carry the attribution of their own
 `NOTICE.md` (pokeemerald-multiplatform, MIT).
 
+The visible wild Pokémon (OPTIONS, ENHANCEMENTS, VISIBLE WILD; the
+`VisibleWild_*` section of `src/wild_encounter.c` in
+`patches/pokefirered/0028-wild-renewed-and-visible.patch`) are adapted from
+that project's `patches/pokeemerald/0014-visible-wild.patch` as of its
+commit d724c5d, under the MIT License below: FireRed's encounter tiles,
+Unown letters, the SHINY ODDS setting and the Pokémon Tower's ghosts.
+
 Its port code is distributed under the MIT License:
 
     MIT License

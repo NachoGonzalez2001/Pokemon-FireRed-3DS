@@ -11,6 +11,7 @@
 | `ui_icons.py <header>` | draw the bottom screen's icons (the port's own art) into `3ds_port/src/fr_ui_icons.h` |
 | `mega_item_icons.py <c> [preview.png]` | draw the Mega Evolution items' bag icons (the port's own art) into `3ds_port/src/fr_mega_item_icons.c` |
 | `mega_fx.py <c> [preview.png]` | draw the Mega Evolution effect's sprites (the port's own art) into `3ds_port/src/fr_mega_fx.c` |
+| `wild_renewed.py [--check]` | rewrite FireRed's wild encounter tables (`src/data/wild_encounters.json` in the tree) with the port's own distribution; `--check` only reports |
 | `sizeof_scan.py` | count `sizeof()` uses on INCBIN arrays (stubs in this build) |
 | `3ds_port/scripts/voxel_view.py <layout> <x,y>` | a spot of a map as the console draws it, in seconds: run it from the build tree, keep its pictures local |
 

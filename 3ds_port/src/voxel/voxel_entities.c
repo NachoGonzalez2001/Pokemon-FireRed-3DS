@@ -1073,24 +1073,27 @@ static int EffectOwner(const struct Sprite *sprite, const VoxelObjectCard *objec
  * ground point - a Mystery Dungeon sprite's frames move about it as the
  * creature bobs and turns.
  */
-static void EmitFollower(VoxelBuilder *builder, const VoxelFollowerCard *f,
-                         float rightX, float rightZ, float stretch, const VoxelDoor *door)
+/* The visible wild Pokemon are drawn the same way, each from its own cell,
+ * a big one's picture at half resolution (scale 2) on a card of its size. */
+static void EmitMysteryDungeonCard(VoxelBuilder *builder, float x, float z, int dx, int dy, int w, int h,
+                                   int foot, int scale, unsigned cellX, unsigned cellY,
+                                   float rightX, float rightZ, float stretch, const VoxelDoor *door)
 {
-    float cx = f->x + 0.5f, cz = f->z + 0.5f;
-    float u0 = VOXEL_FOLLOWER_CELL_X / (float)VOXEL_SPRITE_ATLAS_DIM;
-    float u1 = (VOXEL_FOLLOWER_CELL_X + f->w) / (float)VOXEL_SPRITE_ATLAS_DIM;
-    float v0 = 1.0f - VOXEL_FOLLOWER_CELL_Y / (float)VOXEL_SPRITE_ATLAS_H;
-    float v1 = 1.0f - (VOXEL_FOLLOWER_CELL_Y + f->h) / (float)VOXEL_SPRITE_ATLAS_H;
-    float halfW = f->w / VOXEL_PIXELS_PER_TILE * 0.5f;
-    float centre = (f->dx + f->w * 0.5f) / VOXEL_PIXELS_PER_TILE;
-    float height = f->h / VOXEL_PIXELS_PER_TILE * stretch;
-    float below = (f->dy + f->h - f->foot) / VOXEL_PIXELS_PER_TILE * stretch;
+    float cx = x + 0.5f, cz = z + 0.5f;
+    float u0 = cellX / (float)VOXEL_SPRITE_ATLAS_DIM;
+    float u1 = (cellX + w) / (float)VOXEL_SPRITE_ATLAS_DIM;
+    float v0 = 1.0f - cellY / (float)VOXEL_SPRITE_ATLAS_H;
+    float v1 = 1.0f - (cellY + h) / (float)VOXEL_SPRITE_ATLAS_H;
+    float halfW = w * scale / VOXEL_PIXELS_PER_TILE * 0.5f;
+    float centre = (dx + w * scale * 0.5f) / VOXEL_PIXELS_PER_TILE;
+    float height = h * scale / VOXEL_PIXELS_PER_TILE * stretch;
+    float below = (dy + h * scale - foot) / VOXEL_PIXELS_PER_TILE * stretch;
     float lift = VoxelRelief_LiftAt(cx, cz), shift = VoxelRelief_ShiftAt(cx, cz);
     float push = CardPush(cx, cz, halfW, height), model = ModelPush(cx, cz, halfW);
     float shade = 1.0f, dusk = DoorLight(door, cx, cz);
     float along, px, pz, bottom;
 
-    if (dusk <= 0.0f || f->w <= 0 || f->h <= 0)
+    if (dusk <= 0.0f || w <= 0 || h <= 0)
         return;
     if (model > push)
         push = model;
@@ -1111,6 +1114,13 @@ static void EmitFollower(VoxelBuilder *builder, const VoxelFollowerCard *f,
         &(VoxelVertex){px + rightX * halfW, bottom,          pz + rightZ * halfW, u1, v1, shade * dusk},
         &(VoxelVertex){px + rightX * halfW, bottom + height, pz + rightZ * halfW, u1, v0, shade * dusk},
         &(VoxelVertex){px - rightX * halfW, bottom + height, pz - rightZ * halfW, u0, v0, shade * dusk});
+}
+
+static void EmitFollower(VoxelBuilder *builder, const VoxelFollowerCard *f,
+                         float rightX, float rightZ, float stretch, const VoxelDoor *door)
+{
+    EmitMysteryDungeonCard(builder, f->x, f->z, f->dx, f->dy, f->w, f->h, f->foot, 1,
+                           VOXEL_FOLLOWER_CELL_X, VOXEL_FOLLOWER_CELL_Y, rightX, rightZ, stretch, door);
 }
 
 unsigned VoxelEntities_Emit(VoxelBuilder *builder, uint16_t *atlas, const VoxelCamera *camera,
@@ -1139,6 +1149,8 @@ unsigned VoxelEntities_Emit(VoxelBuilder *builder, uint16_t *atlas, const VoxelC
     static VoxelEffectCard effects[VOXEL_EFFECTS_MAX];
     static bool objectSprite[MAX_SPRITES];
     static u16 objectTiles[OBJECT_EVENTS_COUNT];
+    static VoxelWildCard wild[VOXEL_WILD_MAX];
+    int wildCount = 0;
     bool claimed[VOXEL_SPRITE_SLOTS] = {false};
     unsigned objectTileCount = 0, effectCount = 0;
     unsigned updates = 0;
@@ -1265,6 +1277,17 @@ unsigned VoxelEntities_Emit(VoxelBuilder *builder, uint16_t *atlas, const VoxelC
         card->outdoor = outdoor;
     }
 
+    /* The visible wild Pokemon drawn from followers.bin: their party icons,
+     * map sprites as the effects are, are left out. */
+    if (VoxelWorld_InstanceCount() > 0)
+    {
+        const VoxelMapInstance *inst = VoxelWorld_Instance(0);
+
+        wildCount = VoxelWild_Update(atlas, camera->yaw, (float)inst->originX, (float)inst->originY, wild);
+        for (int w = 0; w < wildCount; ++w)
+            if (wild[w].spriteId >= 0 && wild[w].spriteId < MAX_SPRITES)
+                objectSprite[wild[w].spriteId] = true;
+    }
     for (unsigned id = 0; id < MAX_SPRITES && effectCount < VOXEL_EFFECTS_MAX; ++id)
     {
         const struct Sprite *sprite = &gSprites[id];
@@ -1363,6 +1386,15 @@ unsigned VoxelEntities_Emit(VoxelBuilder *builder, uint16_t *atlas, const VoxelC
         if (gPlayerAvatar.objectEventId < VOXEL_SPRITE_SLOTS && objects[gPlayerAvatar.objectEventId].drawn
          && VoxelFollower_Update(atlas, camera->yaw, &follower))
             EmitFollower(builder, &follower, rightX, rightZ, stretch, &door);
+    }
+    for (int w = 0; w < wildCount; ++w)
+    {
+        const VoxelWildCard *c = &wild[w];
+
+        if (fabsf(c->x - camera->targetX) > 24.0f || fabsf(c->z - camera->targetZ) > 24.0f)
+            continue;
+        EmitMysteryDungeonCard(builder, c->x, c->z, c->dx, c->dy, c->w, c->h, c->foot, c->scale,
+                               c->cellX, c->cellY, rightX, rightZ, stretch, &door);
     }
 
     for (unsigned e = 0; e < effectCount; ++e)

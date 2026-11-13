@@ -26,4 +26,25 @@ bool VoxelFollower_Update(uint16_t *atlas, float yawDegrees, VoxelFollowerCard *
 /* Forgets the path: the follower stands behind the player again. */
 void VoxelFollower_Reset(void);
 
+/* The visible wild Pokemon (OPTIONS, VISIBLE WILD), drawn as the follower is:
+ * each card's picture in its own cell of the atlas. */
+#define VOXEL_WILD_MAX 6
+#define VOXEL_WILD_CELL_DIM 64u
+
+typedef struct
+{
+    float x, z;          /* its ground point, world */
+    int dx, dy;          /* its picture's top left from there, source pixels */
+    int w, h;            /* its picture in its cell, atlas pixels */
+    int foot;            /* the row (source pixels) its feet stand on */
+    int scale;           /* source pixels per atlas pixel: 1, or 2 for the big */
+    unsigned cellX, cellY;
+    int spriteId;        /* its party icon, which the 3D view leaves out */
+} VoxelWildCard;
+
+/* Moves and animates the wild ones for this frame; `origin` is the map's
+ * place in the world. Returns how many cards were written. */
+int VoxelWild_Update(uint16_t *atlas, float yawDegrees, float originX, float originZ,
+                     VoxelWildCard cards[VOXEL_WILD_MAX]);
+
 #endif

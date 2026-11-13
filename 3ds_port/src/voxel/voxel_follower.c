@@ -431,3 +431,236 @@ bool VoxelFollower_Update(uint16_t *atlas, float yawDegrees, VoxelFollowerCard *
     card->foot = sFoot;
     return true;
 }
+
+/* ── The visible wild Pokemon ──────────────────────────────────────────── */
+
+/*
+ * With VISIBLE WILD on (wild_encounter.c), the Pokemon wandering the grass
+ * are drawn as the follower is, from the same followers.bin: each in a 64x64
+ * cell of its own, walking the way it steps, standing still between steps.
+ * A species whose frames are larger than the cell is drawn at half its
+ * resolution and twice the card's size. Without the file, or without that
+ * species in it, its party icon stays.
+ */
+bool8 VisibleWild_View(u32 i, u16 *species, s16 *x, s16 *y, s8 *dx, s8 *dy, u8 *progress, u8 *spriteId);
+
+static const uint16_t sWildCell[VOXEL_WILD_MAX][2] = {
+    {128, 256}, {192, 256}, {128, 320}, {192, 320}, {0, 384}, {64, 384},
+};
+
+typedef struct
+{
+    uint8_t *entry;
+    int national, spriteId;
+    int foot, scale;
+    int drawnKey, drawnW, drawnH;
+    int screenDir, still;
+    float dirX, dirZ, animTime;
+    uint32_t column[VOXEL_WILD_CELL_DIM];
+    bool columnsBuilt;
+} WildDraw;
+
+static WildDraw sWild[VOXEL_WILD_MAX];
+
+static const uint8_t *AnimOf(const uint8_t *entry, int anim)
+{
+    return anim == 0 ? entry : entry + ANIM_HEAD + 8 * DIRECTIONS * entry[0];
+}
+
+static const uint8_t *FrameOf(const uint8_t *entry, int anim, int dir, int frame)
+{
+    const uint8_t *a = AnimOf(entry, anim);
+
+    return a + ANIM_HEAD + 8 * (dir * a[0] + frame);
+}
+
+static void WildForget(WildDraw *w)
+{
+    free(w->entry);
+    w->entry = NULL;
+    w->national = 0;
+    w->spriteId = -1;
+    w->drawnKey = -1;
+}
+
+static bool WildLoad(WildDraw *w, int national)
+{
+    int biggest = 0;
+
+    if (national == w->national && w->entry != NULL)
+        return true;
+    WildForget(w);
+    if (national <= 0 || national >= FOLLOWERS_COUNT || sSize[national] == 0)
+        return false;
+    w->entry = malloc(sSize[national]);
+    if (w->entry == NULL || fseek(sFile, (long)sOffset[national], SEEK_SET) != 0
+     || fread(w->entry, 1, sSize[national], sFile) != sSize[national])
+    {
+        CtrLog_Write(CTR_LOG_ERROR, "visible wild: #%d could not be read", national);
+        WildForget(w);
+        return false;
+    }
+    w->national = national;
+    /* one size for all its frames, so the card never jumps between them */
+    for (int anim = 0; anim < 2; ++anim)
+        for (int dir = 0; dir < DIRECTIONS; ++dir)
+            for (int f = 0; f < AnimOf(w->entry, anim)[0]; ++f)
+            {
+                const uint8_t *r = FrameOf(w->entry, anim, dir, f);
+
+                if (r[2] > biggest) biggest = r[2];
+                if (r[3] > biggest) biggest = r[3];
+            }
+    w->scale = biggest > (int)VOXEL_WILD_CELL_DIM ? 2 : 1;
+    w->foot = 0;
+    for (int f = 0; f < AnimOf(w->entry, 0)[0]; ++f)
+    {
+        const uint8_t *r = FrameOf(w->entry, 0, 0, f);
+        int bottom = (int8_t)r[1] + r[3];
+
+        if (f == 0 || bottom > w->foot)
+            w->foot = bottom;
+    }
+    return true;
+}
+
+static void WildDrawFrame(WildDraw *w, unsigned cell, uint16_t *atlas, int anim, int dir, int frame)
+{
+    const uint8_t *a = AnimOf(w->entry, anim), *r = FrameOf(w->entry, anim, dir, frame);
+    int fw = r[2], fh = r[3], s = w->scale;
+    int width = (fw + s - 1) / s, height = (fh + s - 1) / s;
+    const uint8_t *px = w->entry + Le32(r + 4);
+    uint16_t graded[16];
+    int clearW, clearH;
+
+    if (width > (int)VOXEL_WILD_CELL_DIM) width = VOXEL_WILD_CELL_DIM;
+    if (height > (int)VOXEL_WILD_CELL_DIM) height = VOXEL_WILD_CELL_DIM;
+    clearW = w->drawnW > width ? w->drawnW : width;
+    clearH = w->drawnH > height ? w->drawnH : height;
+    graded[0] = 0;
+    for (int c = 1; c < 16; ++c)
+        graded[c] = VoxelGrade_RGBA5551((uint16_t)(a[4 + 2 * c] | (a[5 + 2 * c] << 8)));
+    if (!w->columnsBuilt)
+    {
+        for (unsigned x = 0; x < VOXEL_WILD_CELL_DIM; ++x)
+            w->column[x] = CtrVideo_Texel(sWildCell[cell][0] + x, 0, VOXEL_SPRITE_ATLAS_DIM);
+        w->columnsBuilt = true;
+    }
+    for (int y = 0; y < clearH; ++y)
+    {
+        uint16_t *row = atlas + (CtrVideo_Texel(sWildCell[cell][0], sWildCell[cell][1] + (unsigned)y,
+                                                VOXEL_SPRITE_ATLAS_DIM) - w->column[0]);
+        int x = 0;
+
+        if (y < height)
+            for (; x < width; ++x)
+            {
+                int k = y * s * fw + x * s;
+
+                row[w->column[x]] = graded[(px[k >> 1] >> ((k & 1) * 4)) & 15];
+            }
+        for (; x < clearW; ++x)
+            row[w->column[x]] = 0;
+    }
+    w->drawnW = width;
+    w->drawnH = height;
+}
+
+/* As ScreenDirection, for a wild one's heading. */
+static int WildScreenDirection(WildDraw *w, float yawDegrees)
+{
+    const float pi = 3.14159265358979323846f;
+    float yaw = yawDegrees * (pi / 180.0f);
+    float sx = w->dirX * cosf(yaw) - w->dirZ * sinf(yaw);
+    float sy = w->dirX * sinf(yaw) + w->dirZ * cosf(yaw);
+    float angle = atan2f(sx, sy) * (180.0f / pi);
+    int k = (int)lroundf(angle / 45.0f);
+
+    k = ((k % DIRECTIONS) + DIRECTIONS) % DIRECTIONS;
+    if (w->screenDir >= 0 && k != w->screenDir)
+    {
+        float off = fabsf(fmodf(angle - w->screenDir * 45.0f + 540.0f, 360.0f) - 180.0f);
+
+        if (off < 22.5f + TURN_MARGIN)
+            k = w->screenDir;
+    }
+    w->screenDir = k;
+    return k;
+}
+
+int VoxelWild_Update(uint16_t *atlas, float yawDegrees, float originX, float originZ,
+                     VoxelWildCard cards[VOXEL_WILD_MAX])
+{
+    int count = 0;
+
+    if (sFileBad || !OpenFile() || gMain.inBattle || gQuestLogState != 0)
+        return 0;
+    for (unsigned i = 0; i < VOXEL_WILD_MAX; ++i)
+    {
+        WildDraw *w = &sWild[i];
+        VoxelWildCard *card = &cards[count];
+        u16 species;
+        s16 x, y;
+        s8 dx, dy;
+        u8 progress, spriteId;
+        int anim, dir, frame, key;
+        const uint8_t *r;
+
+        if (!VisibleWild_View(i, &species, &x, &y, &dx, &dy, &progress, &spriteId))
+        {
+            if (w->entry != NULL)
+                WildForget(w);
+            continue;
+        }
+        if (!WildLoad(w, SpeciesToNationalPokedexNum(species)))
+            continue;
+        if (w->spriteId != spriteId)
+        {
+            /* a new one in this place: it starts facing the camera */
+            w->spriteId = spriteId;
+            w->screenDir = -1;
+            w->dirX = 0.0f;
+            w->dirZ = 1.0f;
+            w->animTime = 0.0f;
+            w->still = 1000;
+        }
+        if (progress)
+        {
+            w->dirX = dx;
+            w->dirZ = dy;
+            if (w->still > 8)
+                w->animTime = 0.0f;
+            w->still = 0;
+            w->animTime += 0.5f;   /* half a pixel a frame: the walk at a stroll */
+        }
+        else
+        {
+            if (++w->still == 8)
+                w->animTime = 0.0f;
+            w->animTime += 1.0f;
+        }
+        anim = w->still > 8 ? 1 : 0;
+        dir = WildScreenDirection(w, yawDegrees);
+        frame = FrameAt(AnimOf(w->entry, anim), w->animTime);
+        key = ((w->national * 2 + anim) * DIRECTIONS + dir) * 16 + frame;
+        if (key != w->drawnKey)
+        {
+            WildDrawFrame(w, i, atlas, anim, dir, frame);
+            w->drawnKey = key;
+        }
+        r = FrameOf(w->entry, anim, dir, frame);
+        card->x = originX + x + dx * (progress / 32.0f);
+        card->z = originZ + y + dy * (progress / 32.0f);
+        card->dx = (int8_t)r[0];
+        card->dy = (int8_t)r[1];
+        card->w = w->drawnW;
+        card->h = w->drawnH;
+        card->foot = w->foot;
+        card->scale = w->scale;
+        card->cellX = sWildCell[i][0];
+        card->cellY = sWildCell[i][1];
+        card->spriteId = spriteId;
+        ++count;
+    }
+    return count;
+}

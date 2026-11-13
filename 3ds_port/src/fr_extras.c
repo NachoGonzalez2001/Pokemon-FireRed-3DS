@@ -23,6 +23,7 @@ const char *const gCtrExtrasOffOn[2] = {"OFF", "ON"};
 
 static const char *const sEncounterRate[] = {"NORMAL", "OFF", "1/4", "1/2", "2X"};
 static const char *const sTrainerTeams[] = {"CLASSIC", "RENEWED"};
+static const char *const sVisibleWild[] = {"OFF", "2", "4", "6"}; /* at once (wild_encounter.c) */
 static const char *const sShinyOdds[] = {"1/8192", "1/4096", "1/1024", "1/256", "1/64", "ALWAYS"};
 
 /*
@@ -196,6 +197,7 @@ const CtrExtra gCtrExtras[] =
     {CTR_EXTRAS_ENHANCEMENTS, "HMS WITHOUT MOVE", "field_hms", 2, 0, gCtrExtrasOffOn, NULL, NULL, NULL},
     {CTR_EXTRAS_ENHANCEMENTS, "REUSABLE TMS", "reusable_tms", 2, 0, gCtrExtrasOffOn, NULL, NULL, NULL},
     {CTR_EXTRAS_ENHANCEMENTS, "TRAINER TEAMS", "trainer_teams", 2, 1, sTrainerTeams, NULL, NULL, NULL},
+    {CTR_EXTRAS_ENHANCEMENTS, "VISIBLE WILD", "visible_wild", 4, 0, sVisibleWild, NULL, NULL, NULL},
     {CTR_EXTRAS_CHEATS, "WILD ENCOUNTERS", "encounter_rate", 5, 0, sEncounterRate, NULL, NULL, NULL},
     {CTR_EXTRAS_CHEATS, "SHINY ODDS", "shiny_odds", 6, 0, sShinyOdds, NULL, NULL, NULL},
     {CTR_EXTRAS_CHEATS, "ALWAYS CATCH", "always_catch", 2, 0, gCtrExtrasOffOn, NULL, NULL, NULL},

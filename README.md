@@ -72,6 +72,12 @@ that passes in 24 minutes, or stays off - OPTIONS > DAY/NIGHT):
 - **Free movement** (optional): walk any way the circle pad points.
 - **A Pokémon that follows you** in the 3D world: the first of your party
   walks behind you, in eight directions, in Mystery Dungeon style (see below).
+- **Renewed wild Pokémon**: every non-legendary Pokémon of the first three
+  generations lives somewhere in Kanto or the Sevii Islands, by level and
+  habitat, and the National Pokédex is open from the start.
+- **Visible wild Pokémon** (optional, OPTIONS > VISIBLE WILD): instead of
+  random encounters, up to 2, 4 or 6 wild Pokémon wander the grass, caves and
+  water in Mystery Dungeon style; touch one to battle it.
 - **Options**: settings, quality-of-life enhancements (game speed, exp share,
   reusable TMs, HMs without the move...) and cheats, from the bottom screen.
 
