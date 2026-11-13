@@ -5,6 +5,7 @@
     python tools/bootstrap.py --make -j8      # and build the 3DSX there
     python tools/bootstrap.py --clean         # start again from the pinned commit
     python tools/bootstrap.py --gba           # build the stock GBA ROM instead (sanity check)
+    python tools/bootstrap.py --make --french-rom "/path/Pokemon Rouge Feu.gba"   # French (BPRF)
 
 Adapted from the Pokémon Emerald 3Ds Dual Screen bootstrap (MIT, see NOTICE.md).
 
@@ -14,7 +15,11 @@ Adapted from the Pokémon Emerald 3Ds Dual Screen bootstrap (MIT, see NOTICE.md)
    pinned commit first whenever the patch set changed since the last run.
 3. Places 3ds_port/, builder/ and tools/ inside it, so relative paths such as
    ../tools/port_common resolve as in development.
-4. With --make: builds the decomp tools and generated includes, then the 3DSX
+4. With --french-rom: after the generated includes, tools/localize_french.py
+   stages the French texts, fonts and graphics from the user's own clean
+   BPRF ROM (docs/FRENCH.md). Changing language resets the tree and drops the
+   objects and localized resources of the previous one.
+5. With --make: builds the decomp tools and generated includes, then the 3DSX
    (`make -C 3ds_port`). With --gba: builds the unmodified GBA ROM of the
    pinned target with devkitARM's GCC (MODERN=1), to prove the toolchain.
    Run from a shell with devkitPro, a host compiler (MSYS2 UCRT64/MinGW64 gcc
@@ -59,6 +64,7 @@ OVERLAY_EXCLUDES = ["/3ds_port/", "/builder/", "/tools/port_common/", "/tools/bo
                     "/tools/dkp.sh", "/tools/export_patch.py", "/upstream.lock",
                     "/tools/gen_recipe.py", "/tools/vtree_manifest.py", "/tools/build_release.py",
                     "/tools/release_audit.py", "/tools/release_audit_allow.toml",
+                    "/tools/localize_french.py", "/tools/locales/", "/.firered3ds-locale",
                     "/.firered3ds-patches"]
 
 
@@ -88,6 +94,7 @@ def main() -> int:
     ap.add_argument("--gba", action="store_true", help="build the stock GBA ROM (toolchain check)")
     ap.add_argument("-j", "--jobs", type=int, default=4)
     ap.add_argument("--python", default=sys.executable, help="Python the build calls (PYTHON=)")
+    ap.add_argument("--french-rom", type=Path, help="stage the French data from a clean BPRF ROM")
     args = ap.parse_args()
 
     lock = tomllib.loads((ROOT / "upstream.lock").read_text(encoding="utf-8"))
@@ -97,6 +104,9 @@ def main() -> int:
     patches = sorted((ROOT / "patches" / "pokefirered").glob("*.patch"))
     marker = tree / ".firered3ds-patches"
     digest = patch_digest(patches)
+    locale_marker = tree / ".firered3ds-locale"
+    previous = locale_marker.read_text(encoding="utf-8").strip() if locale_marker.exists() else ""
+    french = args.french_rom is not None
 
     # The tree is current when it sits on the pinned commit (its base, under
     # one commit per patch) and the marker matches the patch set.
@@ -105,7 +115,7 @@ def main() -> int:
         based = subprocess.run(["git", "merge-base", "--is-ancestor", commit, "HEAD"], cwd=tree,
                                capture_output=True).returncode == 0
     stale = not marker.exists() or marker.read_text().strip() != digest
-    if args.clean or not based or stale:
+    if args.clean or not based or stale or french or previous:
         if based and not args.clean:
             # A reset would throw away edits not yet exported as a patch.
             dirty = subprocess.run(["git", "status", "--porcelain"], cwd=tree,
@@ -118,6 +128,27 @@ def main() -> int:
             fetch(tree, repo, commit)
         keep_lf(tree)
         run(["git", "reset", "-q", "--hard", commit], cwd=tree)
+        locale_marker.unlink(missing_ok=True)
+        if french or previous:
+            # Objects and staged data of the other language must not be
+            # reused: rebuild every native object when the language changes.
+            shutil.rmtree(tree / "3ds_port/build", ignore_errors=True)
+            shutil.rmtree(tree / "3ds_port/romfs", ignore_errors=True)
+        if previous:
+            # Localized art written by a previous run is untracked: drop it so
+            # the decomp's own rules regenerate it from the pinned PNGs.
+            import gzip
+            import json
+            locales = ROOT / "tools" / "locales"
+            for source in locales.glob("*.json.gz"):
+                manifest = json.loads(gzip.decompress(source.read_bytes()))
+                for relative, _, _ in manifest["graphics"]:
+                    names = (relative, relative[:-3]) if relative.endswith(".lz") else (relative,)
+                    for name in names:
+                        tracked = subprocess.run(["git", "ls-files", "--error-unmatch", name],
+                                                 cwd=tree, capture_output=True).returncode == 0
+                        if not tracked:
+                            (tree / name).unlink(missing_ok=True)
         if args.clean:
             run(["git", "clean", "-q", "-fdx"], cwd=tree)
         # Files a previous patch set created are untracked after the reset;
@@ -155,7 +186,15 @@ def main() -> int:
     if args.make:
         run(["make", "tools", "-j%d" % args.jobs], cwd=tree)
         run(["make", "generated", "-j%d" % args.jobs], cwd=tree)
-        run(["make", "-C", "3ds_port", "-j%d" % args.jobs, "PYTHON=%s" % args.python], cwd=tree)
+        if french:
+            run([args.python, ROOT / "tools" / "localize_french.py", "--tree", tree,
+                 "--rom", args.french_rom], cwd=tree)
+        language = ["GAME_LANGUAGE=FRENCH"] if french else []
+        run(["make", "-C", "3ds_port", "-j%d" % args.jobs, "PYTHON=%s" % args.python] + language,
+            cwd=tree)
+    elif french:
+        run([args.python, ROOT / "tools" / "localize_french.py", "--tree", tree,
+             "--rom", args.french_rom], cwd=tree)
     return 0
 
 
