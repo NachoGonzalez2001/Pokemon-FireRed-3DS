@@ -74,6 +74,7 @@ def build_pack_for_web(rom_path, payload_path, output_path, progress_callback=No
         raise BuilderError("The generated data does not match this release's manifest.",
                            code="abi_mismatch")
     info["abi"] = "%08x" % info["abi"]
+    info["romSha1"] = rom.sha1
     info["builderVersion"] = __version__
     return info
 
@@ -101,3 +102,64 @@ def run_web_build(rom_path, payload_path, output_path, progress_callback=None, m
         if isinstance(exc, (KeyboardInterrupt, SystemExit)):
             raise
         return json.dumps({"ok": False, "apiVersion": API_VERSION, "error": describe(exc)})
+
+
+# --- the follower's sprites and the SD card ZIP -------------------------------
+#
+# Python in the browser has no network and no threads, so the page downloads
+# the follower sprites itself (from SpriteCollab, which allows it) into the
+# in-memory file system, laid out as followers.default_cache() would hold
+# them: <cache>/<path>, or an empty <cache>/<path>.missing for a file
+# SpriteCollab does not have. Then the same packing code as the desktop runs.
+
+
+def follower_downloads() -> str:
+    """JSON: where to download the follower sprites from and which files."""
+    from . import followers
+    return json.dumps({"source": followers.SOURCE, "commit": followers.COMMIT,
+                       "files": [followers.relpath(n, name) for n, name in followers.jobs()],
+                       "optional": sorted(followers.OPTIONAL)})
+
+
+def run_web_followers(cache_path, out_dir, progress_callback=None) -> str:
+    """followers.bin and followers-credits.txt from the downloaded files,
+    never raising: {"ok": true, "result": {...}} or {"ok": false, "error": {...}}."""
+    from . import followers
+    try:
+        report = None
+        if progress_callback is not None:
+            report = lambda f: progress_callback("followers", f, "Packing the follower sprites")  # noqa: E731
+        info = followers.build(Path(out_dir), cache=Path(cache_path), workers=1, pack_progress=report)
+        return json.dumps({"ok": True, "apiVersion": API_VERSION, "result": info})
+    except followers.FollowerError as exc:
+        return json.dumps({"ok": False, "apiVersion": API_VERSION,
+                           "error": {"code": "followers_failed", "message": str(exc), "hint": ""}})
+    except BaseException as exc:  # noqa: BLE001
+        if isinstance(exc, (KeyboardInterrupt, SystemExit)):
+            raise
+        return json.dumps({"ok": False, "apiVersion": API_VERSION, "error": describe(exc)})
+
+
+def copy_executables(payload_path, rom_sha1, out_dir) -> list[str]:
+    """Copy the executable and its HOME Menu data made for this ROM (the
+    default variant or a language's) next to the data pack."""
+    import shutil
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    names = []
+    for path in Payload(Path(payload_path)).for_rom(rom_sha1).executables():
+        shutil.copyfile(path, out / path.name)
+        names.append(path.name)
+    return names
+
+
+def make_sd_zip(sd_root, out_zip) -> int:
+    """Zip everything under sd_root (the SD card's 3ds/firered3ds/...) into
+    out_zip, paths relative to sd_root. Returns the ZIP's size."""
+    import zipfile
+    root = Path(sd_root)
+    with zipfile.ZipFile(out_zip, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
+        for path in sorted(root.rglob("*")):
+            if path.is_file():
+                zf.write(path, path.relative_to(root).as_posix())
+    return Path(out_zip).stat().st_size

@@ -3,12 +3,6 @@
 Turns the player's own Pokémon FireRed (USA, Rev 1) ROM into `firered3ds.pak`
 and installs the game on an SD card.
 
-Status: carried over from the Emerald port's builder and renamed. The ROM
-check, names and install paths are FireRed's; the recipe and the voxel
-generators it runs are not yet made for FireRed, so a FireRed release payload
-does not exist yet (`tools/build_web_payload.py` is not in this repository
-either, which two tests need).
-
 Release users get a standalone Windows executable (no Python needed). From
 source (any OS, Python 3.11+ and Pillow):
 
@@ -41,13 +35,26 @@ temporary files are removed even when a step fails.
 
 ## Web builder
 
-The website runs this same package in the browser (Pyodide, in a Web Worker)
-from the release's `FireRed3DS-WebPayload.zip`, through
+The website (`site/`, published on GitHub Pages by `.github/workflows/site.yml`)
+runs this same package in the browser (Pyodide, in a Web Worker) from
+`FireRed3DS-WebPayload.zip`, through
 `web.run_web_build(rom, payload, out_pak, progress, manifest)`. The only
 difference with the desktop build is that the voxel generators run in-process
 (`voxel.run_step_inprocess`): each script gets fresh sibling modules, argv,
 working directory and import path, exactly as a new process would. Outputs are
-checked against the same CRCs and ABI. `tools/build_web_payload.py --synthetic
-DIR` writes a synthetic payload and "ROM" to exercise it without game data.
+checked against the same CRCs and ABI, so the pack is byte for byte the
+desktop one.
+
+Python in the browser has no network and no threads: the page downloads the
+follower sprites itself (`web.follower_downloads()` lists them) into the
+in-memory file system, laid out as the desktop cache, and
+`web.run_web_followers()` packs them with the same code. `web.make_sd_zip()`
+gives the player one ZIP with `3ds/firered3ds/`.
+
+`tools/build_web_payload.py` makes the ZIP and `web-manifest.json` from a
+release's `payload/` folder; `tools/build_site.py` assembles the whole site from
+a release's Windows ZIP (the workflow does it on every release), and
+`tools/build_web_payload.py --synthetic DIR` writes a synthetic payload and
+"ROM" to exercise it without game data.
 
 Tests: `python -m unittest discover -s builder/tests` (synthetic data only).

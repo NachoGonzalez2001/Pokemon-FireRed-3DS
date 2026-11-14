@@ -28,19 +28,21 @@ import release_audit  # noqa: E402
 from firered3ds_builder import pak, voxel, web, webmanifest  # noqa: E402
 from firered3ds_builder.errors import BuilderError  # noqa: E402
 
-# Two generators shaped like the real ones: ROOT from __file__, a sibling module
-# holding state, argparse --output. The second one depends on the first's output.
-GEN_A = '''import os, sys
+# Two generators shaped like the real ones (named as two of voxel.STEPS): ROOT
+# from __file__, a sibling module holding state, argparse --output. Neither
+# reads the other's output: the subprocess runner runs them side by side.
+GEN_A = '''import argparse, os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import shared_state
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-PORT = os.path.join(ROOT, "3ds_port")
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--output", required=True)
+    args = ap.parse_args()
     shared_state.RUNS.append("a")
     data = open(os.path.join(ROOT, "data", "in.bin"), "rb").read()
-    out = os.path.join(PORT, "romfs", "voxel", "regions.bin")
-    os.makedirs(os.path.dirname(out), exist_ok=True)
-    open(out, "wb").write(bytes(b ^ len(shared_state.RUNS) for b in data))
+    os.makedirs(os.path.dirname(args.output), exist_ok=True)
+    open(args.output, "wb").write(bytes(b ^ len(shared_state.RUNS) for b in data))
 if __name__ == "__main__":
     main()
 '''
@@ -55,7 +57,7 @@ def main():
     shared_state.RUNS.append("b")
     if os.path.realpath(os.getcwd()) != os.path.realpath(PORT):
         raise SystemExit("wrong working directory")
-    data = open(os.path.join(PORT, "romfs", "voxel", "regions.bin"), "rb").read()
+    data = open(os.path.join(PORT, "..", "data", "in.bin"), "rb").read()
     os.makedirs(os.path.dirname(args.output), exist_ok=True)
     open(args.output, "wb").write(data[::-1] + bytes([len(shared_state.RUNS)]))
 if __name__ == "__main__":
@@ -68,17 +70,17 @@ FAILING = '''raise RuntimeError("boom")
 def make_voxelgen(root: Path, gen_b: str = GEN_B) -> Path:
     scripts = root / "voxelgen" / "scripts"
     scripts.mkdir(parents=True)
-    (scripts / "gen_voxel_regions.py").write_text(GEN_A)
-    (scripts / "gen_intro_margins.py").write_text(gen_b)
+    (scripts / "fr_gen_relief.py").write_text(GEN_A)
+    (scripts / "fr_gen_trees.py").write_text(gen_b)
     (scripts / "shared_state.py").write_text("RUNS = []\n")
     return root / "voxelgen"
 
 
 def expected_outputs(data: bytes) -> list[dict]:
     a = bytes(b ^ 1 for b in data)
-    b = a[::-1] + bytes([1])
-    return [{"path": "voxel/regions.bin", "size": len(a), "crc": zlib.crc32(a) & 0xFFFFFFFF},
-            {"path": "stage/leaves.bin", "size": len(b), "crc": zlib.crc32(b) & 0xFFFFFFFF}]
+    b = data[::-1] + bytes([1])
+    return [{"path": "voxel/relief.bin", "size": len(a), "crc": zlib.crc32(a) & 0xFFFFFFFF},
+            {"path": "voxel/trees.rgba5551", "size": len(b), "crc": zlib.crc32(b) & 0xFFFFFFFF}]
 
 
 class RunnerTests(unittest.TestCase):
@@ -114,7 +116,7 @@ class RunnerTests(unittest.TestCase):
                 with self.assertRaises(BuilderError) as ctx:
                     self.run_once(runner, FAILING)
                 self.assertEqual(ctx.exception.code, "generator_failed")
-                self.assertIn("gen_intro_margins.py", ctx.exception.message)
+                self.assertIn("fr_gen_trees.py", ctx.exception.message)
 
     def test_wrong_output_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -140,9 +142,9 @@ class RunnerTests(unittest.TestCase):
             voxel.run_generators(tree, voxelgen, expected_outputs(data), lambda f, d: seen.append((f, d)),
                                  runner="inprocess", timings=timings)
         self.assertEqual([d.split(",")[0] for _, d in seen],
-                         ["map regions (1/2)"] * 2 + ["intro scene (2/2)"] * 2)
+                         ["terrain relief (1/2)"] * 2 + ["trees (2/2)"] * 2)
         self.assertEqual([f for f, _ in seen], [0.0, 0.5, 0.5, 1.0])
-        self.assertEqual([name for name, _ in timings], ["gen_voxel_regions.py", "gen_intro_margins.py", "check"])
+        self.assertEqual([name for name, _ in timings], ["fr_gen_relief.py", "fr_gen_trees.py", "check"])
 
     def test_unknown_runner(self):
         with self.assertRaises(ValueError):
@@ -180,7 +182,7 @@ class WebBuildTests(SyntheticPayloadMixin, unittest.TestCase):
         manifest = json.loads((self.unpacked / "web-manifest.json").read_text())
         self.assertEqual(result["result"]["abi"], manifest["dataAbi"])
         with pak.PakReader(result["pak"]) as reader:
-            self.assertEqual(reader.verify(), 3)
+            self.assertEqual(reader.verify(), 4)
             self.assertEqual("%08x" % reader.abi, manifest["dataAbi"])
         self.assertEqual([s[0] for s in result["stages"]][0], "rom")
         self.assertEqual({s[0] for s in result["stages"]}, {"rom", "data", "scenery", "verify"})
@@ -197,7 +199,7 @@ class WebBuildTests(SyntheticPayloadMixin, unittest.TestCase):
     def test_wrong_rom_is_reported_with_a_code(self):
         rom = self.tmp / "other.gba"
         data = bytearray(b"\xff" * 1024)
-        data[0xA0:0xB0] = b"POKEMON FIREBPRE"
+        data[0xA0:0xB0] = b"POKEMON LEAFBPGE"
         rom.write_bytes(bytes(data))
         result = self.build(rom)
         self.assertFalse(result["ok"])
@@ -225,7 +227,7 @@ class WebBuildTests(SyntheticPayloadMixin, unittest.TestCase):
         self.assertNotEqual(variant["dataAbi"], manifest["dataAbi"])
         self.assertEqual(result["result"]["abi"], variant["dataAbi"])
         with pak.PakReader(result["pak"]) as reader:
-            self.assertEqual(reader.verify(), 3)
+            self.assertEqual(reader.verify(), 4)
             self.assertEqual(reader.rom_sha1.hex(), variant["rom"]["sha1"])
 
     def test_variant_abi_must_match(self):
@@ -317,7 +319,7 @@ class WebPayloadContentsTests(SyntheticPayloadMixin, unittest.TestCase):
         self.assertIn("web-manifest.json", names)
         for required in ("payload/FireRed3DS.3dsx", "payload/FireRed3DS.smdh", "payload/firered3ds.recipe",
                          "python/firered3ds_builder/web.py", "python/firered3ds_builder/voxel.py",
-                         "licenses/LICENSE-PORT.md"):
+                         "licenses/NOTICE.md"):
             self.assertIn(required, names)
         self.assertTrue(all(n == "web-manifest.json" or n.startswith(("payload/", "python/", "licenses/"))
                             for n in names))

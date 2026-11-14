@@ -64,15 +64,25 @@ def _download(url: str) -> bytes | None:
         raise
 
 
+def jobs() -> list[tuple[int, str]]:
+    return [(n, name) for n in range(1, SPECIES + 1) for name in FILES] + [(0, "credit_names.txt")]
+
+
+def relpath(n: int, name: str) -> str:
+    """A file's path in SpriteCollab and in the cache."""
+    return name if n == 0 else "sprite/%04d/%s" % (n, name)
+
+
 def fetch(cache: Path | None = None, progress=None, workers: int = 8) -> dict:
     """{(number, name): bytes or None} for every species and file, plus
-    (0, "credit_names.txt"). `cache` keeps the downloads (tests, reruns)."""
-    jobs = [(n, name) for n in range(1, SPECIES + 1) for name in FILES] + [(0, "credit_names.txt")]
+    (0, "credit_names.txt"). `cache` keeps the downloads (tests, reruns).
+    workers=1 reads them one after another, without threads (the web builder,
+    whose page has already put every file into the cache)."""
     out: dict = {}
 
     def one(job):
         n, name = job
-        rel = name if n == 0 else "sprite/%04d/%s" % (n, name)
+        rel = relpath(n, name)
         path = cache / rel if cache else None
         if path is not None and path.exists():
             return job, path.read_bytes()
@@ -87,14 +97,18 @@ def fetch(cache: Path | None = None, progress=None, workers: int = 8) -> dict:
                 path.write_bytes(data)
         return job, data
 
+    todo = jobs()
+    pool = concurrent.futures.ThreadPoolExecutor(workers) if workers > 1 else None
     try:
-        with concurrent.futures.ThreadPoolExecutor(workers) as pool:
-            for i, (job, data) in enumerate(pool.map(one, jobs)):
-                out[job] = data
-                if progress and i % 50 == 0:
-                    progress(i / len(jobs))
+        for i, (job, data) in enumerate(pool.map(one, todo) if pool else map(one, todo)):
+            out[job] = data
+            if progress and i % 50 == 0:
+                progress(i / len(todo))
     except OSError as exc:
         raise FollowerError("The follower sprites could not be downloaded: %s" % exc) from exc
+    finally:
+        if pool:
+            pool.shutdown()
     for n in range(1, SPECIES + 1):
         for name in FILES:
             if out.get((n, name)) is None and name not in OPTIONAL:
@@ -182,10 +196,12 @@ def _anim_bytes(n: int, files: dict, name: str):
     return files[(n, name + "-Anim.png")], files.get((n, name + "-Shadow.png")), a
 
 
-def pack(files: dict) -> bytes:
+def pack(files: dict, progress=None) -> bytes:
     count = SPECIES + 1
     entries = []
     for n in range(1, SPECIES + 1):
+        if progress and n % 8 == 0:
+            progress(n / SPECIES)
         anims = [_anim_bytes(n, files, "Walk"), _anim_bytes(n, files, "Idle")]
         heads = [52 + 8 * DIRECTIONS * _frames(sheet, size) for sheet, _, size in anims]
         pixels = bytearray()
@@ -234,18 +250,19 @@ def default_cache() -> Path:
     return Path(base) / "FireRed3DS" / ("spritecollab-" + COMMIT[:12])
 
 
-def build(out_dir: Path, cache: Path | None = None, progress=None) -> dict:
+def build(out_dir: Path, cache: Path | None = None, progress=None, workers: int = 8,
+          pack_progress=None) -> dict:
     """Fetches and writes followers.bin and followers-credits.txt into
     out_dir. Raises FollowerError when the sprites cannot be had."""
     if cache is None:
         cache = default_cache()
     try:
-        files = fetch(cache, progress)
+        files = fetch(cache, progress, workers)
     except FollowerError:
         raise
     except Exception as exc:     # no connection, a proxy, a full disk
         raise FollowerError("The follower sprites could not be downloaded: %s" % exc) from exc
-    data = pack(files)
+    data = pack(files, pack_progress)
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "followers.bin").write_bytes(data)
     (out_dir / "followers-credits.txt").write_text(credits(files), encoding="utf-8")

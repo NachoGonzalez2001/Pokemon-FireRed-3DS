@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pokémon FireRed 3DS</title>
+<meta name="description" content="A native Nintendo 3DS port of Pokémon FireRed with both screens, a touch interface and a 3D voxel world. Build it from your own cartridge, in your browser.">
+<meta property="og:title" content="Pokémon FireRed 3DS">
+<meta property="og:description" content="Kanto on both screens, in 3D. A native Nintendo 3DS port built from your own cartridge.">
+<meta property="og:image" content="img/og.png">
+<meta name="theme-color" content="#d8262f">
+<link rel="icon" href="img/icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Silkscreen:wght@400;700&display=swap">
+<link rel="stylesheet" href="assets/css/site.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="./"><img src="img/icon.png" alt="">FireRed 3DS</a>
+    <button class="menu-btn" aria-label="Menu" aria-expanded="false" data-menu>&#9776;</button>
+    <nav class="nav" data-nav>
+      <a href="#features" data-i18n="nav.features">Features</a>
+      <a href="#screens" data-i18n="nav.screens">Screenshots</a>
+      <a href="#install" data-i18n="nav.install">Install</a>
+      <a href="build.html" data-i18n="nav.build">Web builder</a>
+      <a href="https://github.com/NachoGonzalez2001/Pokemon-FireRed-3DS" rel="noopener">GitHub</a>
+      <span class="lang" role="group" aria-label="Language">
+        <button type="button" data-lang="en" aria-pressed="true">EN</button>
+        <button type="button" data-lang="es" aria-pressed="false">ES</button>
+      </span>
+    </nav>
+  </div>
+</header>
+
+<main>
+<section class="hero">
+  <div class="wrap">
+    <div>
+      <span class="eyebrow" data-i18n="hero.eyebrow">Native Nintendo 3DS homebrew</span>
+      <img class="hero-logo" src="img/logo.webp" alt="Pokémon FireRed 3DS" width="1200" height="600">
+      <h1 data-i18n="hero.title">Kanto on both screens, in 3D.</h1>
+      <p class="lead" data-i18n="hero.lead">A native Nintendo 3DS port of Pokémon FireRed with a touch interface, a voxel world, a Pokémon that follows you and 48 Mega Evolutions.</p>
+      <div class="actions">
+        <a class="btn btn-primary" href="build.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z"/></svg>
+          <span data-i18n="hero.build">Build in your browser</span>
+        </a>
+        <a class="btn btn-ghost" href="#install" data-i18n="hero.howto">How to install</a>
+      </div>
+      <p class="privacy">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+        <span data-i18n="hero.privacy">Built from your own cartridge dump. Your ROM is processed entirely in your browser and never leaves your device.</span>
+      </p>
+    </div>
+    <div class="console" aria-label="Both screens of the console">
+      <img src="img/screenshots/dual-screen.png" alt="Cerulean City with Charmeleon following on the top screen; the region map, party and menu on the bottom screen" width="800" height="960">
+    </div>
+  </div>
+</section>
+
+<section class="alt" id="release">
+  <div class="wrap">
+    <div class="card release">
+      <div>
+        <span class="eyebrow" data-i18n="rel.eyebrow">Latest version</span>
+        <div class="tag" data-release="tag">v0.5.1</div>
+        <p class="muted small" data-release="date"></p>
+        <ul data-release="highlights"></ul>
+        <details class="notes" data-release="notes-box" hidden>
+          <summary data-i18n="rel.notes">Full release notes</summary>
+          <div class="md" data-release="notes"></div>
+        </details>
+      </div>
+      <div class="actions" style="margin:0; flex-direction:column; min-width:240px">
+        <a class="btn btn-primary" href="build.html" data-i18n="rel.build">Web builder</a>
+        <a class="btn btn-ghost" data-release="zip" href="https://github.com/NachoGonzalez2001/Pokemon-FireRed-3DS/releases/latest" data-i18n="rel.windows">Windows builder (ZIP)</a>
+        <a class="small" href="https://github.com/NachoGonzalez2001/Pokemon-FireRed-3DS/releases" data-i18n="rel.all">All releases on GitHub</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="features">
+  <div class="wrap">
+    <div class="head">
+      <span class="eyebrow" data-i18n="feat.eyebrow">The project</span>
+      <h2 data-i18n="feat.title">The whole game, made for the 3DS</h2>
+      <p class="lead" data-i18n="feat.lead">Built from the pret/pokefirered decompilation, running natively on the console's own processor: no emulator.</p>
+    </div>
+    <div class="grid grid-3">
+      <article class="card">
+        <h3><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg></span><span data-i18n="f1.t">A 3D overworld</span></h3>
+        <p data-i18n="f1.d">Towns, routes, caves and interiors rebuilt in voxels from the game's own drawing, with lighting, shadows and an adjustable camera. The classic 2D field is one option away.</p>
+      </article>
+      <article class="card">
+        <h3><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="9" rx="2"/><rect x="5" y="13" width="14" height="9" rx="2"/></svg></span><span data-i18n="f2.t">Two screens, made for touch</span></h3>
+        <p data-i18n="f2.d">The world on top; the region map, party, bag, summary, Pokédex, PC boxes and battle menus on the touch screen below.</p>
+      </article>
+      <article class="card">
+        <h3><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></span><span data-i18n="f3.t">Day and night</span></h3>
+        <p data-i18n="f3.d">Outdoors the light follows the console's clock, or a day that passes in 24 minutes, from dawn to night.</p>
+      </article>
+      <article class="card">
+        <h3><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c2 4 6 5 6 10a6 6 0 0 1-12 0c0-3 2-5 3-7 1 2 2 3 3 3 0-2 0-4 0-6z"/></svg></span><span data-i18n="f4.t">48 Mega Evolutions</span></h3>
+        <p data-i18n="f4.d">From Kanto, Johto, Hoenn and Pokémon Legends: Z-A, with the MEGA RING and the MEGA STONES found in the story, and Gym Leaders and Elite Four who use them too.</p>
+      </article>
+      <article class="card">
+        <h3><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3"/><circle cx="17" cy="11" r="2"/><path d="M3 21c0-4 3-6 6-6s6 2 6 6"/><path d="M15 21c0-2 1-4 4-4"/></svg></span><span data-i18n="f5.t">A Pokémon that follows you</span></h3>
+        <p data-i18n="f5.d">The first of your party walks behind you in eight directions, with Mystery Dungeon style sprites.</p>
+      </article>
+      <article class="card">
+        <h3><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20c2-6 5-9 9-9s7 3 9 9"/><path d="M8 11c0-3 2-6 4-8 2 2 4 5 4 8"/></svg></span><span data-i18n="f6.t">Wild Pokémon you can see</span></h3>
+        <p data-i18n="f6.d">Every non-legendary Pokémon of the first three generations lives somewhere in Kanto, and they can wander the grass, caves and water instead of random encounters.</p>
+      </article>
+      <article class="card">
+        <h3><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4 6 14h6l-2 6 8-10h-6l2-6z"/></svg></span><span data-i18n="f7.t">Physical/special split</span></h3>
+        <p data-i18n="f7.d">Each move is physical or special by itself, as in the later games, with its category shown on the move pages. CLASSIC keeps FireRed's rule.</p>
+      </article>
+      <article class="card">
+        <h3><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg></span><span data-i18n="f8.t">Options for everyone</span></h3>
+        <p data-i18n="f8.d">Game speed, exp share, reusable TMs, free movement, renewed or classic trainer teams and more, from the bottom screen.</p>
+      </article>
+      <article class="card">
+        <h3><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg></span><span data-i18n="f9.t">Your save stays a GBA save</span></h3>
+        <p data-i18n="f9.d">The same 128 KB file moves between the 3DS, GBA emulators and a cartridge dump, and every update keeps it as it is.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="alt" id="screens">
+  <div class="wrap">
+    <div class="head">
+      <span class="eyebrow" data-i18n="gal.eyebrow">Screenshots</span>
+      <h2 data-i18n="gal.title">Kanto, rebuilt</h2>
+    </div>
+    <div class="gallery">
+      <figure><img loading="lazy" src="img/screenshots/route-25.png" alt="Route 25 with Eevee following" width="800" height="480"><figcaption data-i18n="g.route25">Route 25</figcaption></figure>
+      <figure><img loading="lazy" src="img/screenshots/vermilion.png" alt="Vermilion City harbour with Squirtle following" width="800" height="480"><figcaption data-i18n="g.vermilion">Vermilion City, morning</figcaption></figure>
+      <figure><img loading="lazy" src="img/screenshots/cerulean-dusk.png" alt="Cerulean City at dusk with Psyduck following" width="800" height="480"><figcaption data-i18n="g.cerulean">Cerulean City, dusk</figcaption></figure>
+      <figure><img loading="lazy" src="img/screenshots/lavender-night.png" alt="Lavender Town at night with Gengar following" width="800" height="480"><figcaption data-i18n="g.lavender">Lavender Town, night</figcaption></figure>
+      <figure><img loading="lazy" src="img/screenshots/cinnabar-dusk.png" alt="Cinnabar Island at dusk with Arcanine following" width="800" height="480"><figcaption data-i18n="g.cinnabar">Cinnabar Island, dusk</figcaption></figure>
+      <figure><img loading="lazy" src="img/screenshots/fuchsia.png" alt="Fuchsia City with Snorlax following" width="800" height="480"><figcaption data-i18n="g.fuchsia">Fuchsia City</figcaption></figure>
+      <figure><img loading="lazy" src="img/screenshots/viridian-forest.png" alt="Viridian Forest with Butterfree following" width="800" height="480"><figcaption data-i18n="g.viridian">Viridian Forest</figcaption></figure>
+      <figure><img loading="lazy" src="img/screenshots/mt-moon.png" alt="Mt. Moon with Clefairy following" width="800" height="480"><figcaption data-i18n="g.mtmoon">Mt. Moon</figcaption></figure>
+      <figure><img loading="lazy" src="img/screenshots/silph-co.png" alt="Silph Co. with Porygon following" width="800" height="480"><figcaption data-i18n="g.silph">Silph Co.</figcaption></figure>
+    </div>
+    <h3 style="margin-top:36px" data-i18n="gal.daynight">Pallet Town, from dawn to night</h3>
+    <div class="daynight gallery">
+      <figure><img loading="lazy" src="img/screenshots/pallet-dawn.png" alt="Pallet Town at dawn" width="800" height="480"><figcaption data-i18n="g.dawn">Dawn</figcaption></figure>
+      <figure><img loading="lazy" src="img/screenshots/pallet-day.png" alt="Pallet Town by day" width="800" height="480"><figcaption data-i18n="g.day">Day</figcaption></figure>
+      <figure><img loading="lazy" src="img/screenshots/pallet-dusk.png" alt="Pallet Town at dusk" width="800" height="480"><figcaption data-i18n="g.dusk">Dusk</figcaption></figure>
+      <figure><img loading="lazy" src="img/screenshots/pallet-night.png" alt="Pallet Town at night" width="800" height="480"><figcaption data-i18n="g.night">Night</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section id="how">
+  <div class="wrap">
+    <div class="head">
+      <span class="eyebrow" data-i18n="how.eyebrow">How it works</span>
+      <h2 data-i18n="how.title">From your cartridge to your 3DS</h2>
+      <p class="lead" data-i18n="how.lead">No game content is distributed. The game data is rebuilt from your own dump, on your own device.</p>
+    </div>
+    <div class="steps">
+      <div class="card step"><h3 data-i18n="how.s1t">Choose your ROM</h3><p data-i18n="how.s1d">A clean dump of your own Pokémon FireRed (USA, Rev 1) cartridge. It is checked right away, on your device.</p></div>
+      <div class="card step"><h3 data-i18n="how.s2t">Build in your browser</h3><p data-i18n="how.s2d">The project's own builder runs on this page and creates the game data. Nothing is uploaded.</p></div>
+      <div class="card step"><h3 data-i18n="how.s3t">Copy it to your SD card</h3><p data-i18n="how.s3d">Download one ZIP, copy its 3ds folder to the root of the SD card and start the game from the Homebrew Launcher.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="alt" id="install">
+  <div class="wrap grid grid-2" style="align-items:start">
+    <div>
+      <span class="eyebrow" data-i18n="ins.eyebrow">3DS installation</span>
+      <h2 data-i18n="ins.title">What you need</h2>
+      <ul>
+        <li data-i18n="ins.r1">A Nintendo 3DS or 2DS family console with custom firmware (Luma3DS) and the Homebrew Launcher.</li>
+        <li data-i18n-html="ins.r2">A clean dump of your own Pokémon FireRed (USA, Rev 1) cartridge, SHA-1 <code>dd5945db9b930750cb39d00c84da8571feebf417</code>.</li>
+        <li data-i18n="ins.r3">Your console's SD card, connected to your computer.</li>
+        <li data-i18n="ins.r4">No 3DS? It also runs on the Azahar emulator.</li>
+      </ul>
+      <div class="actions">
+        <a class="btn btn-primary" href="build.html" data-i18n="ins.build">Open the web builder</a>
+      </div>
+      <p class="small muted" data-i18n-html="ins.windows">Prefer to build offline? The Windows ZIP of each <a href="https://github.com/NachoGonzalez2001/Pokemon-FireRed-3DS/releases/latest">release</a> has the same builder as a program, and the <a href="https://github.com/NachoGonzalez2001/Pokemon-FireRed-3DS#install-players">README</a> explains how to run it on Linux and macOS.</p>
+    </div>
+    <div>
+      <h3 data-i18n="ins.sd">On the SD card</h3>
+      <pre class="tree">SD:/
+└── 3ds/
+    ├── dspfirm.cdc          <span data-i18n="ins.dsp">(needed for sound)</span>
+    └── firered3ds/
+        ├── FireRed3DS.3dsx
+        ├── FireRed3DS.smdh
+        ├── firered3ds.pak
+        ├── followers.bin
+        └── followers-credits.txt</pre>
+      <div class="callout" data-i18n-html="ins.save">Your save, <code>firered3ds.sav</code>, lives in the same folder and is never overwritten by an update. Still, keep a copy before updating.</div>
+      <div class="callout warn" data-i18n-html="ins.dspnote"><code>dspfirm.cdc</code> comes from your own console: dump it once with the DSP1 homebrew. Without it the game plays without sound.</div>
+    </div>
+  </div>
+</section>
+
+<section id="support">
+  <div class="wrap grid grid-2">
+    <div class="card">
+      <h3 data-i18n="sup.title">Support the project</h3>
+      <p data-i18n="sup.d">Pokémon FireRed 3DS is free and always will be. If you enjoy it, you can make a voluntary donation: it supports development only and does not buy the game, early access or anything else.</p>
+      <a class="btn btn-ghost" href="https://www.paypal.com/donate/?hosted_button_id=YRCM45GNZ59XW" rel="noopener" data-i18n="sup.btn">Donate with PayPal</a>
+    </div>
+    <div class="card">
+      <h3 data-i18n="thx.title">Thanks</h3>
+      <p data-i18n-html="thx.d">To <a href="https://github.com/ZallaxDev">ZallaxDev</a>, creator of <a href="https://github.com/ZallaxDev/pokeemerald-3Ds-dualscreen">Pokémon Emerald 3Ds Dual Screen</a>, the port this one stands on; to the <a href="https://github.com/pret">pret</a> team for the pokefirered decompilation; to the artists of <a href="https://github.com/PMDCollab/SpriteCollab">PMD SpriteCollab</a> and of the DS-style Mega Evolution sprites credited in <a href="https://github.com/NachoGonzalez2001/Pokemon-FireRed-3DS/blob/main/NOTICE.md">NOTICE.md</a>.</p>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <nav>
+      <a href="build.html" data-i18n="nav.build">Web builder</a>
+      <a href="https://github.com/NachoGonzalez2001/Pokemon-FireRed-3DS">GitHub</a>
+      <a href="https://github.com/NachoGonzalez2001/Pokemon-FireRed-3DS/releases" data-i18n="foot.releases">Releases</a>
+      <a href="https://github.com/NachoGonzalez2001/Pokemon-FireRed-3DS/blob/main/NOTICE.md" data-i18n="foot.credits">Credits and licences</a>
+    </nav>
+    <p data-i18n="foot.legal">Pokémon FireRed 3DS is an unofficial fan project, not affiliated with or endorsed by Nintendo, Game Freak, Creatures or The Pokémon Company. This site and its releases do not contain the game.</p>
+  </div>
+</footer>
+
+<script src="assets/js/i18n.js"></script>
+<script src="assets/js/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,88 @@
+# The website and its web builder, on GitHub Pages.
+#
+# On every published release (and by hand), tools/build_site.py assembles
+# site/ with the latest release: its Windows ZIP's payload becomes the web
+# builder's FireRed3DS-WebPayload.zip, and its notes the "latest version" card.
+# The release audit checks the web payload against the contract before it is
+# published. Nothing here ever sees a ROM.
+#
+# One-time setup: Settings > Pages > Build and deployment > Source: GitHub Actions.
+
+name: Website
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - "builder/firered3ds_builder/**"
+      - "tools/build_site.py"
+      - "tools/build_web_payload.py"
+      - "docs/screenshots/**"
+      - ".github/workflows/site.yml"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install Pillow
+        run: python -m pip install --upgrade pillow
+
+      - name: Builder tests
+        run: python -m unittest discover -s builder/tests
+
+      - name: Download the latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p release
+          gh release view --repo "$GITHUB_REPOSITORY" --json tagName,publishedAt,body,assets > release/release.json
+          python - <<'EOF'
+          import json, os
+          r = json.load(open("release/release.json", encoding="utf-8"))
+          open("release/notes.md", "w", encoding="utf-8").write(r["body"] or "")
+          names = [a["name"] for a in r["assets"]]
+          with open(os.environ["GITHUB_ENV"], "a") as env:
+              env.write("TAG=%s\n" % r["tagName"])
+              env.write("PUBLISHED=%s\n" % r["publishedAt"])
+              env.write("CIA=%s\n" % ("1" if "FireRed3DS-Forwarder.cia" in names else ""))
+          EOF
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "FireRed3DS-*-Windows.zip" --dir release
+
+      - name: Assemble the site
+        run: |
+          python tools/build_site.py --windows-zip release/FireRed3DS-${TAG}-Windows.zip --tag "$TAG" \
+            --published-at "$PUBLISHED" --notes release/notes.md ${CIA:+--cia} --out _site
+          python tools/release_audit.py --zip _site/payload/FireRed3DS-WebPayload.zip --web-payload --strict
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
