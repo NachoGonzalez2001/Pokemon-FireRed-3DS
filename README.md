@@ -78,6 +78,12 @@ that passes in 24 minutes, or stays off - OPTIONS > DAY/NIGHT):
 - **Visible wild Pokémon** (optional, OPTIONS > VISIBLE WILD): instead of
   random encounters, up to 2, 4 or 6 wild Pokémon wander the grass, caves and
   water in Mystery Dungeon style; touch one to battle it.
+- **Mega Evolution**: 48 Mega Evolutions of the first three generations and
+  of Pokémon Legends: Z-A, with the MEGA RING and MEGA STONES found in the
+  story, and renewed Gym Leaders and Elite Four that use them.
+- **Physical/special split** (optional, OPTIONS > MOVE SPLIT): each move is
+  physical or special by itself, as in the later games, instead of by its
+  type; the move pages show its category.
 - **Options**: settings, quality-of-life enhancements (game speed, exp share,
   reusable TMs, HMs without the move...) and cheats, from the bottom screen.
 

@@ -186,7 +186,50 @@ def keystone():
     return c.done((58, 36, 92))
 
 
-ALL = dict(Dex=dex, Ball=ball, Bag=bag, Card=card, Save=save, Gear=gear, Shoe=shoe, Lens=lens, Key=keystone)
+def physical():
+    """A move's category, physical: a blow's burst on an orange badge."""
+    c = Ic()
+    c.circ(14, 14, 13, (255, 176, 84), (214, 64, 28))
+    pts = []
+    for k in range(16):
+        r = 11.4 if k % 2 == 0 else 4.6
+        a = math.pi * 2 * k / 16 - math.pi / 2
+        pts.append((14 + r * math.cos(a), 14.6 + r * math.sin(a)))
+    c.poly(pts, (255, 252, 214), (255, 200, 72))
+    c.circ(14, 14.6, 3.2, (255, 255, 255))
+    c.ell(6.4, 3.6, 13.6, 8.4, (255, 255, 255), None, alpha=120)
+    return c.done((98, 24, 8))
+
+
+def special():
+    """A move's category, special: rings of energy on a blue badge."""
+    c = Ic()
+    b = c.circ(14, 14, 13, (122, 176, 255), (44, 64, 196))
+    c.circ(14, 14, 10, (236, 244, 255), (176, 206, 255), b)
+    c.circ(14, 14, 8, (88, 128, 236), (52, 76, 206), b)
+    c.circ(14, 14, 5.6, (250, 252, 255), (196, 222, 255), b)
+    c.circ(14, 14, 3.4, (140, 112, 255), (86, 60, 220), b)
+    c.ell(6.4, 3.6, 13.6, 8.4, (255, 255, 255), None, alpha=120)
+    return c.done((22, 28, 96))
+
+
+def status():
+    """A move's category, status: a four-pointed sparkle on a grey-green badge."""
+    c = Ic()
+    c.circ(14, 14, 13, (196, 226, 214), (96, 140, 132))
+    pts = []
+    for k in range(8):
+        r = 11.0 if k % 2 == 0 else 3.0
+        a = math.pi * 2 * k / 8 - math.pi / 2
+        pts.append((14 + r * math.cos(a), 14 + r * math.sin(a)))
+    c.poly(pts, (255, 255, 255), (212, 236, 230))
+    c.circ(14, 14, 2.2, (150, 220, 200))
+    c.ell(5.6, 4.0, 11.4, 8.0, (255, 255, 255), None, alpha=110)
+    return c.done((44, 58, 56))
+
+
+ALL = dict(Dex=dex, Ball=ball, Bag=bag, Card=card, Save=save, Gear=gear, Shoe=shoe, Lens=lens, Key=keystone,
+           Phys=physical, Spec=special, Stat=status)
 
 
 def get(name, size=None):
@@ -195,7 +238,7 @@ def get(name, size=None):
 
 
 SIZES = [('Dex', 26), ('Ball', 26), ('Bag', 26), ('Card', 26), ('Save', 26), ('Gear', 26), ('Shoe', 20), ('Lens', 22),
-         ('Bag', 28), ('Shoe', 28), ('Key', 22)]
+         ('Bag', 28), ('Shoe', 28), ('Key', 22), ('Phys', 14), ('Spec', 14), ('Stat', 14)]
 
 
 def main(path):

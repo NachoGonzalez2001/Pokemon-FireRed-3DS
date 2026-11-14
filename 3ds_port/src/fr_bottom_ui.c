@@ -37,6 +37,7 @@
 #include "battle_controllers.h"
 #include "battle_main.h"
 #include "battle_mega.h"
+#include "move_split.h"
 #include "bg.h"
 #include "data.h"
 #include "decompress.h"
@@ -689,6 +690,17 @@ static void DrawUiIcon(const UiIcon *icon, int x, int y, bool8 on)
                 c = Mix(sCanvas[px * H + (H - 1 - py)], c, a, 255);
             Put(px, py, c);
         }
+}
+
+/* A move's category under ENHANCEMENTS > MOVE SPLIT (move_split.c). */
+static const UiIcon *CategoryIcon(u16 move)
+{
+    switch (MoveSplit_Category(move))
+    {
+    case MOVE_CATEGORY_PHYSICAL: return &sIconPhys14;
+    case MOVE_CATEGORY_SPECIAL:  return &sIconSpec14;
+    default:                     return &sIconStat14;
+    }
 }
 
 static void Shell(int x, int y, int w, int h)
@@ -1634,6 +1646,7 @@ static void DrawMoves(const ViewState *s)
         FillRect(x + 1, y + 20, w - 2, 7, colour);
         Text(FONT_NORMAL, gMoveNames[move], x + 8, y + 4, C_WHITE, Darker(colour, 3), TRUE);
         Text(FONT_SMALL, gTypeNames[type], x + 8, y + 32, C_MUTED, C_CARD, TRUE);
+        DrawUiIcon(CategoryIcon(move), x + 12 + TextWidth(FONT_SMALL, gTypeNames[type]), y + 32, TRUE);
         p = StringCopy(buf, Ascii("PP "));
         p = ConvertIntToDecimalStringN(p, s->b.pp[i], STR_CONV_MODE_LEFT_ALIGN, 2);
         *p++ = CHAR_SLASH;
@@ -2557,11 +2570,12 @@ static void DrawSummaryMoves(const PageView *v)
             FillRect(SUM_RIGHT_X, y - 1, SUM_RIGHT_W, 1, C_LINE);
         if (s->moveIds[i] == MOVE_NONE)
         {
-            Text(FONT_SMALL, i == 4 ? gFameCheckerText_Cancel : Ascii("-"), SUM_RIGHT_X + 54, y + 3, C_MUTED, C_CARD, TRUE);
+            Text(FONT_SMALL, i == 4 ? gFameCheckerText_Cancel : Ascii("-"), SUM_RIGHT_X + 63, y + 3, C_MUTED, C_CARD, TRUE);
             continue;
         }
-        TypeChip(SUM_RIGHT_X, y + 4, 50, gBattleMoves[s->moveIds[i]].type);
-        Text(FONT_SMALL, s->moveName[i], SUM_RIGHT_X + 54, y + 3, C_TEXT, C_TEXT_SH, TRUE);
+        TypeChip(SUM_RIGHT_X, y + 4, 44, gBattleMoves[s->moveIds[i]].type);
+        DrawUiIcon(CategoryIcon(s->moveIds[i]), SUM_RIGHT_X + 46, y + 4, TRUE);
+        Text(FONT_SMALL, s->moveName[i], SUM_RIGHT_X + 63, y + 3, C_TEXT, C_TEXT_SH, TRUE);
         {
             int r = SUM_RIGHT_X + SUM_RIGHT_W - 2;
 
