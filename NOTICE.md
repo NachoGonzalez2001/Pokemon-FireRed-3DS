@@ -75,18 +75,38 @@ Resource. As its credits list them, for the forms used here:
 
 - MrDollSteak: every sprite not listed below
 - Spherical Ice: Mega Beedrill front
-- leparagon: Mega Alakazam, Mega Mewtwo X, Mega Mewtwo Y
+- leparagon: Mega Alakazam, Mega Mewtwo X, Mega Mewtwo Y, Mega Tyranitar,
+  Mega Blaziken front, Mega Swampert back and its quality check, Mega Latias,
+  Mega Latios
+- Cynda: Mega Swampert, Mega Rayquaza back
+- Sky High: Mega Salamence
+- aXl: Mega Sableye front, Mega Aggron front
+- Bozster: Mega Aggron front basis
+- Zerudez, MilanesaCosmic: Mega Manectric front
+- Quanyails: Mega Absol front
 - Wobblebuns: Mega Kangaskhan's baby
 - BlackWhiteRobin: Mega Blastoise back
 - The Cynical Poet: Mega Slowbro front
 - Criminon: quality check on Mega Blastoise
+- Fridave: quality check on Mega Houndoom
+- HeXeR: quality check on Mega Metagross back
 - Chaos Rush: the original resource, continued with their permission
 - Layell: permission to use sprites from the Smogon XY Sprite Project
 
-Mega Dragonite comes from the
+The Mega Evolutions of Pokémon Legends: Z-A (Mega Dragonite, Mega Meganium,
+Mega Feraligatr, Mega Skarmory, Mega Clefable, Mega Victreebel and Mega
+Starmie) come from the
 [DS-style Gen VII and Beyond Pokémon Sprite Repository in 64x64](https://www.pokecommunity.com/threads/ds-style-gen-vii-and-beyond-pok%C3%A9mon-sprite-repository-in-64x64.368703/)
 on PokéCommunity, free to use with credit to its contributors:
-Axel_CodeInfinity (front), Lykeron (back), leParagon (quality check).
+
+- Mega Dragonite: Axel_CodeInfinity (front), Lykeron (back), leParagon (quality check)
+- Mega Meganium: Red7246 (front, back), leParagon (front, quality check)
+- Mega Feraligatr: Axel_CodeInfinity (front, back), Lykeron, Alxndre~◇,
+  leParagon (quality check)
+- Mega Clefable: Cesare_Cbass (front), leParagon (back, quality check)
+- Mega Starmie: Alxndre~◇
+- Mega Skarmory, Mega Victreebel: the repository's contributors; its
+  credits table does not name their artists yet
 
 The sprites are reduced to 16 colours for the GBA's battle screen. The MEGA
 key's Key Stone, the bag icons of the MEGA STONE, MEGA STONE Y and MEGA RING
