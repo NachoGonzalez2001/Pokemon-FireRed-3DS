@@ -107,7 +107,9 @@ def highlights(notes: str) -> list[str]:
             continue
         m = re.match(r"^- \*\*(.+?)\*\*", line)
         if inside and m:
-            out.append(m.group(1).rstrip(".:"))
+            # Plain text: the page shows it as text, so drop code and link markup.
+            lead = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", m.group(1)).replace("`", "")
+            out.append(lead.rstrip(".:"))
     return out
 
 
