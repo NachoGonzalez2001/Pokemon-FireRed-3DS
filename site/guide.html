@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guide · Pokémon FireRed 3DS</title>
+<meta name="description" content="Where to find every wild Pokémon in Pokémon FireRed 3DS: all the new locations in Kanto and the Sevii Islands, with levels and encounter rates.">
+<meta name="theme-color" content="#d8262f">
+<link rel="icon" href="img/icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Silkscreen:wght@400;700&display=swap">
+<link rel="stylesheet" href="assets/css/site.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="./"><img src="img/icon.png" alt="">FireRed 3DS</a>
+    <button class="menu-btn" aria-label="Menu" aria-expanded="false" data-menu>&#9776;</button>
+    <nav class="nav" data-nav>
+      <a href="./#features" data-i18n="nav.features">Features</a>
+      <a href="./#install" data-i18n="nav.install">Install</a>
+      <a href="guide.html" aria-current="page" data-i18n="nav.guide">Guide</a>
+      <a href="build.html" data-i18n="nav.build">Web builder</a>
+      <a href="https://github.com/NachoGonzalez2001/Pokemon-FireRed-3DS" rel="noopener">GitHub</a>
+      <span class="lang" role="group" aria-label="Language">
+        <button type="button" data-lang="en" aria-pressed="true">EN</button>
+        <button type="button" data-lang="es" aria-pressed="false">ES</button>
+      </span>
+    </nav>
+  </div>
+</header>
+
+<main>
+<section class="guide-head">
+  <div class="wrap">
+    <span class="eyebrow" data-i18n="g.eyebrow">Guide</span>
+    <h1 data-i18n="g.title">Where to find every Pokémon</h1>
+    <p class="lead" data-i18n="g.lead">Wild Pokémon are new in this port: every family of the first three generations, except the legendaries, lives somewhere in Kanto or the Sevii Islands, and the National Pokédex is open from the start.</p>
+    <p class="small muted" data-i18n="g.scope">This list covers wild encounters only: gifts, in-game trades and legendary Pokémon are not in it. The percentage is the chance of meeting that Pokémon each time you find one by that method.</p>
+  </div>
+</section>
+
+<section class="guide-body">
+  <div class="wrap">
+    <div class="guide-tools">
+      <div class="tabs" role="tablist">
+        <button type="button" role="tab" aria-selected="true" data-tab="places" data-i18n="g.byplace">By place</button>
+        <button type="button" role="tab" aria-selected="false" data-tab="species" data-i18n="g.bymon">By Pokémon</button>
+      </div>
+      <label class="search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input type="search" data-search autocomplete="off" spellcheck="false" placeholder="Search a Pokémon or a place" data-i18n-placeholder="g.search" aria-label="Search">
+      </label>
+      <div class="chips" data-groups>
+        <button type="button" class="chip" aria-pressed="true" data-group="all" data-i18n="g.all">All</button>
+        <button type="button" class="chip" aria-pressed="false" data-group="routes" data-i18n="g.routes">Routes</button>
+        <button type="button" class="chip" aria-pressed="false" data-group="towns" data-i18n="g.towns">Towns and cities</button>
+        <button type="button" class="chip" aria-pressed="false" data-group="dungeons" data-i18n="g.dungeons">Caves and dungeons</button>
+        <button type="button" class="chip" aria-pressed="false" data-group="sevii" data-i18n="g.sevii">Sevii Islands</button>
+      </div>
+    </div>
+    <p class="muted small" data-count aria-live="polite"></p>
+    <div class="places" data-places></div>
+    <div class="mons hidden" data-mons></div>
+    <p class="empty hidden" data-empty data-i18n="g.none">Nothing matches that search.</p>
+    <noscript><p data-i18n="g.noscript">The guide needs JavaScript to show its lists.</p></noscript>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <nav>
+      <a href="./" data-i18n="foot.home">Home</a>
+      <a href="build.html" data-i18n="nav.build">Web builder</a>
+      <a href="https://github.com/NachoGonzalez2001/Pokemon-FireRed-3DS">GitHub</a>
+      <a href="https://github.com/NachoGonzalez2001/Pokemon-FireRed-3DS/blob/main/NOTICE.md" data-i18n="foot.credits">Credits and licences</a>
+    </nav>
+    <p data-i18n="foot.legal">Pokémon FireRed 3DS is an unofficial fan project, not affiliated with or endorsed by Nintendo, Game Freak, Creatures or The Pokémon Company. This site and its releases do not contain the game.</p>
+  </div>
+</footer>
+
+<script src="assets/js/i18n.js"></script>
+<script src="assets/js/site.js"></script>
+<script src="assets/js/guide.js"></script>
+</body>
+</html>

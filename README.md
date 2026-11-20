@@ -15,7 +15,9 @@ own dump of your own Pokémon FireRed cartridge.
 
 **Website and web builder:
 [nachogonzalez2001.github.io/Pokemon-FireRed-3DS](https://nachogonzalez2001.github.io/Pokemon-FireRed-3DS/)**,
-to build the game in your browser from your ROM, with nothing to install.
+to build the game in your browser from your ROM, with nothing to install. Its
+[guide](https://nachogonzalez2001.github.io/Pokemon-FireRed-3DS/guide.html)
+lists where every wild Pokémon lives in this version.
 
 ## Screenshots
 
@@ -113,7 +115,16 @@ SD card:
    `FireRed3DS-Forwarder.cia` once with FBI for a HOME Menu icon (it starts
    the installed game, so updates don't need a new CIA).
 
-Needs a 3DS / 2DS family console with custom firmware (Luma3DS). Saves are in
+Needs a 3DS / 2DS family console with custom firmware (Luma3DS). For sound,
+the console needs `/3ds/dspfirm.cdc`, dumped once from your own console with
+the DSP1 homebrew; without it the game plays without sound.
+
+**On the Azahar emulator**, copy the same `3ds` folder into Azahar's SD folder
+(File > Open Azahar Folder, then `sdmc`) and open
+`sdmc/3ds/firered3ds/FireRed3DS.3dsx`. Sound works there without
+`dspfirm.cdc` (since v0.5.2).
+
+Saves are in
 `/3ds/firered3ds/firered3ds.sav`, in the GBA's format: the same 128 KB file
 moves between the 3DS, GBA emulators and a cartridge dump. (v0.2.3 converts a
 save from an earlier version once, keeping the original as

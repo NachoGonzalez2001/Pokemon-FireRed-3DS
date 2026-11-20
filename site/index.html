@@ -24,6 +24,7 @@
       <a href="#features" data-i18n="nav.features">Features</a>
       <a href="#screens" data-i18n="nav.screens">Screenshots</a>
       <a href="#install" data-i18n="nav.install">Install</a>
+      <a href="guide.html" data-i18n="nav.guide">Guide</a>
       <a href="build.html" data-i18n="nav.build">Web builder</a>
       <a href="https://github.com/NachoGonzalez2001/Pokemon-FireRed-3DS" rel="noopener">GitHub</a>
       <span class="lang" role="group" aria-label="Language">
@@ -181,7 +182,7 @@
         <li data-i18n="ins.r1">A Nintendo 3DS or 2DS family console with custom firmware (Luma3DS) and the Homebrew Launcher.</li>
         <li data-i18n-html="ins.r2">A clean dump of your own Pokémon FireRed (USA, Rev 1) cartridge, SHA-1 <code>dd5945db9b930750cb39d00c84da8571feebf417</code>.</li>
         <li data-i18n="ins.r3">Your console's SD card, connected to your computer.</li>
-        <li data-i18n="ins.r4">No 3DS? It also runs on the Azahar emulator.</li>
+        <li data-i18n="ins.r4">No 3DS? It also runs on the Azahar emulator, sound included, with no extra files.</li>
       </ul>
       <div class="actions">
         <a class="btn btn-primary" href="build.html" data-i18n="ins.build">Open the web builder</a>
@@ -192,7 +193,7 @@
       <h3 data-i18n="ins.sd">On the SD card</h3>
       <pre class="tree">SD:/
 └── 3ds/
-    ├── dspfirm.cdc          <span data-i18n="ins.dsp">(needed for sound)</span>
+    ├── dspfirm.cdc          <span data-i18n="ins.dsp">(for sound on a 3DS)</span>
     └── firered3ds/
         ├── FireRed3DS.3dsx
         ├── FireRed3DS.smdh
@@ -200,7 +201,7 @@
         ├── followers.bin
         └── followers-credits.txt</pre>
       <div class="callout" data-i18n-html="ins.save">Your save, <code>firered3ds.sav</code>, lives in the same folder and is never overwritten by an update. Still, keep a copy before updating.</div>
-      <div class="callout warn" data-i18n-html="ins.dspnote"><code>dspfirm.cdc</code> comes from your own console: dump it once with the DSP1 homebrew. Without it the game plays without sound.</div>
+      <div class="callout warn" data-i18n-html="ins.dspnote">On a 3DS, sound needs <code>dspfirm.cdc</code> from your own console: dump it once with the DSP1 homebrew. Without it the game plays without sound. On the Azahar emulator it isn't needed.</div>
     </div>
   </div>
 </section>
@@ -223,6 +224,7 @@
 <footer>
   <div class="wrap">
     <nav>
+      <a href="guide.html" data-i18n="nav.guide">Guide</a>
       <a href="build.html" data-i18n="nav.build">Web builder</a>
       <a href="https://github.com/NachoGonzalez2001/Pokemon-FireRed-3DS">GitHub</a>
       <a href="https://github.com/NachoGonzalez2001/Pokemon-FireRed-3DS/releases" data-i18n="foot.releases">Releases</a>
