@@ -45,6 +45,23 @@ static volatile bool sWorkerQuit;
 bool CtrAudio_Available(void) { return sReady; }
 CtrAudioStats *CtrAudio_Stats(void) { return &sStats; }
 
+/* Citra and Azahar answer this system info query (type 0x20000, emulator
+ * information; param 0, the emulator's id) with 1 and 2; a real console's
+ * kernel rejects the type. */
+static bool OnEmulator(void)
+{
+    s64 emulatorId = 0;
+
+    return R_SUCCEEDED(svcGetSystemInfo(&emulatorId, 0x20000, 0))
+        && (emulatorId == 1 || emulatorId == 2);
+}
+
+/* What NDSP loads when there is no dspfirm.cdc and we run on an emulator.
+ * An emulator's high-level DSP emulation never runs the component, but
+ * libctru will not start without one. No code at all: it must never reach a
+ * real DSP, which is why OnEmulator() guards it. */
+static const u8 sEmulatorComponent[0x400] __attribute__((aligned(0x80)));
+
 bool CtrAudio_Init(void)
 {
     Result rc;
@@ -53,8 +70,17 @@ bool CtrAudio_Init(void)
         return true;
 
     /* NDSP needs the DSP firmware dumped to the SD card. Without it there is
-     * no way to make a sound, and reporting success would hide that. */
+     * no way to make a sound on a console, and reporting success would hide
+     * that. An emulator doesn't need the firmware itself, only its file. */
     rc = ndspInit();
+    if (R_FAILED(rc) && OnEmulator())
+    {
+        CtrLog_Write(CTR_LOG_AUDIO,
+                     "no dspfirm.cdc (%08lx): emulator, using an empty component",
+                     (unsigned long)rc);
+        ndspUseComponent(sEmulatorComponent, sizeof(sEmulatorComponent), 0xFF, 0xFF);
+        rc = ndspInit();
+    }
     if (R_FAILED(rc))
     {
         CtrLog_Write(CTR_LOG_ERROR,
