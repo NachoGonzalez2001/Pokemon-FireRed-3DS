@@ -1,8 +1,9 @@
 """Recognise the player's ROM.
 
-A clean Pokémon FireRed (USA) rev 1 dump (BPRE, 16 MiB, by SHA-1) is
-recognised: the revision the port is built from. Building still requires a
-recipe and executable made for the same ROM. A trimmed dump (trailing 0xFF
+A clean Pokémon FireRed (USA) rev 1 dump (BPRE) or Pokémon Version Rouge Feu
+(France) dump (BPRF), 16 MiB each, by SHA-1 is recognised. Building still
+requires a recipe and executable made for the same ROM: the payload carries one
+variant per language. A trimmed dump (trailing 0xFF
 removed) is padded back before it is checked; a .zip holding a single .gba is
 opened directly. The ROM is only ever read into memory: it is never copied,
 written or sent anywhere.
@@ -19,8 +20,9 @@ from pathlib import Path
 from .errors import BuilderError
 
 SUPPORTED_SHA1 = "dd5945db9b930750cb39d00c84da8571feebf417"
+FRENCH_SHA1 = "fc663907256f06a3a09e2d6b967bc9af4919f111"
 # Fingerprints: libretro-database/metadat/no-intro/Nintendo - Game Boy Advance.dat
-ROM_PROFILES = {"BPRE": SUPPORTED_SHA1}
+ROM_PROFILES = {"BPRE": SUPPORTED_SHA1, "BPRF": FRENCH_SHA1}
 ROM_SIZE = 16 * 1024 * 1024
 KNOWN_CODES = {
     "BPRE": "Pokemon FireRed (USA, Rev 1)",

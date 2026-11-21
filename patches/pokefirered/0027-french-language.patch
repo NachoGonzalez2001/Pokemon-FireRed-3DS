@@ -1,0 +1,14 @@
+diff --git a/include/constants/global.h b/include/constants/global.h
+index 21c781a0..53a0bb22 100644
+--- a/include/constants/global.h
++++ b/include/constants/global.h
+@@ -29,6 +29,9 @@
+ #ifdef ENGLISH
+ #define GAME_LANGUAGE (LANGUAGE_ENGLISH)
+ #endif
++#ifdef FRENCH
++#define GAME_LANGUAGE (LANGUAGE_FRENCH)
++#endif
+ 
+ // capacities of various saveblock objects
+ #define DAYCARE_MON_COUNT   2
