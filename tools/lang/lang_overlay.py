@@ -191,7 +191,58 @@ def gamedata_symbols(port: Path) -> list[Symbol]:
     return result
 
 
+SCRIPT_OBJECTS = ["battle_ai_scripts", "battle_anim_scripts", "battle_scripts_1", "battle_scripts_2",
+                  "event_scripts", "field_effect_scripts"]   # gen_script_bundle.py's order
+
+
 def script_symbols(port: Path) -> list[Symbol]:
+    """Every label of the scripts' region, local ones too (a file may keep its
+    text under local labels), at its offset in the payload: the objects'
+    script_data sections one after another, each padded to a word."""
+    blob = blob_symbols(port)
+    globals_at = {s.off: s.name for s in blob}
+    labels: dict[int, str] = {}
+    base = 0
+    for stem in SCRIPT_OBJECTS:
+        obj = port / "build" / "root" / "data" / (stem + ".o")
+        if not obj.is_file():
+            return blob
+        out = subprocess.check_output([tool("arm-none-eabi-objdump"), "-h", "-t", str(obj)],
+                                      text=True, errors="ignore")
+        size = None
+        for line in out.splitlines():
+            p = line.split()
+            if len(p) >= 3 and p[1] == "script_data" and p[0].isdigit():
+                size = int(p[2], 16)
+            m = re.match(r"^([0-9a-f]{8}) ([lg])\s+script_data\s+[0-9a-f]+ (\w+)$", line)
+            if m and not m.group(3).startswith(".L"):
+                off = base + int(m.group(1), 16)
+                if off in globals_at:
+                    labels[off] = globals_at[off]   # the name the bundle gives that place
+                elif off not in labels:
+                    labels[off] = m.group(3)
+        if size is None:
+            return blob
+        base += (size + 3) // 4 * 4
+    names = [s.name for s in blob]
+    if any(labels.get(s.off) != s.name for s in blob):
+        return blob   # the layout is not the bundle's: keep the global labels only
+    counts: dict[str, int] = {}
+    for n in labels.values():
+        counts[n] = counts.get(n, 0) + 1
+    offs = sorted(labels)
+    out_syms = []
+    for i, off in enumerate(offs):
+        end = offs[i + 1] if i + 1 < len(offs) else base
+        name = labels[off]
+        if end > off:
+            # a local name two files share cannot be written back by name
+            key = name if counts[name] == 1 or name in names else None
+            out_syms.append(Symbol(1, off, end - off, name, key))
+    return out_syms
+
+
+def blob_symbols(port: Path) -> list[Symbol]:
     off, name, out = 0, None, []
     for line in (port / "build" / "3ds_script_blob.s").read_text().splitlines():
         m = re.match(r"^(\w+):$", line)
@@ -1048,7 +1099,7 @@ def main() -> None:
                 continue
             overlay["c"][s.key] = s.new.hex()
             report["game data"] += 1
-        elif is_string(s.data):
+        elif is_string(s.data) and s.key:
             overlay["asm"][s.key] = s.new.hex()
             report["script text"] += 1
     log("overlay: " + ", ".join("%s %d" % kv for kv in sorted(report.items())))

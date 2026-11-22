@@ -7,7 +7,9 @@ paths = [
     "FireRed3DS-v*-Windows/FireRed3DS-Builder.exe",
     "FireRed3DS-v*-Windows/firered3ds-builder-cli.exe",
     "FireRed3DS-v*-Windows/payload/FireRed3DS.3dsx",
+    "FireRed3DS-v*-Windows/payload/*/FireRed3DS.3dsx",
     "payload/FireRed3DS.3dsx",
+    "payload/*/FireRed3DS.3dsx",
     "3ds_port/src/voxel/voxel_room_table.h",
 ]
 
