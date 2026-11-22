@@ -76,6 +76,29 @@ def local_closure(scripts_dir: Path, names: list[str]) -> tuple[list[str], set[s
     return sorted(seen), external
 
 
+# A language's recipe rebuilds its data from that language's ROM; text the
+# overlay left in English would ride along as literals, taken from the English
+# game. About 2.3 KiB are expected: the event scripts Rev 1 fixed (the
+# European cartridges are Rev 0), kept as bytecode, not text. More than this
+# many such bytes fails the release.
+MAX_ENGLISH_LITERAL = 4096
+
+
+def english_literal_bytes(recipe: Path, english_rom: Path, k: int = 8) -> int:
+    """Literal bytes of a recipe that are runs of the English ROM."""
+    sys.path.insert(0, str(ROOT / "builder"))
+    from firered3ds_builder.recipe import Recipe
+    rom = english_rom.read_bytes()
+    index = {rom[i:i + k] for i in range(0, len(rom) - k)}
+    lit = Recipe.load(recipe).literals
+    covered = bytearray(len(lit))
+    for i in range(len(lit) - k):
+        window = lit[i:i + k]
+        if len(set(window)) > 2 and window in index:
+            covered[i:i + k] = b"\1" * k
+    return sum(covered)
+
+
 def sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as f:
@@ -93,7 +116,22 @@ def main() -> None:
     ap.add_argument("--skip-recipe", action="store_true")
     ap.add_argument("--python-builder", action="store_true",
                     help="ship the builder as Python sources instead of a PyInstaller executable")
+    ap.add_argument("--lang", action="append", default=[], metavar="CODE=ROM",
+                    help="another language: its ROM; its tree (tools/lang/build_lang.py, built with "
+                         "make all release) is --lang-root/CODE/tree. Repeat for each language.")
+    ap.add_argument("--lang-root", type=Path, default=Path("C:/fr3ds/lang"))
     args = ap.parse_args()
+    langs = []
+    for spec in args.lang:
+        code, _, rom = spec.partition("=")
+        if not code or not rom:
+            sys.exit("--lang takes CODE=ROM, e.g. es=roms/spain.gba")
+        tree = args.lang_root / code / "tree"
+        for name in (APP + ".3dsx", APP + ".smdh"):
+            if not (tree / "3ds_port" / "dist" / name).exists():
+                sys.exit("%s is missing: build the %s tree (tools/lang/build_lang.py) first"
+                         % (tree / "3ds_port" / "dist" / name, code))
+        langs.append((code, Path(rom), tree))
 
     port = args.tree / "3ds_port"
     tag = "v" + args.version
@@ -110,6 +148,19 @@ def main() -> None:
              "--decomp", args.tree, "--out", recipe, "--release", tag,
              "--elf", port / "build/gamedata_image.elf", "--nm", args.nm,
              "--report", DIST / "recipe-literal-report.txt"])
+    for code, rom, tree in langs:
+        lang_recipe = DIST / ("firered3ds-%s.recipe" % code)
+        if not args.skip_recipe:
+            lport = tree / "3ds_port"
+            run([sys.executable, ROOT / "tools/gen_recipe.py", "--romfs", lport / "romfs", "--rom", rom,
+                 "--decomp", tree, "--out", lang_recipe, "--release", tag,
+                 "--elf", lport / "build/gamedata_image.elf", "--nm", args.nm,
+                 "--report", DIST / ("recipe-literal-report-%s.txt" % code)])
+        english = english_literal_bytes(lang_recipe, args.rom)
+        print("%s recipe: %d literal bytes are runs of the English ROM" % (code, english), flush=True)
+        if english > MAX_ENGLISH_LITERAL:
+            sys.exit("the %s recipe carries %d bytes of the English game (limit %d): "
+                     "see the overlay's misses.txt" % (code, english, MAX_ENGLISH_LITERAL))
 
     if release.exists():
         shutil.rmtree(release)
@@ -117,6 +168,14 @@ def main() -> None:
     for name in (APP + ".3dsx", APP + ".smdh"):
         shutil.copy2(port / "dist" / name, payload / name)
     shutil.copy2(recipe, payload / "firered3ds.recipe")
+    for code, rom, tree in langs:
+        # payload/<code>/: the language's executable and the recipe made from its ROM
+        # (the builder picks it by the ROM's SHA-1; the voxel generators are shared).
+        sub = payload / code
+        sub.mkdir()
+        for name in (APP + ".3dsx", APP + ".smdh"):
+            shutil.copy2(tree / "3ds_port" / "dist" / name, sub / name)
+        shutil.copy2(DIST / ("firered3ds-%s.recipe" % code), sub / "firered3ds.recipe")
     scripts, external = local_closure(port / "scripts", GENERATORS)
     (payload / "voxelgen" / "scripts").mkdir(parents=True)
     for name in scripts:
@@ -157,16 +216,25 @@ def main() -> None:
     for name in (APP + ".3dsx", APP + ".smdh"):
         shutil.copy2(payload / name, DIST / name)
         standalone.append(DIST / name)
+    for code, _, _ in langs:
+        # The web builder's variants name these release assets (build_web_payload.py).
+        for ext in (".3dsx", ".smdh"):
+            dst = DIST / ("%s-%s%s" % (APP, code, ext))
+            shutil.copy2(payload / code / (APP + ext), dst)
+            standalone.append(dst)
     cia = port / "forwarder" / "dist" / CIA_NAME
     if cia.exists():
         shutil.copy2(cia, DIST / CIA_NAME)
         standalone.append(DIST / CIA_NAME)
 
-    run([sys.executable, ROOT / "tools/release_audit.py", "--zip", archive, "--strict", "--rom", args.rom])
+    for rom in [args.rom] + [rom for _, rom, _ in langs]:
+        run([sys.executable, ROOT / "tools/release_audit.py", "--zip", archive, "--strict", "--rom", rom])
     sums = DIST / "SHA256SUMS.txt"
     assets = [archive] + standalone
     lines = ["%s  %s" % (sha256(path), path.name) for path in assets]
-    for path in sorted(payload.glob("*")):
+    for path in sorted(payload.rglob("*")):
+        if "voxelgen" in path.relative_to(payload).parts:
+            continue
         if path.is_file():
             lines.append("%s  payload/%s" % (sha256(path), path.relative_to(payload).as_posix()))
     sums.write_text("\n".join(lines) + "\n", encoding="ascii")

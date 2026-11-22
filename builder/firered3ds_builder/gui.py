@@ -14,7 +14,7 @@ from . import followers
 from .build import Payload, build_pack, default_payload
 from .errors import BuilderError
 from .install import APP_DIR, find_sd_cards, install
-from .rom import load_rom
+from .rom import KNOWN_CODES, load_rom
 
 TITLE = "Pokémon FireRed 3DS Builder"
 
@@ -91,7 +91,8 @@ class App:
         except BuilderError as exc:
             self.rom_status.config(text="X  " + exc.message, foreground="#b00020")
             return
-        self.rom_status.config(text="OK  %s - SHA-1 verified" % rom.title, foreground="#1b7a1b")
+        self.rom_status.config(text="OK  %s - SHA-1 verified" % KNOWN_CODES.get(rom.code, rom.title),
+                               foreground="#1b7a1b")
 
     def check_sd(self):
         path = Path(self.sd.get().strip()) if self.sd.get().strip() else None

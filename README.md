@@ -97,8 +97,7 @@ that passes in 24 minutes, or stays off - OPTIONS > DAY/NIGHT):
 
 **In your browser (any system).** Open the
 [web builder](https://nachogonzalez2001.github.io/Pokemon-FireRed-3DS/build.html),
-choose your ROM - Pokémon FireRed (USA, Rev 1), SHA-1
-`dd5945db9b930750cb39d00c84da8571feebf417` - and it makes a ZIP with the
+choose your ROM (see [Languages](#languages)) and it makes a ZIP with the
 `3ds` folder to copy to the root of the SD card. The ROM is read on your
 device and never uploaded; the first build takes a few minutes.
 
@@ -107,9 +106,8 @@ SD card:
 
 1. Download `FireRed3DS-v<version>-Windows.zip` from the
    [Releases](../../releases) page and extract it.
-2. Run `FireRed3DS-Builder.exe`, choose your ROM - Pokémon FireRed (USA,
-   Rev 1), SHA-1 `dd5945db9b930750cb39d00c84da8571feebf417` - and your 3DS's SD
-   card. The builder generates the game's data from your ROM on your computer
+2. Run `FireRed3DS-Builder.exe`, choose your ROM (see
+   [Languages](#languages)) and your 3DS's SD card. The builder generates the game's data from your ROM on your computer
    and installs it in `/3ds/firered3ds/`. The ROM is never uploaded or copied.
 3. Start the game from the Homebrew Launcher, or install
    `FireRed3DS-Forwarder.cia` once with FBI for a HOME Menu icon (it starts
@@ -151,6 +149,26 @@ and `followers-credits.txt`, every artist credited, next to the game. Without
 them the game works the same, without its follower; it can be turned off in
 OPTIONS (3D FOLLOWER).
 
+### Languages
+
+The game comes out in the language of your cartridge. These clean dumps are
+supported, each with its own build in the release; the builder picks it from
+the ROM:
+
+| Cartridge | Language | SHA-1 |
+|---|---|---|
+| Pokémon FireRed (USA, Rev 1) | English | `dd5945db9b930750cb39d00c84da8571feebf417` |
+| Pokémon Edición Rojo Fuego (Spain) | Spanish | `ab8f6bfe0ccdaf41188cd015c8c74c314d02296a` |
+| Pokémon Version Rouge Feu (France) | French | `fc663907256f06a3a09e2d6b967bc9af4919f111` |
+| Pokémon Feuerrote Edition (Germany) | German | `18a3758ceeef2c77b315144be2c3910d6f1f69fe` |
+| Pokémon Versione Rosso Fuoco (Italy) | Italian | `66a9d415205321376b4318534c0dce5f69d28362` |
+
+All the game's text, names and pictures come from your ROM. The port's own
+additions (the Mega Evolution names, abilities, battle messages and the
+dialogue of the Mega Stone and Mega Ring gifts, and the bottom screen) are
+translated in `3ds_port/lang/`. The Easy Chat words stay in English for now.
+Saves work across languages: the save format is the same.
+
 ## Build (developers)
 
 The source tree is the pinned decomp plus this project's patches and port:
@@ -166,11 +184,20 @@ release: the recipe the builder rebuilds the data from (`tools/gen_recipe.py`),
 the payload, the standalone builder and an audit that nothing from the game
 is inside (`tools/release_audit.py`).
 
+Another language is built from the English tree and that language's ROM, on
+your machine: `tools/lang/lang_overlay.py` finds in the ROM the counterpart of
+every text, name and picture of the English build (by following the pointers
+both ROMs share), and `tools/lang/build_lang.py` turns a copy of the tree into
+that language's and builds it. `tools/build_release.py --lang es=<ROM>` adds
+the language's executable and recipe to the release, in `payload/es/`. The
+overlay holds the ROM's bytes, so it stays on your machine.
+
 | Path | What |
 |---|---|
 | `patches/pokefirered/` | the changes to the decomp, one patch per topic |
 | `3ds_port/` | the 3DS platform layer, renderer, voxel world and bottom screen |
 | `3ds_port/scripts/` | generators of the 3D world from the game's art |
+| `3ds_port/lang/` | the port's own text in each language |
 | `builder/` | the player's builder: ROM to data pack |
 | `tools/` | bootstrap, patch export, release tools |
 

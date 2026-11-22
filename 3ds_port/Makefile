@@ -131,6 +131,17 @@ build/gamedata_image.elf: $(OBJECTS) build/firered3ds_image.specs
 	$(file >build/link.rsp,$(OBJECTS))
 	$(CC) $(LDFLAGS) -specs=build/firered3ds_image.specs -Wl,-Map,build/gamedata_image.map @build/link.rsp $(LIBS) -o $@
 
+# A language build (tools/lang/build_lang.py) gives the game's objects that
+# language's text before either link (scripts/lang_patch_objects.py).
+LANG_OVERLAY ?=
+ifneq ($(LANG_OVERLAY),)
+build/lang_overlay.stamp: $(filter build/root/%,$(OBJECTS)) $(LANG_OVERLAY) scripts/lang_patch_objects.py
+	$(file >build/lang.rsp,$(filter build/root/%,$(OBJECTS)))
+	"$(PYTHON)" scripts/lang_patch_objects.py --overlay "$(LANG_OVERLAY)" @build/lang.rsp
+	@touch $@
+$(TARGET).elf build/gamedata_image.elf: build/lang_overlay.stamp
+endif
+
 # 3dsxtool builds its own relocation table from the ELF's; the NOLOAD region is
 # relocated by the bundle loader instead, so its table stays out.
 build/$(TARGET)_3dsx.elf: $(TARGET).elf

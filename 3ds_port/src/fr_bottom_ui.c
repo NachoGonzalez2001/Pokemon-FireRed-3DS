@@ -371,14 +371,47 @@ static void TextRight(u8 font, const u8 *str, int right, int y, u16 fg, u16 shad
     Text(font, str, right - TextWidth(font, str), y, fg, shadow, TRUE);
 }
 
-/* An ASCII label in the game's charset. A few of them can be in use at once. */
+/* The labels in the build's language: English text -> the game's bytes, sorted
+   by the English text. A language build (tools/lang/build_lang.py) writes the
+   table from 3ds_port/lang/<lang>.json; the English build's is empty. */
+struct PortLangText
+{
+    const char *en;
+    const u8 *text;
+};
+#include "port_lang_table.h"
+
+static const u8 *Translated(const char *s)
+{
+    int lo = 0, hi = PORT_LANG_UI_COUNT - 1;
+
+    while (lo <= hi)
+    {
+        int mid = (lo + hi) / 2;
+        int cmp = strcmp(s, sPortLangUi[mid].en);
+
+        if (cmp == 0)
+            return sPortLangUi[mid].text;
+        if (cmp < 0)
+            hi = mid - 1;
+        else
+            lo = mid + 1;
+    }
+    return NULL;
+}
+
+/* An ASCII label in the game's charset, in the build's language. A few of
+   them can be in use at once. */
 static const u8 *Ascii(const char *s)
 {
     static u8 bufs[4][24];
     static u8 next;
     u8 *buf = bufs[next++ & 3];
+    const u8 *translated = Translated(s);
     int i;
 
+    if (translated != NULL)
+        return translated;
     for (i = 0; s[i] && i < 23; i++)
     {
         char c = s[i];
@@ -1159,21 +1192,17 @@ static void PagerKey(int x, bool8 left, bool8 live, bool8 pressed)
 
 static void DrawPager(const ViewState *s, int pages)
 {
-    char label[24];
-    int n;
+    /* The page's name in the build's language, then " 1/3". */
+    char count[6] = {' ', '1' + s->optPage, '/', '0' + pages, 0};
+    u8 label[40];
 
     if (s->optTab == CTR_EXTRAS_OPTIONS && s->optPage < ARRAY_COUNT(sSettingsPages))
-        n = strlen(strcpy(label, sSettingsPages[s->optPage]));
+        StringCopy(StringCopy(label, Ascii(sSettingsPages[s->optPage])), Ascii(count));
     else
-        n = strlen(strcpy(label, "PAGE"));
-    label[n++] = ' ';
-    label[n++] = '1' + s->optPage;
-    label[n++] = '/';
-    label[n++] = '0' + pages;
-    label[n] = 0;
+        StringCopy(StringCopy(label, Ascii("PAGE")), Ascii(count));
     PagerKey(PAGER_PREV_X, TRUE, s->optPage > 0, s->pressed == HIT_PAGE_PREV);
     PagerKey(PAGER_NEXT_X, FALSE, s->optPage + 1 < pages, s->pressed == HIT_PAGE_NEXT);
-    TextCentered(FONT_SMALL, Ascii(label), (PAGER_PREV_X + PAGER_KEY_W + PAGER_NEXT_X) / 2, BACK_Y + 4, C_WHITE, C_SLATE);
+    TextCentered(FONT_SMALL, label, (PAGER_PREV_X + PAGER_KEY_W + PAGER_NEXT_X) / 2, BACK_Y + 4, C_WHITE, C_SLATE);
 }
 
 static void Toggle(int x, int y, bool8 on, bool8 live)

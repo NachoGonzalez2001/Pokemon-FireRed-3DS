@@ -20,7 +20,16 @@ from .errors import BuilderError
 
 SUPPORTED_SHA1 = "dd5945db9b930750cb39d00c84da8571feebf417"
 # Fingerprints: libretro-database/metadat/no-intro/Nintendo - Game Boy Advance.dat
-ROM_PROFILES = {"BPRE": SUPPORTED_SHA1}
+# The English game first; each other language is built when the release has
+# its variant (a payload subfolder with that ROM's recipe and executable).
+ROM_PROFILES = {
+    "BPRE": SUPPORTED_SHA1,
+    "BPRS": "ab8f6bfe0ccdaf41188cd015c8c74c314d02296a",
+    "BPRF": "fc663907256f06a3a09e2d6b967bc9af4919f111",
+    "BPRD": "18a3758ceeef2c77b315144be2c3910d6f1f69fe",
+    "BPRI": "66a9d415205321376b4318534c0dce5f69d28362",
+    "BPRJ": "7c7107b87c3ccf6e3dbceb9cf80ceeffb25a1857",
+}
 ROM_SIZE = 16 * 1024 * 1024
 KNOWN_CODES = {
     "BPRE": "Pokemon FireRed (USA, Rev 1)",

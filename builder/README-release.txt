@@ -4,23 +4,28 @@ Pokémon FireRed 3DS
 A native Nintendo 3DS port of Pokémon FireRed that uses both screens.
 
 This download does NOT contain the game. You need your own dump of your own
-Pokémon FireRed (USA) cartridge, revision 1. The builder reads that ROM on this
-computer and generates the game's data pack from it. The ROM is not uploaded,
+Pokémon FireRed cartridge. The builder reads that ROM on this computer and
+generates the game's data pack from it, in your cartridge's language. The ROM is not uploaded,
 copied or modified, and no Internet connection is needed.
 
 What you need
 -------------
 - A Nintendo 3DS / 2DS family console with custom firmware (Luma3DS) and the
   Homebrew Launcher.
-- A clean ROM of Pokémon FireRed (USA, Rev 1),
-  SHA-1 dd5945db9b930750cb39d00c84da8571feebf417.
+- A clean ROM of Pokémon FireRed, one of:
+    USA (Rev 1)  dd5945db9b930750cb39d00c84da8571feebf417  English
+    Spain        ab8f6bfe0ccdaf41188cd015c8c74c314d02296a  Spanish
+    France       fc663907256f06a3a09e2d6b967bc9af4919f111  French
+    Germany      18a3758ceeef2c77b315144be2c3910d6f1f69fe  German
+    Italy        66a9d415205321376b4318534c0dce5f69d28362  Italian
+  (SHA-1 and the language the game comes out in.)
 - The console's SD card in this computer (or any folder, to copy by hand).
 
 Install
 -------
 1. Extract this whole ZIP to a folder.
 2. Run FireRed3DS-Builder.exe.
-3. Choose your ROM. The builder checks that it is the supported one.
+3. Choose your ROM. The builder checks it and picks its language's build.
 4. Choose your SD card (it is detected when it has a "Nintendo 3DS" folder)
    or any folder.
 5. Press Install. It writes:

@@ -97,7 +97,10 @@ async function checkRom(file) {
   if (supportedSha1s().includes(sha1)) {
     state.bytes = full.buffer;
     state.ok = true;
-    romStatus("ok", t("rom.ok"), file.name, sha1);
+    // Each language has its own build in the release: say which one this ROM gets.
+    const m = state.manifest;
+    const rom = m.supportedRoms.concat((m.variants || []).map((v) => v.rom)).find((r) => r.sha1 === sha1);
+    romStatus("ok", t("rom.ok"), (rom && rom.name ? rom.name + " · " : "") + file.name, sha1);
   } else if (code === "BPRE") {
     romStatus("err", t("rom_modified"), t("rom_modified.hint"), sha1);
   } else if (KNOWN[code]) {
