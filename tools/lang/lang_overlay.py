@@ -72,6 +72,10 @@ TABLES = {
     "gTrainers": (40, [(4, 12)]),
     "gBerries": (28, [(0, 7)]),
     "gPokedexEntries": (36, [(0, 12)]),
+    # Each language's own order and keyboard.
+    "gPokedexOrder_Alphabetical": None,
+    "sKeyboardChars": None,
+    "sPageColumnXPos": None,
     "sInGameTrades": None,
     "sInGameTradeMailMessages": None,
 }
@@ -114,7 +118,7 @@ def nm_symbols(elf: Path) -> dict[str, int]:
 # ---------------------------------------------------------------- the English build
 
 class Symbol:
-    __slots__ = ("region", "off", "size", "name", "key", "data", "sites", "en", "xx", "new")
+    __slots__ = ("region", "off", "size", "name", "key", "data", "sites", "en", "xx", "new", "obj")
 
     def __init__(self, region, off, size, name, key):
         self.region, self.off, self.size, self.name, self.key = region, off, size, name, key
@@ -123,6 +127,7 @@ class Symbol:
         self.en: int | None = None   # ROM offsets
         self.xx: int | None = None
         self.new: bytes | None = None
+        self.obj: str | None = None   # a script label's object (build/root/data/<stem>.o)
 
     @property
     def mask(self) -> bytes:
@@ -202,8 +207,10 @@ def script_symbols(port: Path) -> list[Symbol]:
     blob = blob_symbols(port)
     globals_at = {s.off: s.name for s in blob}
     labels: dict[int, str] = {}
+    owners: list[tuple[int, str]] = []
     base = 0
     for stem in SCRIPT_OBJECTS:
+        owners.append((base, "build/root/data/%s.o" % stem))
         obj = port / "build" / "root" / "data" / (stem + ".o")
         if not obj.is_file():
             return blob
@@ -238,7 +245,9 @@ def script_symbols(port: Path) -> list[Symbol]:
         if end > off:
             # a local name two files share cannot be written back by name
             key = name if counts[name] == 1 or name in names else None
-            out_syms.append(Symbol(1, off, end - off, name, key))
+            sym = Symbol(1, off, end - off, name, key)
+            sym.obj = next(o for b, o in reversed(owners) if b <= off)
+            out_syms.append(sym)
     return out_syms
 
 
@@ -966,6 +975,34 @@ def main() -> None:
             break
     log("text found next to its neighbours: %d" % neighbours)
 
+    # Script bytecode the English Rev 1 changed (the European cartridges are
+    # Rev 0): the cartridge's own bytes at the same place in the script order,
+    # when its pointers sit where the English build's do. They are written
+    # over the object's bytes (pointers excepted, lang_patch_objects.py), so
+    # the language's game runs its cartridge's script.
+    bytecode = {}
+    order = regions[1].syms
+    for i, s in enumerate(order):
+        if s.en is None or s.xx is not None or is_string(s.data) or not s.obj or i == 0:
+            continue
+        before = order[i - 1]
+        if before.xx is None or before.en is None or before.en + before.size != s.en:
+            continue
+        x = before.xx + sym_len(before, "xx")
+        after = order[i + 1] if i + 1 < len(order) else None
+        if after is not None and after.xx is not None and after.xx != x + s.size:
+            continue
+        if x + s.size > len(xx) or not all(
+                is_pointer(struct.unpack_from("<I", xx, x + rel)[0], len(xx)) for rel, _, _ in s.sites):
+            continue
+        theirs = xx[x:x + s.size]
+        mask = s.mask
+        if theirs == bytes(theirs[k] if mask[k] else s.data[k] for k in range(s.size)):
+            continue   # only pointers differ
+        s.xx = x
+        bytecode[s] = theirs
+    log("script bytecode of the language's revision: %d labels" % len(bytecode))
+
     # Text only the code points at, from code that moved: the bytes around each
     # pointer (other pointers and branch offsets aside) are found in the
     # language's ROM, and the word at the same place there is its pointer.
@@ -1074,7 +1111,10 @@ def main() -> None:
             by_run += 1
     log("text found in runs between paired strings: %d" % by_run)
 
-    overlay = {"c": {}, "asm": {}}
+    overlay = {"c": {}, "asm": {}, "bytes": {}}
+    for s, theirs in bytecode.items():
+        if s.key:
+            overlay["bytes"]["%s|script_data|%s" % (s.obj, s.key)] = theirs.hex()
     for s in syms:
         if s.en is None:
             if is_string(s.data):

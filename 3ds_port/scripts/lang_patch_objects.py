@@ -56,6 +56,57 @@ def reloc_sites(blob: bytes, secs: dict, name: str) -> list[int]:
     return [struct.unpack_from("<I", blob, off + i)[0] for i in range(0, size, 8)]
 
 
+def labels(blob: bytes, secs: dict, section: str) -> dict[str, int]:
+    """Symbols of one section: name -> offset in it."""
+    heads = {v[3]: (k, v) for k, v in secs.items()}
+    shoff, = struct.unpack_from("<I", blob, 0x20)
+    shentsize, = struct.unpack_from("<H", blob, 0x2E)
+    target = secs[section][3]
+    out = {}
+    for name, (typ, off, size, index) in secs.items():
+        if typ != 2:   # SHT_SYMTAB
+            continue
+        link = struct.unpack_from("<I", blob, shoff + index * shentsize + 24)[0]
+        _, str_off, _, _ = heads[link][1]
+        for i in range(off, off + size, 16):
+            st_name, value, _, _, _, shndx = struct.unpack_from("<IIIBBH", blob, i)
+            if shndx == target and st_name:
+                end = blob.index(b"\0", str_off + st_name)
+                out[blob[str_off + st_name:end].decode()] = value
+    return out
+
+
+def patch_labels(path: Path, wanted: dict[tuple[str, str], bytes], tmp: str) -> int:
+    """Same-size bytes at labels (a script the language's revision changed);
+    relocation sites keep the object's own bytes."""
+    blob = path.read_bytes()
+    secs = sections(blob)
+    updates, done = [], 0
+    for n, section in enumerate(sorted({sec for sec, _ in wanted})):
+        _, off, size, _ = secs[section]
+        buf = bytearray(blob[off:off + size])
+        sites = set()
+        for site in reloc_sites(blob, secs, section):
+            sites.update(range(site, site + 4))
+        at = labels(blob, secs, section)
+        for (sec, label), new in wanted.items():
+            if sec != section:
+                continue
+            if label not in at or at[label] + len(new) > size:
+                raise SystemExit("lang_patch_objects: %s has no label %s in %s" % (path, label, section))
+            for k, b in enumerate(new):
+                if at[label] + k not in sites:
+                    buf[at[label] + k] = b
+            done += 1
+        if bytes(buf) != blob[off:off + size]:
+            data = Path(tmp) / ("label%d.bin" % n)
+            data.write_bytes(bytes(buf))
+            updates += ["--update-section", "%s=%s" % (section, data)]
+    if updates:
+        subprocess.check_call([objcopy()] + updates + [str(path)])
+    return done
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--overlay", type=Path, required=True)
@@ -69,15 +120,22 @@ def main() -> None:
             objects.append(Path(arg))
     args.objects = objects
 
-    overlay = json.loads(args.overlay.read_text(encoding="utf-8"))["c"]
+    whole = json.loads(args.overlay.read_text(encoding="utf-8"))
+    overlay = whole["c"]
     by_object: dict[str, dict[str, bytes]] = {}
     for key, value in overlay.items():
         obj, sec = key.split("|", 1)
         by_object.setdefault(obj.replace("\\", "/"), {})[sec] = bytes.fromhex(value)
+    by_label: dict[str, dict[tuple[str, str], bytes]] = {}
+    for key, value in whole.get("bytes", {}).items():
+        obj, sec, label = key.split("|", 2)
+        by_label.setdefault(obj.replace("\\", "/"), {})[(sec, label)] = bytes.fromhex(value)
 
-    patched = sections_done = 0
+    patched = sections_done = labels_done = 0
     with tempfile.TemporaryDirectory() as tmp:
         for path in args.objects:
+            if path.as_posix() in by_label:
+                labels_done += patch_labels(path, by_label[path.as_posix()], tmp)
             wanted = by_object.get(path.as_posix())
             if not wanted:
                 continue
@@ -106,7 +164,7 @@ def main() -> None:
                 subprocess.check_call([objcopy()] + updates[i:i + 80] + [str(path)])
             if updates:
                 patched += 1
-    print("lang_patch_objects: %d sections in %d objects" % (sections_done, patched))
+    print("lang_patch_objects: %d sections in %d objects, %d labels" % (sections_done, patched, labels_done))
 
 
 if __name__ == "__main__":

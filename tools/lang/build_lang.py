@@ -102,7 +102,7 @@ def encode(tree: Path, texts: dict[str, str]) -> dict[str, bytes]:
 
 
 def rewrite_scripts(tree: Path, texts: dict[str, bytes]) -> set[str]:
-    """Write each label's text, as bytes, over its .string lines."""
+    """Write each label's text, as bytes, over its .string (or .braille) lines."""
     done: set[str] = set()
     for path in sorted(list((tree / "data").rglob("*.inc")) + list((tree / "data").rglob("*.s"))):
         lines = path.read_text(encoding="utf-8").split("\n")
@@ -110,10 +110,20 @@ def rewrite_scripts(tree: Path, texts: dict[str, bytes]) -> set[str]:
         while i < len(lines):
             m = re.match(r"^(\w+)::?\s*(@.*)?$", lines[i])
             if m and m.group(1) in texts:
+                # The text's lines, with any #ifdef BUGFIX / #else / #endif among
+                # them: the language's text is one version.
                 j = i + 1
-                while j < len(lines) and re.match(r"^\s*\.string\s", lines[j]):
+                while j < len(lines) and re.match(r"^\s*(\.(string|braille)\s|#\s*(if|ifdef|ifndef|else|elif|endif)\b)",
+                                                  lines[j]):
                     j += 1
-                if j > i + 1:
+                block = lines[i + 1:j]
+                opens = sum(1 for b in block if re.match(r"^\s*#\s*if", b))
+                closes = sum(1 for b in block if re.match(r"^\s*#\s*endif", b))
+                if opens != closes:
+                    j = i + 1   # a conditional that does not close inside the text: leave it
+                    while j < len(lines) and re.match(r"^\s*\.(string|braille)\s", lines[j]):
+                        j += 1
+                if j > i + 1 and any(re.match(r"^\s*\.(string|braille)\s", b) for b in lines[i + 1:j]):
                     data = texts[m.group(1)]
                     out.append(lines[i])
                     for k in range(0, len(data), 16):
@@ -218,7 +228,8 @@ def main() -> None:
         (": " + ", ".join(missing[:8])) if missing else ""))
 
     patched = port / "lang_overlay.json"
-    patched.write_text(json.dumps({"c": c_overlay}, sort_keys=True), encoding="utf-8")
+    patched.write_text(json.dumps({"c": c_overlay, "bytes": overlay.get("bytes", {})}, sort_keys=True),
+                       encoding="utf-8")
     log("%d C symbols for the link" % len(c_overlay))
 
     ui_header(work, own.get("ui", {}), port / "src" / "port_lang_table.h")
