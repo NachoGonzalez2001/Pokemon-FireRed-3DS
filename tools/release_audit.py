@@ -137,6 +137,16 @@ class RomIndex:
         # program may hold (the builder's C runtime does), not game content.
         if all((b - a) & 0xFF == 1 for a, b in zip(window, window[1:])):
             return False
+        # Exception approved by the maintainer (v0.6.0): 32-bit words in
+        # arithmetic progression are an offset list, such as the relocation
+        # sites of romfs/gamedata/gamedata.rel (0x30004, 0x30008, 0x3000C...),
+        # which a language build's executable can share with a table of the
+        # ROM by coincidence. Text, pictures and scripts never look like that.
+        for shift in range(4):
+            words = [int.from_bytes(window[i:i + 4], "little") for i in range(shift, len(window) - 3, 4)]
+            steps = {(b - a) & 0xFFFFFFFF for a, b in zip(words, words[1:])}
+            if len(words) >= 7 and len(steps) == 1:
+                return False
         return len(set(window)) >= 10
 
     def copied_bytes(self, data: bytes) -> int:
